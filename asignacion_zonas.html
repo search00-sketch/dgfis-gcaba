@@ -266,6 +266,7 @@ label.fl{font-size:11px;color:#666;font-weight:600}
       <label style="font-size:11px;font-weight:700;color:#666;white-space:nowrap">📅 Ver asignación del:</label>
       <input type="date" id="resumen-fecha" style="border:none;font-size:13px;outline:none;color:var(--azul);font-weight:600" onchange="onCambiarFechaResumen()">
     </div>
+    <select class="ctrl" id="resumen-turno" onchange="renderZonas()"><option value="">Todos los turnos</option></select>
     <button class="btn btn-verde" onclick="exportarResumenZonas()">⬇ Exportar Excel</button>
     <button class="btn btn-gris" onclick="limpiarInvalidosDelDia()" id="btn-limpiar-invalidos" style="display:none" title="Quitar del resumen personas que no corresponden a este día">🧹 Limpiar asignaciones inválidas</button>
     <div id="resumen-fechas-disponibles" style="font-size:.75rem;color:#888;align-self:center"></div>
@@ -776,6 +777,8 @@ function poblarSelects(){
   const opts=TURNOS.map(t=>"<option value=\""+t+"\">"+t+"</option>").join("");
   const dt=document.getElementById("dist-turno");
   if(dt)dt.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
+  const rt=document.getElementById("resumen-turno");
+  if(rt)rt.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   poblarDistZonaFiltro();
 }
 function poblarDistZonaFiltro(){
@@ -927,8 +930,9 @@ function renderZonas(fecha){
   fecha=fecha||document.getElementById("resumen-fecha")?.value||todayISO();
   const hoy=getFecha();
   const dist=window.distribuciones[fecha]||{};
+  const filtTurno=document.getElementById("resumen-turno")?.value||"";
   // Filtrar: solo activos que PUEDEN ser asignados en esa fecha (rol + turno del día)
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja"&&puedeAsignarse(p,fecha));
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja"&&puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno));
   const novHoy=novedadesHoy();
   const idc={};novHoy.forEach(n=>{if(!idc[n.personaId])idc[n.personaId]=[];idc[n.personaId].push(n);});
   // Contar solo los que corresponden a ese día
@@ -993,7 +997,8 @@ function exportarResumenZonas(){
   const fecha=document.getElementById("resumen-fecha")?.value||todayISO();
   const dist=window.distribuciones[fecha]||{};
   const hoy=getFecha();
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja"&&puedeAsignarse(p,fecha));
+  const filtTurno=document.getElementById("resumen-turno")?.value||"";
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja"&&puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno));
   const fechaObj=new Date(fecha+"T12:00:00");
   const DIAS=["DOMINGO","LUNES","MARTES","MIERCOLES","JUEVES","VIERNES","SABADO"];
   const MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
