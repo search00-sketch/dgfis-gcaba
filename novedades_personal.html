@@ -519,13 +519,15 @@ async function cargarTodo() {
 }
 
 // -- DISTRIBUCIÓN (por fecha, caché 5 min) --------------------------------
+// Un solo documento por fecha (campo "asignaciones": {personaId: zona}) en vez
+// de un documento por persona: 1 lectura por día consultado en lugar de una
+// lectura por cada persona asignada.
 window.cargarDistFecha = async function(fecha) {
   const cached = getCache(CACHE.dist, fecha);
   if (cached) { window.distribuciones[fecha] = cached; return; }
 
-  const snap = await getDocs(collection(db,'distribuciones', fecha, 'asignaciones')).catch(()=>null);
-  const data = {};
-  if (snap) snap.forEach(d => { data[d.id] = d.data().zona; });
+  const snap = await getDoc(doc(db,'distribuciones', fecha)).catch(()=>null);
+  const data = (snap && snap.exists()) ? (snap.data().asignaciones || {}) : {};
   window.distribuciones[fecha] = data;
   setCache(CACHE.dist, data, fecha);
 };

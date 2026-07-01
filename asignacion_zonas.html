@@ -362,7 +362,7 @@ label.fl{font-size:11px;color:#666;font-weight:600}
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, collectionGroup, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, collection, collectionGroup, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
 
@@ -387,6 +387,19 @@ window._fDelDoc = deleteDoc;
 window._fCol    = collection;
 window._fColGroup = collectionGroup;
 window._fBatch  = writeBatch;
+window._fDeleteField = deleteField;
+window._fUpdateDoc = updateDoc;
+// Actualiza campos con notación de punto ("asignaciones.<id>"); si el
+// documento de esa fecha todavía no existe, lo crea vacío y reintenta
+// (updateDoc() sólo falla por "not-found" en ese caso puntual).
+window._fUpdateOrCrear = async function(ref, campos) {
+  try {
+    await updateDoc(ref, campos);
+  } catch (e) {
+    await setDoc(ref, {}, { merge: true });
+    await updateDoc(ref, campos);
+  }
+};
 
 // -- CONSTANTES DE CACHÉ --------------------------------------------------
 const CACHE = {
@@ -496,13 +509,15 @@ async function cargarTodo() {
 }
 
 // -- DISTRIBUCIÓN (por fecha, caché 5 min) --------------------------------
+// Un solo documento por fecha (campo "asignaciones": {personaId: zona}) en vez
+// de un documento por persona: 1 lectura por día consultado en lugar de una
+// lectura por cada persona asignada.
 window.cargarDistFecha = async function(fecha) {
   const cached = getCache(CACHE.dist, fecha);
   if (cached) { window.distribuciones[fecha] = cached; return; }
 
-  const snap = await getDocs(collection(db,'distribuciones', fecha, 'asignaciones')).catch(()=>null);
-  const data = {};
-  if (snap) snap.forEach(d => { data[d.id] = d.data().zona; });
+  const snap = await getDoc(doc(db,'distribuciones', fecha)).catch(()=>null);
+  const data = (snap && snap.exists()) ? (snap.data().asignaciones || {}) : {};
   window.distribuciones[fecha] = data;
   setCache(CACHE.dist, data, fecha);
 };
@@ -535,12 +550,13 @@ window._guardarFeriados = async function(lista, desc) {
   });
 };
 
+// Escribe solo el campo "asignaciones.<personaId>" con notación de punto: el
+// merge en Firestore actualiza esa clave puntual del mapa sin tocar (ni leer)
+// las asignaciones de las demás personas, así dos personas editando gente
+// distinta el mismo día no se pisan los cambios entre sí.
 window._guardarAsignacion = async function(fecha, personaId, zona) {
-  if (zona) {
-    await setDoc(doc(db,'distribuciones',fecha,'asignaciones',personaId), { zona, ts: new Date().toISOString() });
-  } else {
-    await deleteDoc(doc(db,'distribuciones',fecha,'asignaciones',personaId));
-  }
+  const campo = 'asignaciones.' + personaId;
+  await window._fUpdateOrCrear(doc(db,'distribuciones',fecha), { [campo]: zona ? zona : deleteField() });
   window._refrescarCacheDist(fecha);
 };
 window._refrescarCacheDist = function(fecha) {
@@ -900,7 +916,7 @@ async function copiarAsignacionAnterior(){
   if(!confirm("Copiar asignacion del "+fmtDate(prevFecha)+" a "+fmtDate(fechaAsig)+"? Se saltaran personas en licencia."))return;
   if(!window.distribuciones[fechaAsig])window.distribuciones[fechaAsig]={};
   let copiados=0,saltados=0;
-  const batch=window._fBatch(window._db);
+  const campos={};
   Object.entries(prevDist).forEach(([pid,zona])=>{
     const persona=window.nomina.find(p=>p.id===pid);
     if(!persona)return;
@@ -908,10 +924,10 @@ async function copiarAsignacionAnterior(){
     if(getEstadoPersona(persona,fechaAsig)==="Licencia"){saltados++;return;}
     if(!puedeAsignarse(persona,fechaAsig)){saltados++;return;}
     window.distribuciones[fechaAsig][pid]=zona;
-    batch.set(window._fDoc(window._db,"distribuciones",fechaAsig,"asignaciones",pid),{zona,ts:new Date().toISOString()});
+    campos["asignaciones."+pid]=zona;
     copiados++;
   });
-  await batch.commit();
+  if(copiados)await window._fUpdateOrCrear(window._fDoc(window._db,"distribuciones",fechaAsig),campos);
   window._refrescarCacheDist(fechaAsig);
   renderDist();
   toast("Copiadas "+copiados+" asignaciones"+(saltados>0?" · "+saltados+" omitidas (licencia o no trabajan ese dia)":""));
@@ -1119,21 +1135,21 @@ async function aplicarMasivo(){
   if(!checks.length){toast("No hay personas seleccionadas.");return;}
   if(!window.distribuciones[fechaAsig])window.distribuciones[fechaAsig]={};
   let count=0;
-  const batch=window._fBatch(window._db);
+  const campos={};
   checks.forEach(cb=>{
     const pid=cb.value;
     if(zona){
       window.distribuciones[fechaAsig][pid]=zona;
-      batch.set(window._fDoc(window._db,"distribuciones",fechaAsig,"asignaciones",pid),{zona,ts:new Date().toISOString()});
+      campos["asignaciones."+pid]=zona;
     }else{
       delete window.distribuciones[fechaAsig][pid];
-      batch.delete(window._fDoc(window._db,"distribuciones",fechaAsig,"asignaciones",pid));
+      campos["asignaciones."+pid]=window._fDeleteField();
     }
     count++;
   });
   cerrarModal("modal-masivo-overlay");renderDist();
   toast("✅ "+count+" personas asignadas a \""+( zona||"Sin asignar")+"\" para "+fmtDate(fechaAsig));
-  await batch.commit();
+  await window._fUpdateOrCrear(window._fDoc(window._db,"distribuciones",fechaAsig),campos);
   window._refrescarCacheDist(fechaAsig);
 }
 document.addEventListener("change",e=>{if(e.target.classList.contains("mas-check"))actualizarCountMasivo();});
@@ -1243,9 +1259,10 @@ async function precargarFeriados(){
 
 async function limpiarDistribuciones(){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
-  const snap=await window._fGetDocs(window._fColGroup(window._db,"asignaciones"));
+  const snap=await window._fGetDocs(window._fCol(window._db,"distribuciones"));
   await Promise.all(snap.docs.map(d=>window._fDelDoc(d.ref)));
   window.distribuciones={};
+  Object.keys(sessionStorage).filter(k=>k.startsWith("dgf_personal_dist_")).forEach(k=>sessionStorage.removeItem(k));
   toast("✅ Distribuciones eliminadas de Firestore");
 }
 
@@ -1261,12 +1278,12 @@ async function limpiarInvalidosDelDia(){
   });
   if(!invalidos.length){toast("No hay asignaciones inválidas para ese día.");return;}
   if(!confirm("Quitar "+invalidos.length+" persona(s) que no corresponden a ese día de la distribución del "+fmtDate(fecha)+"?"))return;
-  const batch=window._fBatch(window._db);
+  const campos={};
   invalidos.forEach(pid=>{
     delete window.distribuciones[fecha][pid];
-    batch.delete(window._fDoc(window._db,"distribuciones",fecha,"asignaciones",pid));
+    campos["asignaciones."+pid]=window._fDeleteField();
   });
-  await batch.commit();
+  await window._fUpdateOrCrear(window._fDoc(window._db,"distribuciones",fecha),campos);
   window._refrescarCacheDist(fecha);
   // Limpiar caché de esa fecha
   sessionStorage.removeItem("dgf_personal_dist_"+fecha);
