@@ -276,8 +276,8 @@ tr:hover td{background:#f8fafc;}
   <div class="twrap">
     <div style="padding:12px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span style="font-size:.8rem;color:var(--mut)">Mostrando <strong id="tblCount">–</strong> registros</span>
-      <input type="text" id="tblSearch" placeholder="Buscar en la tabla…" oninput="renderTabla()"
-             style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:6px;font-size:.82rem;outline:none;width:220px">
+      <input type="text" id="tblSearch" placeholder="Buscar por inspector, dirección, acta, precinto…" oninput="renderTabla()"
+             style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:6px;font-size:.82rem;outline:none;width:260px">
     </div>
     <div style="overflow-x:auto">
       <table>
@@ -285,7 +285,7 @@ tr:hover td{background:#f8fafc;}
           <tr>
             <th>ID</th><th>Fecha</th><th>Inspector</th><th>Turno</th>
             <th>Operativo</th><th>Zona</th><th>Dirección</th>
-            <th>Acta Secuestro</th><th>Barrio</th><th>Precintos</th><th>Foto</th>
+            <th>Acta Secuestro</th><th>Acta Comprobación</th><th>Barrio</th><th>Precintos</th><th>Foto</th>
           </tr>
         </thead>
         <tbody id="tblBody"></tbody>
@@ -443,7 +443,9 @@ function dbPill(type, txt) {
 
 function fmtFecha(f) {
   if (!f) return '–';
-  const d = new Date(f);
+  // "T12:00:00" evita que, al pasar a hora local (UTC-3 en Argentina), la
+  // fecha se corra un día para atrás (medianoche UTC = 21hs del día anterior).
+  const d = new Date(f + 'T12:00:00');
   return isNaN(d) ? f : d.toLocaleDateString('es-AR');
 }
 
@@ -803,8 +805,9 @@ function renderTabla() {
   const q = (document.getElementById('tblSearch').value||'').toLowerCase();
   let datos = datosFiltrados.filter(r => {
     if (!q) return true;
-    return [r.inspector,r.zona,r.direccion,r.barrio,r.actaSecuestro,r.operativo]
-      .some(v => v && String(v).toLowerCase().includes(q));
+    const camposDirectos = [r.id,r.inspector,r.zona,r.direccion,r.barrio,r.actaSecuestro,r.actaComprobacion,r.operativo];
+    if (camposDirectos.some(v => v && String(v).toLowerCase().includes(q))) return true;
+    return (r.precintos||[]).some(p => p.precinto && String(p.precinto).toLowerCase().includes(q));
   });
 
   const total = datos.length;
@@ -828,8 +831,9 @@ function renderTabla() {
       <td>${esc(r.zona||'–')}</td>
       <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.direccion||'–')}</td>
       <td>${esc(r.actaSecuestro||'–')}</td>
+      <td>${esc(r.actaComprobacion||'–')}</td>
       <td>${esc(r.barrio||'–')}</td>
-      <td>${(r.precintos||[]).length}</td>
+      <td>${(r.precintos||[]).length ? `<span title="${esc((r.precintos||[]).map(p=>p.precinto).join(', '))}">${esc((r.precintos||[]).map(p=>p.precinto).join(', '))}</span>` : '–'}</td>
       <td>${fotoUrl ? `<a href="${esc(fotoUrl)}" target="_blank" rel="noopener" style="color:var(--pli);font-weight:600;text-decoration:none" title="${esc(fotoUrl)}">📄 Ver acta</a>` : '–'}</td>
     </tr>
   `;
