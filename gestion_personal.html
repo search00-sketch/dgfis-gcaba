@@ -574,11 +574,6 @@ window._fCol    = collection;
 window._fColGroup = collectionGroup;
 window._fBatch  = writeBatch;
 
-// Validar la sesión YA, en paralelo con cargarTodo() (que puede tardar varios
-// segundos leyendo nómina/novedades/zonas/etc.) — así el usuario ve su nombre
-// apenas se valida, sin esperar a que termine de cargar todo lo demás.
-if (window.restaurarSesion) window.restaurarSesion();
-
 // -- CONSTANTES DE CACHÉ --------------------------------------------------
 const CACHE = {
   nomina:     { key:'dgf_personal_nomina',  ts:'dgf_personal_nomina_ts',  ttl: 24*60*60*1000 },
@@ -639,9 +634,20 @@ window._fsReady = false;
 async function cargarTodo() {
   setSyncStatus('loading', 'Cargando…');
   try {
-    // Nómina
-    window.nomina = await leerColeccion('nomina', CACHE.nomina);
+    // Todas las lecturas son independientes entre sí: se disparan en
+    // paralelo (antes iban una detrás de otra, sumando varios segundos).
+    const zonasCache = getCache(CACHE.zonas);
+    const [nominaArr, novedadesArr, zSnap, tiposSnap, feriadosSnap] = await Promise.all([
+      leerColeccion('nomina', CACHE.nomina),
+      leerColeccion('novedades', CACHE.novedades),
+      zonasCache ? Promise.resolve(null) : getDoc(doc(db,'personal_config','zonas')).catch(()=>null),
+      getDoc(doc(db,'personal_config','tipos_novedad')).catch(()=>null),
+      getDoc(doc(db,'personal_config','feriados')).catch(()=>null),
+      cargarDistFecha(_todayISO()),
+    ]);
 
+    // Nómina
+    window.nomina = nominaArr;
     // Si Firestore está vacío, subir la nómina inicial
     if (!window.nomina.length) {
       await escribirColeccionBatch('nomina', NOMINA_INICIAL);
@@ -650,33 +656,26 @@ async function cargarTodo() {
     }
 
     // Novedades
-    window.novedades = await leerColeccion('novedades', CACHE.novedades);
+    window.novedades = novedadesArr;
 
     // Zonas
-    const zonasCache = getCache(CACHE.zonas);
     if (zonasCache) {
       window.zonas = zonasCache;
     } else {
-      const zSnap = await getDoc(doc(db,'personal_config','zonas')).catch(()=>null);
       window.zonas = (zSnap && zSnap.exists()) ? zSnap.data().lista : [...ZONAS_DEFAULT_MOD];
       setCache(CACHE.zonas, window.zonas);
     }
 
     // Tipos de novedad
-    const tiposSnap = await getDoc(doc(db,'personal_config','tipos_novedad')).catch(()=>null);
     if (tiposSnap && tiposSnap.exists()) {
       window.tiposNovedad = tiposSnap.data().lista;
     }
 
     // Feriados
-    const feriadosSnap = await getDoc(doc(db,'personal_config','feriados')).catch(()=>null);
     if (feriadosSnap && feriadosSnap.exists()) {
       window.feriados      = feriadosSnap.data().lista || [];
       window.feriadosDesc  = feriadosSnap.data().desc  || {};
     }
-
-    // Distribución de hoy
-    await cargarDistFecha(_todayISO());
 
     window._fsReady = true;
     setSyncStatus('ok', `✅ ${window.nomina.length} personas · ${window.novedades.length} novedades`);
@@ -796,7 +795,12 @@ window.cambiarTab = function(id, btn) {
   if (window._cambiarTabExtra) window._cambiarTabExtra(id);
 };
 
-cargarTodo();
+// Validar la sesión primero (una sola lectura chica) y recién después
+// disparar cargarTodo() (que lee nómina/novedades/zonas/etc. — puede tardar
+// varios segundos). Si van en paralelo compiten por la misma conexión a
+// Firestore y el login queda atascado detrás de la carga pesada.
+if (window.restaurarSesion) window.restaurarSesion().then(cargarTodo);
+else cargarTodo();
 </script>
 
 <script>
@@ -994,7 +998,10 @@ window._cambiarTabExtra = function(id) {
 async function init() {
   // restaurarSesion() ya se disparó antes desde el script módulo, en paralelo
   // con la carga de datos (para que el usuario aparezca cuanto antes, sin
-  // esperar a que termine de cargar todo lo demás).
+  // esperar a que termine de cargar todo lo demás). La llamamos de nuevo acá
+  // como respaldo — es idempotente — por si esa primera llamada no llegó a
+  // dispararse a tiempo.
+  await restaurarSesion();
   // Fecha de visualización (header)
   const f = document.getElementById('fecha-global');
   f.value = todayISO();
