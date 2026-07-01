@@ -13,6 +13,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#222;font-
 
 .header{background:var(--azul);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .header-title{font-size:16px;font-weight:700}
+.nav-menu{display:none;position:absolute;top:44px;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);min-width:230px;z-index:3000;overflow:hidden}
+.nav-menu a{display:flex;gap:10px;align-items:center;padding:11px 16px;text-decoration:none;color:#1e293b;font-size:.85rem}
+.nav-menu a:hover{background:#f1f5f9}
+.nav-menu a.current{background:#eff6ff;font-weight:700}
+.nav-menu .nav-portal{border-top:1px solid #eee;color:#64748b}
+.nav-menu .nav-empty{padding:14px 16px;color:#94a3b8;font-size:.8rem}
 .header-sub{font-size:11px;opacity:.6;margin-top:2px}
 .header-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .header input[type=date]{background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:6px 10px;color:#fff;font-size:13px;cursor:pointer}
@@ -184,9 +190,15 @@ label.fl{font-size:11px;color:#666;font-weight:600}
 </div>
 
 <header class="header">
-  <div>
-    <div class="header-title">👥 Gestión de Personal — Venta Ilegal</div>
-    <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="nav-drop" style="position:relative">
+      <button onclick="toggleNavMenu(event)" title="Navegar entre módulos" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:8px;cursor:pointer">☰</button>
+      <div id="navMenu" class="nav-menu"></div>
+    </div>
+    <div>
+      <div class="header-title">👥 Gestión de Personal — Venta Ilegal</div>
+      <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+    </div>
   </div>
   <div class="header-right">
     <input type="date" id="fecha-global">
@@ -832,9 +844,9 @@ async function restaurarSesion() {
     const parsed = JSON.parse(saved);
     if (!parsed || !parsed.username) throw new Error('sesión inválida');
     const snap = await window._fGetDoc(window._fDoc(window._db, 'usuarios', parsed.username));
-    if (!snap.exists()) throw new Error('usuario ya no existe');
+    if (!snap.exists()) throw new Error('usuario "' + parsed.username + '" ya no existe en Firestore');
     const data = snap.data();
-    if (data.role !== 'admin' && !(data.modulos && data.modulos.includes(MODULO_ID))) throw new Error('sin permiso');
+    if (data.role !== 'admin' && !(data.modulos && data.modulos.includes(MODULO_ID))) throw new Error('el usuario no tiene el módulo "' + MODULO_ID + '" habilitado');
     loggedUser = { username: parsed.username, nombre: data.nombre, role: data.role, modulos: data.modulos||[], permisos: data.permisos||{} };
     localStorage.setItem('dgf_session', JSON.stringify(loggedUser));
     document.getElementById('loginOverlay').style.display = 'none';
@@ -842,7 +854,10 @@ async function restaurarSesion() {
     document.getElementById('userBadge').textContent = loggedUser.nombre;
     actualizarPermisoUI();
   } catch(e) {
+    console.error('restaurarSesion() falló:', e);
     localStorage.removeItem('dgf_session');
+    const err = document.getElementById('loginErr');
+    if (err) { err.textContent = '⚠️ Se cerró tu sesión: ' + e.message; err.style.display = 'block'; }
   }
 }
 
@@ -2434,6 +2449,44 @@ function showNominaToast(msg, type) {
   t.style.background = type==='ok' ? '#dcfce7' : type==='err' ? '#fee2e2' : '#f0f8ff';
   t.style.color      = type==='ok' ? '#15803d' : type==='err' ? '#b91c1c' : '#1a3a5c';
 }
+
+// ============================================================
+//  MENÚ DE NAVEGACIÓN ENTRE MÓDULOS
+// ============================================================
+const NAV_MODULES=[
+  {id:'permisos',icon:'🔍',title:'Buscador de Permisos',url:'buscador_permisos.html'},
+  {id:'estadisticas',icon:'📊',title:'Estadísticas — Actas',url:'estadisticas_actas.html'},
+  {id:'personal',icon:'👥',title:'Gestión de Personal',url:'gestion_personal.html'},
+  {id:'novedades',icon:'📋',title:'Novedades de Personal',url:'novedades_personal.html'},
+  {id:'asignacion',icon:'📍',title:'Asignación de Zonas',url:'asignacion_zonas.html'},
+];
+function toggleNavMenu(e){
+  if(e)e.stopPropagation();
+  const m=document.getElementById('navMenu');
+  if(!m)return;
+  if(m.style.display==='block'){m.style.display='none';return;}
+  renderNavMenu();
+  m.style.display='block';
+}
+function renderNavMenu(){
+  const m=document.getElementById('navMenu');
+  if(!m)return;
+  let sess=null;
+  try{sess=JSON.parse(localStorage.getItem('dgf_session')||'null');}catch(e){}
+  const role=sess&&sess.role;
+  const modulos=(sess&&sess.modulos)||[];
+  const current=location.pathname.split('/').pop();
+  const items=NAV_MODULES.filter(x=>role==='admin'||modulos.includes(x.id));
+  m.innerHTML=(items.length?items.map(x=>
+    '<a href="'+x.url+'" class="'+(x.url===current?'current':'')+'"><span>'+x.icon+'</span><span>'+x.title+'</span></a>'
+  ).join(''):'<div class="nav-empty">Sin otros módulos habilitados</div>')+
+  '<a href="index.html" class="nav-portal">🏛️<span>Portal</span></a>';
+}
+document.addEventListener('click',function(e){
+  const dd=document.querySelector('.nav-drop');
+  const menu=document.getElementById('navMenu');
+  if(menu&&dd&&!dd.contains(e.target))menu.style.display='none';
+});
 </script>
 </body>
 </html>

@@ -76,6 +76,12 @@
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
 header{background:var(--pri);color:#fff;padding:0 28px;display:flex;align-items:stretch;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,.18);flex-wrap:wrap;}
 .htitle{padding:14px 0;display:flex;flex-direction:column;justify-content:center;}
+.nav-menu{display:none;position:absolute;top:44px;left:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);min-width:230px;z-index:3000;overflow:hidden}
+.nav-menu a{display:flex;gap:10px;align-items:center;padding:11px 16px;text-decoration:none;color:#1e293b;font-size:.85rem}
+.nav-menu a:hover{background:#f1f5f9}
+.nav-menu a.current{background:#eff6ff;font-weight:700}
+.nav-menu .nav-portal{border-top:1px solid #eee;color:#64748b}
+.nav-menu .nav-empty{padding:14px 16px;color:#94a3b8;font-size:.8rem}
 .htitle h1{font-size:1.1rem;font-weight:700;}
 .htitle p{font-size:.74rem;opacity:.6;margin-top:2px;}
 .tabs{display:flex;align-items:stretch;}
@@ -183,11 +189,17 @@ mark{background:#fef9c3;color:inherit;border-radius:2px;padding:0 2px;}
 </div>
 
 <header>
-  <div class="htitle">
-    <h1>&#128269; Permisos de Alimentos &#8212; GCABA</h1>
-    <p>DGFIS-GCABA &nbsp;&mdash;&nbsp;
-       <a href="index.html" style="color:#fff;font-size:.75rem;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:6px;text-decoration:none;font-weight:600;">&#8592; Portal</a>
-    </p>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="nav-drop" style="position:relative">
+      <button onclick="toggleNavMenu(event)" title="Navegar entre módulos" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:8px;cursor:pointer;align-self:center">☰</button>
+      <div id="navMenu" class="nav-menu"></div>
+    </div>
+    <div class="htitle">
+      <h1>&#128269; Permisos de Alimentos &#8212; GCABA</h1>
+      <p>DGFIS-GCABA &nbsp;&mdash;&nbsp;
+         <a href="index.html" style="color:#fff;font-size:.75rem;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:6px;text-decoration:none;font-weight:600;">&#8592; Portal</a>
+      </p>
+    </div>
   </div>
   <nav class="tabs">
     <button class="tbtn active" onclick="switchTab('search',this)">&#128269; Buscador</button>
@@ -652,6 +664,43 @@ window.addEventListener('DOMContentLoaded',function(){
   });
 });
 
+// ============================================================
+//  MENÚ DE NAVEGACIÓN ENTRE MÓDULOS
+// ============================================================
+var NAV_MODULES=[
+  {id:'permisos',icon:'🔍',title:'Buscador de Permisos',url:'buscador_permisos.html'},
+  {id:'estadisticas',icon:'📊',title:'Estadísticas — Actas',url:'estadisticas_actas.html'},
+  {id:'personal',icon:'👥',title:'Gestión de Personal',url:'gestion_personal.html'},
+  {id:'novedades',icon:'📋',title:'Novedades de Personal',url:'novedades_personal.html'},
+  {id:'asignacion',icon:'📍',title:'Asignación de Zonas',url:'asignacion_zonas.html'},
+];
+function toggleNavMenu(e){
+  if(e)e.stopPropagation();
+  var m=document.getElementById('navMenu');
+  if(!m)return;
+  if(m.style.display==='block'){m.style.display='none';return;}
+  renderNavMenu();
+  m.style.display='block';
+}
+function renderNavMenu(){
+  var m=document.getElementById('navMenu');
+  if(!m)return;
+  var sess=null;
+  try{sess=JSON.parse(localStorage.getItem('dgf_session')||'null');}catch(e){}
+  var role=sess&&sess.role;
+  var modulos=(sess&&sess.modulos)||[];
+  var current=location.pathname.split('/').pop();
+  var items=NAV_MODULES.filter(function(x){return role==='admin'||modulos.indexOf(x.id)!==-1;});
+  m.innerHTML=(items.length?items.map(function(x){
+    return '<a href="'+x.url+'" class="'+(x.url===current?'current':'')+'"><span>'+x.icon+'</span><span>'+x.title+'</span></a>';
+  }).join(''):'<div class="nav-empty">Sin otros módulos habilitados</div>')+
+  '<a href="index.html" class="nav-portal">🏛️<span>Portal</span></a>';
+}
+document.addEventListener('click',function(e){
+  var dd=document.querySelector('.nav-drop');
+  var menu=document.getElementById('navMenu');
+  if(menu&&dd&&!dd.contains(e.target))menu.style.display='none';
+});
 </script>
 </body>
 </html>
