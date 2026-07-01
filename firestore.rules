@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /permisos_chunks/{doc}   { allow read, write: if true; }
+    match /permisos_meta/{doc}     { allow read, write: if true; }
+    match /actas_chunks/{doc}      { allow read, write: if true; }
+    match /actas_meta/{doc}        { allow read, write: if true; }
+    match /usuarios/{doc}          { allow read, write: if true; }
+    match /personal_config/{doc}   { allow read, write: if true; }
+
+    // Antes: personal_chunks / personal_meta (chunks de 500 registros)
+    match /nomina/{doc}            { allow read, write: if true; }
+
+    // Antes: novedades_chunks / novedades_meta
+    match /novedades/{doc}         { allow read, write: if true; }
+
+    // Antes: distribuciones/{fecha} con todo el mapa adentro.
+    // Ahora es una subcolección: un documento por persona y por día.
+    match /distribuciones/{fecha} {
+      allow read, write: if true;
+      match /asignaciones/{personaId} {
+        allow read, write: if true;
+      }
+    }
+  }
+}

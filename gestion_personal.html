@@ -1,0 +1,2439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA — Gestión de Personal</title>
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#222;font-size:14px}
+:root{--azul:#1a3a5c;--azul2:#2c6fad;--verde:#27ae60;--rojo:#c0392b;--naranja:#e67e22;--gris:#f4f6f8;--bor:#e0e0e0}
+
+.header{background:var(--azul);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.header-title{font-size:16px;font-weight:700}
+.header-sub{font-size:11px;opacity:.6;margin-top:2px}
+.header-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.header input[type=date]{background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:6px 10px;color:#fff;font-size:13px;cursor:pointer}
+.badge-count{background:rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;font-size:12px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;padding:5px 11px;font-size:.76rem;cursor:pointer;font-weight:600;text-decoration:none;display:inline-block}
+.hbtn:hover{background:rgba(255,255,255,.25)}
+
+.tabs{display:flex;gap:0;padding:0 16px;flex-wrap:wrap;background:#fff;border-bottom:2px solid var(--bor);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:none;border-radius:8px 8px 0 0;padding:10px 18px;font-size:13px;cursor:pointer;background:transparent;color:#777;font-weight:600;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap}
+.tab.active{color:var(--azul);border-bottom-color:var(--naranja)}
+.tab:hover:not(.active){background:#f5f5f5}
+
+.content{padding:16px;max-width:1250px;margin:0 auto}
+.panel{display:none}.panel.active{display:block}
+
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.btn{border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-weight:600;transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.85}
+.btn-azul{background:var(--azul);color:#fff}
+.btn-verde{background:var(--verde);color:#fff}
+.btn-naranja{background:var(--naranja);color:#fff}
+.btn-rojo{background:var(--rojo);color:#fff}
+.btn-gris{background:#e0e0e0;color:#444}
+.btn-sm{padding:4px 10px;font-size:11px;font-weight:600}
+.search-input{flex:1;min-width:180px;border:1.5px solid var(--bor);border-radius:8px;padding:8px 12px;font-size:13px;outline:none}
+.search-input:focus{border-color:var(--azul2)}
+select.ctrl{border:1.5px solid var(--bor);border-radius:8px;padding:8px 10px;font-size:13px;background:#fff;outline:none;cursor:pointer}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.stat-card{background:#fff;border-radius:10px;padding:14px;text-align:center;border:1px solid var(--bor)}
+.stat-num{font-size:26px;font-weight:700;color:var(--azul)}
+.stat-label{font-size:11px;color:#777;margin-top:3px}
+
+.table-wrap{background:#fff;border-radius:12px;border:1px solid var(--bor);overflow:hidden}
+.table-head{display:grid;background:var(--azul);color:#fff;padding:10px 14px;font-size:12px;font-weight:700;gap:6px}
+.table-body{max-height:520px;overflow-y:auto}
+.table-row{display:grid;padding:8px 14px;gap:6px;align-items:center;border-bottom:1px solid #f0f0f0;transition:background .1s}
+.table-row:hover{background:#f7f9fb}
+.table-row:nth-child(even){background:#fafafa}
+.table-row:nth-child(even):hover{background:#f0f4f8}
+
+.grid-dist{grid-template-columns:2fr .9fr 1.4fr 1.2fr 50px}
+.grid-nom{grid-template-columns:2fr .9fr .9fr .8fr 120px}
+.grid-hist{grid-template-columns:90px 2fr 1fr 2fr 40px}
+
+.nombre-cell{font-weight:600;font-size:13px}
+.sub-cell{font-size:11px;color:#888;margin-top:1px}
+.zona-select{width:100%;border:1.5px solid var(--bor);border-radius:6px;padding:4px 6px;font-size:12px;background:#fff;cursor:pointer;outline:none}
+.zona-select.asignada{background:#e8f4fd;border-color:#90caf9}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;white-space:nowrap;margin:1px 1px 0 0}
+.bdg-turno-man{background:#e8f5e9;color:#2e7d32}
+.bdg-turno-tar{background:#fff3e0;color:#e65100}
+.bdg-turno-noc{background:#ede7f6;color:#4527a0}
+.bdg-sadofe-d{background:#e1f5fe;color:#0277bd}
+.bdg-sadofe-n{background:#fce4ec;color:#880e4f}
+.bdg-admin{background:#f5f5f5;color:#616161}
+.bdg-ger{background:#fafafa;color:#424242}
+.bdg-activo{background:#e8f8e8;color:#1b5e20}
+.bdg-licencia{background:#e3f2fd;color:#0d47a1}
+.bdg-baja{background:#ffebee;color:#b71c1c}
+.bdg-nov-lic{background:#e0f0ff;color:#1a3a5c}
+.bdg-nov-tar{background:#fff4cc;color:#7a5500}
+.bdg-nov-ret{background:#ffe0cc;color:#7a2f00}
+.bdg-nov-aus{background:#ffd6d6;color:#7a0000}
+.bdg-nov-otro{background:#ece7ff;color:#4a0080}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:26px;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;position:relative}
+.modal-title{font-weight:700;font-size:16px;color:var(--azul);margin-bottom:18px}
+.modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:#888}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-field.full{grid-column:1/-1}
+label.fl{font-size:11px;color:#666;font-weight:600}
+.form-input{border:1.5px solid var(--bor);border-radius:7px;padding:8px 10px;font-size:13px;outline:none;width:100%}
+.form-input:focus{border-color:var(--azul2)}
+.form-note{background:#f0f8ff;border-radius:8px;padding:9px 12px;font-size:12px;color:var(--azul);margin-bottom:12px}
+.modal-actions{display:flex;gap:10px;margin-top:4px}
+.modal-actions .btn{flex:1;padding:10px;font-size:14px}
+.tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.tipo-btn{border:2px solid var(--bor);border-radius:8px;padding:9px;text-align:center;font-size:13px;cursor:pointer;background:#fff;transition:all .15s}
+.tipo-btn.sel{font-weight:700;border-color:var(--azul)}
+
+.zonas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.zona-card{background:#fff;border:1px solid var(--bor);border-radius:12px;overflow:hidden}
+.zona-card-head{background:var(--azul);color:#fff;padding:9px 14px;display:flex;justify-content:space-between;align-items:center}
+.zona-card-head span{font-size:13px;font-weight:700}
+.zona-count{background:rgba(255,255,255,.22);border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700}
+.zona-card-body{padding:8px 14px}
+.zona-persona{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5}
+.zona-persona:last-child{border-bottom:none}
+.zona-empty{color:#aaa;font-size:12px;padding:8px 0}
+
+.eventos-banner{background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ev-pill{background:#ffe082;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:#5c4000}
+
+.autocomplete-wrap{position:relative}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--azul2);border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:100;display:none}
+.autocomplete-list.open{display:block}
+.autocomplete-item{padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0}
+.autocomplete-item:hover{background:#e8f4fd}
+
+.gestion-zonas{background:#fff;border-radius:12px;border:1px solid var(--bor);padding:16px;margin-bottom:16px}
+.gz-title{font-weight:700;font-size:14px;color:var(--azul);margin-bottom:12px}
+.zonas-lista{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.zona-tag{background:var(--gris);border:1px solid var(--bor);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.zona-tag .del-zona{background:none;border:none;color:#c0392b;cursor:pointer;font-size:15px;line-height:1;padding:0}
+.gz-add{display:flex;gap:8px;align-items:center}
+.gz-add input{flex:1;border:1.5px solid var(--bor);border-radius:8px;padding:7px 10px;font-size:13px;outline:none}
+
+.ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.ficha-item{background:#f9f9f9;border-radius:8px;padding:8px 12px}
+.ficha-key{font-size:11px;color:#888}
+.ficha-val{font-size:13px;font-weight:600}
+.hist-novs{max-height:160px;overflow-y:auto;margin-bottom:10px}
+.hist-zona{max-height:140px;overflow-y:auto}
+.hist-row{background:#f5f5f5;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:12px}
+
+.nov-info{background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px}
+.confirm-box{background:#fff3cd;border:1.5px solid #ffc107;border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px}
+.confirm-box strong{color:#856404}
+.lic-dates{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.table-info{font-size:12px;color:#777;margin-bottom:6px}
+
+/* Sync status */
+.sync-bar{background:#fff;border-bottom:1px solid var(--bor);padding:4px 20px;font-size:11px;color:#888;display:flex;gap:12px;align-items:center}
+.sync-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:3px}
+.sync-ok{background:#22c55e}
+.sync-loading{background:#f59e0b;animation:pulse .8s infinite}
+.sync-err{background:#ef4444}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#f0f0f0}
+::-webkit-scrollbar-thumb{background:#bbb;border-radius:3px}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- LOGIN OVERLAY -->
+<div class="overlay open" id="loginOverlay" style="z-index:3000">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">🏛️</div>
+    <div class="modal-title" style="text-align:center">Gestión de Personal</div>
+    <p style="font-size:.79rem;color:#888;margin-bottom:18px">DGFIS-GCABA — Acceso restringido</p>
+    <div class="lerr" id="loginErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:6px;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px;text-align:left">
+      <label class="fl">Usuario</label>
+      <input class="form-input" type="text" id="lUser" placeholder="usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px;text-align:left">
+      <label class="fl">Contraseña</label>
+      <div style="position:relative">
+        <input class="form-input" type="password" id="lPass" placeholder="••••••" style="padding-right:36px" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" onclick="togglePass()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:#888">👁️</button>
+      </div>
+    </div>
+    <button class="btn btn-azul" style="width:100%;padding:11px" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <p style="margin-top:12px;font-size:.74rem"><a href="index.html" style="color:var(--azul2)">← Volver al portal</a></p>
+  </div>
+</div>
+
+<header class="header">
+  <div>
+    <div class="header-title">👥 Gestión de Personal — Venta Ilegal</div>
+    <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+  </div>
+  <div class="header-right">
+    <input type="date" id="fecha-global">
+    <div class="badge-count" id="badge-activos">— activos</div>
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<!-- Sync status bar -->
+<div class="sync-bar">
+  <span><span class="sync-dot sync-loading" id="syncDot"></span><span id="syncTxt">Conectando…</span></span>
+  <button onclick="forzarRecarga()" style="background:none;border:none;color:#2c6fad;cursor:pointer;font-size:11px;font-weight:600">⟳ Actualizar</button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="cambiarTab('distribucion',this)">📍 Distribución del día</button>
+  <button class="tab" onclick="cambiarTab('nomina',this)">👥 Nómina</button>
+  <button class="tab" onclick="cambiarTab('novedades',this)">📋 Novedades</button>
+  <button class="tab" onclick="cambiarTab('zonas',this)">📊 Resumen por zona</button>
+  <button class="tab" onclick="cambiarTab('configuracion',this)">⚙ Configuración</button>
+  <button class="tab" id="tabCargaNomina" style="display:none" onclick="cambiarTab('carga',this)">📥 Cargar Nómina</button>
+</div>
+
+<div class="content">
+
+<!-- DISTRIBUCIÓN -->
+<div class="panel active" id="panel-distribucion">
+  <div class="toolbar">
+    <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--bor);border-radius:8px;padding:4px 10px">
+      <label style="font-size:11px;font-weight:700;color:#666;white-space:nowrap">📅 Asignando para:</label>
+      <input type="date" id="dist-fecha-asig" style="border:none;font-size:13px;outline:none;color:var(--azul);font-weight:600" onchange="onCambiarFechaAsig()">
+    </div>
+    <button class="btn btn-azul" onclick="copiarAsignacionAnterior()">📋 Copiar asignación anterior</button>
+    <button class="btn btn-verde" onclick="exportarDia()">⬇ Nómina del día</button>
+    <button class="btn btn-naranja" onclick="abrirModalEvento()">⚽ + Evento / Partido</button>
+    <button class="btn btn-gris" onclick="abrirModalMasivo()">📌 Asignación masiva</button>
+    <input class="search-input" id="dist-buscar" placeholder="🔍 Buscar nombre o DNI..." oninput="renderDist()">
+    <select class="ctrl" id="dist-turno" onchange="renderDist()"><option value="">Todos los turnos</option></select>
+    <select class="ctrl" id="dist-zona-filtro" onchange="renderDist()">
+      <option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>
+    </select>
+  </div>
+  <div id="eventos-banner"></div>
+  <div class="stats-grid" id="dist-stats"></div>
+  <div class="table-info" id="dist-info"></div>
+  <div class="table-wrap">
+    <div class="table-head grid-dist"><span>Nombre</span><span>Turno</span><span>Zona asignada</span><span>Novedades</span><span></span></div>
+    <div class="table-body" id="dist-body"></div>
+  </div>
+</div>
+
+<!-- NÓMINA -->
+<div class="panel" id="panel-nomina">
+  <div class="toolbar">
+    <button class="btn btn-azul" onclick="abrirModalPersona(null)">+ Agregar persona</button>
+    <button class="btn btn-verde" onclick="exportarActivos()">⬇ Exportar activos</button>
+    <button class="btn btn-gris" onclick="exportarNominaCompleta()">⬇ Nómina completa</button>
+    <input class="search-input" id="nom-buscar" placeholder="🔍 Nombre o DNI..." oninput="renderNomina()">
+    <select class="ctrl" id="nom-turno" onchange="renderNomina()"><option value="">Todos los turnos</option></select>
+    <select class="ctrl" id="nom-estado" onchange="renderNomina()">
+      <option value="">Todos</option><option value="Activo" selected>Activos</option>
+      <option value="Licencia">Con licencia</option><option value="Baja">Bajas</option>
+    </select>
+  </div>
+  <div class="table-info" id="nom-info"></div>
+  <div class="table-wrap">
+    <div class="table-head grid-nom"><span>Nombre</span><span>Turno</span><span>DNI</span><span>Estado</span><span>Acciones</span></div>
+    <div class="table-body" id="nom-body"></div>
+  </div>
+</div>
+
+<!-- NOVEDADES -->
+<div class="panel" id="panel-novedades">
+  <div class="toolbar">
+    <button class="btn btn-azul" onclick="abrirModalNovedad(null)">+ Cargar novedad</button>
+    <button class="btn btn-verde" onclick="exportarHistorialNovedades()">⬇ Exportar historial</button>
+    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar..." oninput="renderNovedades()">
+    <select class="ctrl" id="nov-tipo" onchange="renderNovedades()">
+      <option value="">Todos los tipos</option>
+    </select>
+  </div>
+  <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--azul)" id="nov-hoy-title"></div>
+  <div id="nov-hoy-list" style="margin-bottom:20px"></div>
+  <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--azul)">Historial completo</div>
+  <div class="table-wrap">
+    <div class="table-head grid-hist"><span>Fecha</span><span>Persona</span><span>Tipo</span><span>Detalle</span><span></span></div>
+    <div class="table-body" id="nov-body"></div>
+  </div>
+</div>
+
+<!-- RESUMEN ZONAS -->
+<div class="panel" id="panel-zonas">
+  <div class="toolbar">
+    <button class="btn btn-verde" onclick="exportarResumenZonas()">⬇ Exportar zonas</button>
+    <button class="btn btn-verde" onclick="exportarPorZona()">⬇ Planilla por zona (CSV)</button>
+  </div>
+  <div class="zonas-grid" id="zonas-grid"></div>
+</div>
+
+<!-- CONFIGURACIÓN -->
+<div class="panel" id="panel-configuracion">
+  <div class="gestion-zonas">
+    <div class="gz-title">🗺 Gestión de zonas de trabajo</div>
+    <div class="zonas-lista" id="zonas-lista"></div>
+    <div class="gz-add">
+      <input id="nueva-zona-input" placeholder="Nombre de la nueva zona..." onkeydown="if(event.key==='Enter')agregarZona()">
+      <button class="btn btn-azul" onclick="agregarZona()">+ Agregar zona</button>
+    </div>
+  </div>
+  <div class="gestion-zonas">
+    <div class="gz-title">📋 Tipos de novedad</div>
+    <p style="font-size:.8rem;color:#777;margin-bottom:12px">Agregá, editá o eliminá los tipos disponibles al cargar una novedad.</p>
+    <div class="zonas-lista" id="tipos-nov-lista"></div>
+    <div class="gz-add">
+      <input id="nuevo-tipo-input" placeholder="Ej: Capacitación, Comisión..." onkeydown="if(event.key==='Enter')agregarTipoNov()">
+      <button class="btn btn-azul" onclick="agregarTipoNov()">+ Agregar tipo</button>
+    </div>
+    <div id="tipos-nov-toast" style="display:none;margin-top:8px;font-size:.78rem;font-weight:600;color:#15803d"></div>
+  </div>
+  <div class="gestion-zonas">
+    <div class="gz-title">🔴 Feriados y días no laborables</div>
+    <p style="font-size:.8rem;color:#777;margin-bottom:12px">
+      Los días marcados como feriado tratarán de igual forma que un sábado/domingo:
+      trabaja el equipo <strong>SADOFE Diurno</strong> en lugar del Turno Mañana/Tarde/Noche.
+    </p>
+    <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap">
+      <div class="form-field">
+        <label class="fl">Fecha</label>
+        <input type="date" class="form-input" id="feriado-fecha" style="width:180px">
+      </div>
+      <div class="form-field">
+        <label class="fl">Descripción (opcional)</label>
+        <input type="text" class="form-input" id="feriado-desc" placeholder="Ej: 25 de Mayo, Semana Santa..." style="width:220px">
+      </div>
+      <button class="btn btn-azul" onclick="agregarFeriado()">+ Agregar feriado</button>
+    </div>
+    <div id="feriados-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+    <div id="feriados-toast" style="display:none;font-size:.78rem;font-weight:600;color:#15803d;margin-top:6px"></div>
+    <p style="font-size:.75rem;color:#aaa;margin-top:8px">
+      Feriados de Argentina 2025–2026 se pueden precargar desde el botón de abajo.
+      <button class="btn btn-gris btn-sm" style="margin-left:8px" onclick="precargarFeriados()">Precargar feriados AR 2025–2026</button>
+    </p>
+  </div>
+
+  <div class="gestion-zonas">
+    <div class="gz-title">🔄 Acciones del sistema</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-rojo" onclick="if(confirm('⚠ ¿Borrar TODA la distribución? No se puede deshacer.'))limpiarDistribuciones()">🗑 Limpiar distribuciones</button>
+      <button class="btn btn-gris" onclick="exportarBackup()">💾 Backup completo (JSON)</button>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:#888">DGFIS Venta Ilegal · Datos en Firebase Firestore</div>
+  </div>
+</div>
+
+<!-- CARGA NÓMINA -->
+<div class="panel" id="panel-carga">
+  <div class="gestion-zonas">
+    <div class="gz-title">📥 Cargar Nómina desde Excel</div>
+    <p style="font-size:.82rem;color:#777;margin-bottom:14px">
+      Seleccioná el archivo Excel. Se leerá la hoja <strong>NOMINA VENTA ILEGAL DGFIS</strong> y también la hoja <strong>BAJAS</strong>.
+      Los registros existentes se actualizan por DNI, los nuevos se agregan.
+    </p>
+    <div style="border:2px dashed #ddd;border-radius:10px;padding:28px;text-align:center;background:#f9f9f9;position:relative;cursor:pointer" id="uareaNomina">
+      <input type="file" accept=".xlsx,.xls" id="nominaFileInput" onchange="onNominaFile(this)"
+             style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+      <div style="font-size:2rem;margin-bottom:8px">📄</div>
+      <div style="font-weight:600;color:#1a3a5c">Arrastrá o hacé clic para seleccionar el Excel</div>
+      <div style="font-size:.78rem;color:#aaa;margin-top:4px">Formatos: .xlsx, .xls</div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span id="nominaFileChosen" style="display:none;font-size:.82rem;color:#2563a8;font-weight:600;background:#dbeafe;padding:4px 10px;border-radius:5px"></span>
+      <button id="nominaLoadBtn" onclick="cargarNominaExcel()" disabled
+              style="padding:9px 18px;border:none;border-radius:10px;background:#e67e22;color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;opacity:.45">
+        Subir a Firestore
+      </button>
+    </div>
+    <div style="height:8px;background:#e0e0e0;border-radius:4px;margin-top:14px;display:none" id="nominaPwrap">
+      <div id="nominaPfill" style="height:100%;background:linear-gradient(90deg,#2563a8,#38bdf8);border-radius:4px;width:0%;transition:width .3s"></div>
+    </div>
+    <div id="nominaToast" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:.82rem;font-weight:500"></div>
+  </div>
+  <div class="gestion-zonas" style="font-size:.8rem;color:#777;line-height:1.9">
+    <strong style="color:#1a3a5c">Campos que se importan:</strong><br>
+    Apellido y Nombre · DNI · CUIL · CBU · Mail personal · Mail institucional · Turno · Coordinador · Jefatura · Modalidad · Género ·
+    Fecha de nacimiento · Fecha de ingreso · Oficina/Calle · Semana/FDS · Horario · Celular particular ·
+    Contacto emergencia · Teléfono emergencia · Domicilio · CABA/PBA · Barrio/Localidad · Comuna ·
+    Chaleco · Talle · Ley Lucio · Ley Yolanda · Ley Micaela · Agentes en calle · Ley discapacidad ·
+    Celular flota · IMEI · Estado (Activo/Baja)
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<!-- MODALES -->
+<!-- Modal persona -->
+<div class="overlay" id="modal-persona-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="cerrarModal('modal-persona-overlay')">✕</button>
+    <div class="modal-title" id="mp-title">Editar persona</div>
+    <div class="form-grid" id="mp-form"></div>
+    <div class="form-note" id="mp-horario" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-azul" onclick="guardarPersona()">Guardar</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-persona-overlay')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal novedad -->
+<div class="overlay" id="modal-novedad-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="cerrarModal('modal-novedad-overlay')">✕</button>
+    <div class="modal-title" id="mn-title">Cargar novedad</div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Fecha de la novedad</label>
+      <input type="date" class="form-input" id="mn-fecha">
+    </div>
+    <div class="form-field full" id="mn-persona-wrap" style="margin-bottom:12px">
+      <label class="fl">Persona</label>
+      <div class="autocomplete-wrap">
+        <input class="form-input" id="mn-persona-input" placeholder="Escribir nombre..." oninput="filtrarPersonasAC()" autocomplete="off">
+        <div class="autocomplete-list" id="mn-persona-list"></div>
+      </div>
+      <div id="mn-persona-seleccionada" style="display:none;background:#e8f4fd;border-radius:7px;padding:8px 10px;font-size:13px;margin-top:4px;font-weight:600"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="fl">Tipo de novedad</label>
+      <div class="tipo-grid" style="margin-top:6px" id="mn-tipos-grid">
+        <!-- Se renderizan dinámicamente desde window.tiposNovedad -->
+      </div>
+    </div>
+    <div id="mn-lic-fechas" style="display:none;margin-bottom:12px">
+      <div class="nov-info">📋 Las licencias se aplican a un rango de fechas.</div>
+      <div class="lic-dates">
+        <div class="form-field"><label class="fl">Inicio</label><input type="date" class="form-input" id="mn-lic-inicio"></div>
+        <div class="form-field"><label class="fl">Fin</label><input type="date" class="form-input" id="mn-lic-fin"></div>
+      </div>
+    </div>
+    <div class="form-field full" style="margin-bottom:14px">
+      <label class="fl">Detalle (opcional)</label>
+      <textarea class="form-input" id="mn-detalle" rows="3" placeholder="Motivo, observaciones..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-azul" onclick="guardarNovedad()">Guardar novedad</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-novedad-overlay')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ver persona -->
+<div class="overlay" id="modal-ver-overlay">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-close" onclick="cerrarModal('modal-ver-overlay')">✕</button>
+    <div class="modal-title" id="mv-title"></div>
+    <div class="ficha-grid" id="mv-ficha"></div>
+    <div style="font-weight:700;font-size:13px;color:var(--azul);margin-bottom:6px">Novedades recientes</div>
+    <div class="hist-novs" id="mv-novs"></div>
+    <div style="font-weight:700;font-size:13px;color:var(--azul);margin-bottom:6px">Historial de zonas</div>
+    <div class="hist-zona" id="mv-zonas"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-verde" onclick="exportarHistPersona()">⬇ Exportar historial</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-ver-overlay')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal evento -->
+<div class="overlay" id="modal-evento-overlay">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="cerrarModal('modal-evento-overlay')">✕</button>
+    <div class="modal-title">⚽ Registrar evento especial</div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Nombre del evento</label>
+      <input class="form-input" id="ev-nombre" placeholder="Ej: River vs Boca, Feria XX...">
+    </div>
+    <div class="form-field full" style="margin-bottom:14px">
+      <label class="fl">Tipo</label>
+      <select class="form-input" id="ev-tipo">
+        <option value="EVENTO ESPECIAL">Evento especial</option>
+        <option value="PARTIDO FÚTBOL">Partido de fútbol</option>
+      </select>
+    </div>
+    <div class="nov-info">💡 Después de guardar, asigná personas eligiendo la zona del evento.</div>
+    <div class="modal-actions" style="margin-top:10px">
+      <button class="btn btn-naranja" onclick="guardarEvento()">Guardar evento</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-evento-overlay')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal asignación masiva -->
+<div class="overlay" id="modal-masivo-overlay">
+  <div class="modal" style="max-width:600px">
+    <button class="modal-close" onclick="cerrarModal('modal-masivo-overlay')">✕</button>
+    <div class="modal-title">📌 Asignación masiva de zona</div>
+    <p style="font-size:.82rem;color:#777;margin-bottom:14px">
+      Asigná una zona a múltiples personas a la vez. Podés filtrar por turno y seleccionar quiénes reciben la asignación.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end">
+      <div class="form-field" style="min-width:160px">
+        <label class="fl">Filtrar por turno</label>
+        <select class="form-input" id="mas-turno" onchange="renderMasivoLista()">
+          <option value="">Todos los turnos</option>
+        </select>
+      </div>
+      <div class="form-field" style="min-width:200px">
+        <label class="fl">Zona a asignar</label>
+        <select class="form-input" id="mas-zona">
+          <option value="">— Sin asignar (quitar zona) —</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+      <button class="btn btn-gris btn-sm" onclick="masSelectAll(true)">✅ Seleccionar todos</button>
+      <button class="btn btn-gris btn-sm" onclick="masSelectAll(false)">☐ Deseleccionar todos</button>
+      <span id="mas-count" style="font-size:.78rem;color:#888;margin-left:auto"></span>
+    </div>
+    <div id="mas-lista" style="max-height:320px;overflow-y:auto;border:1.5px solid var(--bor);border-radius:8px;padding:4px"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-azul" onclick="aplicarMasivo()">Aplicar asignación</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-masivo-overlay')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal baja -->
+<div class="overlay" id="modal-baja-overlay">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="cerrarModal('modal-baja-overlay')">✕</button>
+    <div class="modal-title">⚠ Confirmar baja</div>
+    <div class="confirm-box">
+      <strong>¿Dar de baja a <span id="baja-nombre"></span>?</strong><br><br>
+      La persona mantendrá sus datos y podrá ser reactivada desde la nómina.
+    </div>
+    <div class="form-field full" style="margin-bottom:14px">
+      <label class="fl">Motivo de baja (opcional)</label>
+      <textarea class="form-input" id="baja-motivo" rows="2" placeholder="Renuncia, transferencia, etc."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-rojo" onclick="confirmarBaja()">Confirmar baja</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-baja-overlay')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase module -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, collectionGroup, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
+
+// Utilidades del módulo
+const _todayISO = () => new Date().toISOString().slice(0,10);
+
+// Constantes y estado que el módulo necesita ANTES de que cargue el script inline
+const ZONAS_DEFAULT_MOD = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
+
+// Inicializar window.distribuciones AQUÍ para que cargarDistFecha funcione
+window.distribuciones = {};
+const app = initializeApp(FIREBASE_CONFIG);
+const db  = getFirestore(app);
+
+// Exponer para el script global
+window._db      = db;
+window._fDoc    = doc;
+window._fGetDoc = getDoc;
+window._fGetDocs= getDocs;
+window._fSetDoc = setDoc;
+window._fDelDoc = deleteDoc;
+window._fCol    = collection;
+window._fColGroup = collectionGroup;
+window._fBatch  = writeBatch;
+
+// Validar la sesión YA, en paralelo con cargarTodo() (que puede tardar varios
+// segundos leyendo nómina/novedades/zonas/etc.) — así el usuario ve su nombre
+// apenas se valida, sin esperar a que termine de cargar todo lo demás.
+if (window.restaurarSesion) window.restaurarSesion();
+
+// -- CONSTANTES DE CACHÉ --------------------------------------------------
+const CACHE = {
+  nomina:     { key:'dgf_personal_nomina',  ts:'dgf_personal_nomina_ts',  ttl: 24*60*60*1000 },
+  novedades:  { key:'dgf_personal_nov',     ts:'dgf_personal_nov_ts',     ttl: 24*60*60*1000 },
+  zonas:      { key:'dgf_personal_zonas',   ts:'dgf_personal_zonas_ts',   ttl: 24*60*60*1000 },
+  dist:       { key:'dgf_personal_dist_',   ts:'dgf_personal_dist_ts_',   ttl:  5*60*1000     },
+};
+
+function getCache(cfg, suffix='') {
+  try {
+    const ts = parseInt(sessionStorage.getItem(cfg.ts + suffix)||'0');
+    const c  = sessionStorage.getItem(cfg.key + suffix);
+    if (c && (Date.now()-ts) < cfg.ttl) return JSON.parse(c);
+  } catch(e) {}
+  return null;
+}
+function setCache(cfg, data, suffix='') {
+  try {
+    sessionStorage.setItem(cfg.key + suffix, JSON.stringify(data));
+    sessionStorage.setItem(cfg.ts  + suffix, Date.now().toString());
+  } catch(e) {}
+}
+function clearCache(cfg, suffix='') {
+  sessionStorage.removeItem(cfg.key + suffix);
+  sessionStorage.removeItem(cfg.ts  + suffix);
+}
+
+// -- LECTURA/ESCRITURA: UN DOCUMENTO POR REGISTRO --------------------------
+// (antes se guardaba todo en "chunks" de 500 registros; el problema es que
+// dos personas editando registros DISTINTOS del mismo chunk se pisaban entre
+// sí igual, porque cada guardado reescribía el chunk completo. Con un
+// documento por registro, cada edición sólo toca su propio documento.)
+async function leerColeccion(nombreCol, cacheConf) {
+  const cached = getCache(cacheConf);
+  if (cached) return cached;
+  const snap = await getDocs(collection(db, nombreCol));
+  const recs = [];
+  snap.forEach(d => recs.push({ id: d.id, ...d.data() }));
+  setCache(cacheConf, recs);
+  return recs;
+}
+
+// Carga masiva (alta inicial / import de Excel): un batch cada 500 registros
+async function escribirColeccionBatch(nombreCol, recs) {
+  for (let i = 0; i < recs.length; i += 500) {
+    const batch = writeBatch(db);
+    recs.slice(i, i+500).forEach(r => {
+      const { id, ...datos } = r;
+      batch.set(doc(db, nombreCol, id), datos);
+    });
+    await batch.commit();
+  }
+}
+
+// -- CARGA INICIAL --------------------------------------------------------
+window._fsReady = false;
+
+async function cargarTodo() {
+  setSyncStatus('loading', 'Cargando…');
+  try {
+    // Nómina
+    window.nomina = await leerColeccion('nomina', CACHE.nomina);
+
+    // Si Firestore está vacío, subir la nómina inicial
+    if (!window.nomina.length) {
+      await escribirColeccionBatch('nomina', NOMINA_INICIAL);
+      window.nomina = [...NOMINA_INICIAL];
+      setCache(CACHE.nomina, window.nomina);
+    }
+
+    // Novedades
+    window.novedades = await leerColeccion('novedades', CACHE.novedades);
+
+    // Zonas
+    const zonasCache = getCache(CACHE.zonas);
+    if (zonasCache) {
+      window.zonas = zonasCache;
+    } else {
+      const zSnap = await getDoc(doc(db,'personal_config','zonas')).catch(()=>null);
+      window.zonas = (zSnap && zSnap.exists()) ? zSnap.data().lista : [...ZONAS_DEFAULT_MOD];
+      setCache(CACHE.zonas, window.zonas);
+    }
+
+    // Tipos de novedad
+    const tiposSnap = await getDoc(doc(db,'personal_config','tipos_novedad')).catch(()=>null);
+    if (tiposSnap && tiposSnap.exists()) {
+      window.tiposNovedad = tiposSnap.data().lista;
+    }
+
+    // Feriados
+    const feriadosSnap = await getDoc(doc(db,'personal_config','feriados')).catch(()=>null);
+    if (feriadosSnap && feriadosSnap.exists()) {
+      window.feriados      = feriadosSnap.data().lista || [];
+      window.feriadosDesc  = feriadosSnap.data().desc  || {};
+    }
+
+    // Distribución de hoy
+    await cargarDistFecha(_todayISO());
+
+    window._fsReady = true;
+    setSyncStatus('ok', `✅ ${window.nomina.length} personas · ${window.novedades.length} novedades`);
+    init();
+  } catch(e) {
+    setSyncStatus('err', '⚠️ Error: ' + e.message);
+    console.error(e);
+  }
+}
+
+// -- DISTRIBUCIÓN (por fecha, caché 5 min) --------------------------------
+// Cada asignación es su propio documento (distribuciones/{fecha}/asignaciones/{personaId}):
+// así dos personas asignando gente distinta el mismo día no se pisan entre sí.
+window.cargarDistFecha = async function(fecha) {
+  const cached = getCache(CACHE.dist, fecha);
+  if (cached) { window.distribuciones[fecha] = cached; return; }
+
+  const snap = await getDocs(collection(db,'distribuciones', fecha, 'asignaciones')).catch(()=>null);
+  const data = {};
+  if (snap) snap.forEach(d => { data[d.id] = d.data().zona; });
+  window.distribuciones[fecha] = data;
+  setCache(CACHE.dist, data, fecha);
+};
+
+// -- GUARDADO A FIREBASE (un documento por registro) -----------------------
+window._guardarPersona = async function(persona) {
+  const { id, ...datos } = persona;
+  await setDoc(doc(db, 'nomina', id), datos);
+  clearCache(CACHE.nomina);
+};
+window._eliminarPersona = async function(id) {
+  await deleteDoc(doc(db, 'nomina', id));
+  clearCache(CACHE.nomina);
+};
+// Sólo para altas masivas (import de Excel) — reemplaza únicamente los
+// documentos de la lista dada, no toca los de otras personas.
+window._guardarNominaCompleta = async function(lista) {
+  await escribirColeccionBatch('nomina', lista);
+  clearCache(CACHE.nomina);
+};
+
+window._guardarNovedad = async function(nov) {
+  const { id, ...datos } = nov;
+  await setDoc(doc(db, 'novedades', id), datos);
+  clearCache(CACHE.novedades);
+};
+window._eliminarNovedad = async function(id) {
+  await deleteDoc(doc(db, 'novedades', id));
+  clearCache(CACHE.novedades);
+};
+
+window._guardarZonas = async function() {
+  await setDoc(doc(db,'personal_config','zonas'), { lista: window.zonas, ts: new Date().toISOString() });
+  clearCache(CACHE.zonas);
+};
+
+window._guardarTiposNovedad = async function() {
+  await setDoc(doc(db,'personal_config','tipos_novedad'), { lista: window.tiposNovedad, ts: new Date().toISOString() });
+};
+
+window._guardarFeriados = async function(lista, desc) {
+  await setDoc(doc(db,'personal_config','feriados'), {
+    lista: lista || window.feriados || [],
+    desc:  desc  || window.feriadosDesc || {},
+    ts: new Date().toISOString()
+  });
+};
+
+// Guarda la asignación de UNA persona para UNA fecha (no toca las demás).
+window._guardarAsignacion = async function(fecha, personaId, zona) {
+  if (zona) {
+    await setDoc(doc(db,'distribuciones',fecha,'asignaciones',personaId), { zona, ts: new Date().toISOString() });
+  } else {
+    await deleteDoc(doc(db,'distribuciones',fecha,'asignaciones',personaId));
+  }
+  window._refrescarCacheDist(fecha);
+};
+// CACHE/clearCache/setCache son privados a este <script type="module">;
+// esto le da al script global una forma de refrescar el caché tras un batch.
+window._refrescarCacheDist = function(fecha) {
+  clearCache(CACHE.dist, fecha);
+  setCache(CACHE.dist, window.distribuciones[fecha] || {}, fecha);
+};
+
+window._guardarEventos = async function() {
+  await setDoc(doc(db,'personal_config','eventos'), { lista: window.eventos, ts: new Date().toISOString() });
+};
+
+window.forzarRecarga = function() {
+  ['nomina','novedades','zonas'].forEach(k => {
+    clearCache(CACHE[k]);
+  });
+  // limpiar cache de distribuciones
+  Object.keys(sessionStorage).filter(k=>k.startsWith('dgf_personal_dist_')).forEach(k=>sessionStorage.removeItem(k));
+  cargarTodo();
+};
+
+function setSyncStatus(type, msg) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncTxt');
+  if (!dot) return;
+  dot.className = 'sync-dot sync-' + type;
+  txt.textContent = msg;
+}
+
+// -- ARRANQUE -------------------------------------------------------------
+// -- ARRANQUE ---------------------------------------------------------
+// Exponer cambiarTab globalmente desde el módulo para que los onclick HTML funcionen
+// incluso si el script inline todavia no cargó
+window.cambiarTab = function(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('panel-' + id);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  // Las acciones adicionales se ejecutarán cuando el script inline esté listo
+  if (window._cambiarTabExtra) window._cambiarTabExtra(id);
+};
+
+cargarTodo();
+</script>
+
+<script>
+// ============================================================
+//  CONSTANTES
+// ============================================================
+const TURNOS   = ["Turno Mañana","Turno Tarde","Turno Noche","SADOFE Diurno","SADOFE Noche","Administrativo","Gerencia"];
+const HORARIOS = {"Turno Mañana":"Lun–Vie 07:00–14:00","Turno Tarde":"Lun–Vie 13:00–20:00","Turno Noche":"Lun–Jue 19:00–01:00","SADOFE Diurno":"Sáb–Dom–Feriados 07:00–19:00","SADOFE Noche":"Vie–Sáb–Dom 19:00–01:00","Administrativo":"Administrativo","Gerencia":"Gerencia"};
+const TURNO_BADGE = {"Turno Mañana":"bdg-turno-man","Turno Tarde":"bdg-turno-tar","Turno Noche":"bdg-turno-noc","SADOFE Diurno":"bdg-sadofe-d","SADOFE Noche":"bdg-sadofe-n","Administrativo":"bdg-admin","Gerencia":"bdg-ger"};
+const NOV_CLASS   = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro"};
+// badgeNov ya usa 'bdg-nov-otro' como fallback para tipos personalizados
+const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bdg-baja"};
+const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
+
+// ============================================================
+//  ESTADO GLOBAL
+// ============================================================
+window.nomina         = [];
+window.novedades      = [];
+window.zonas          = [];
+window.eventos        = [];
+window.distribuciones = {};
+window.tiposNovedad   = ['Licencia','Llegada tarde','Retiro anticipado','Ausencia','Otro'];
+window.feriados       = []; // Array de strings 'YYYY-MM-DD'
+
+// ── NÓMINA INICIAL (se sube a Firestore la primera vez) ──────────────────
+const NOMINA_INICIAL = [{"id":"1","nombre":"ACOSTA LORENA","turno":"Turno Tarde","cuil":"27246686152","dni":"24668615","coordinador":"ROTONDO/CARRIZO/PASCAL/ESCOBAR","jefatura":"COORDINADOR/A","modalidad":"CLS","genero":"F","celular":"1161250764","agentes_calle":"SI","estado":"Activo"},{"id":"2","nombre":"ACUÑA JULIO CESAR","turno":"SADOFE Noche","cuil":"20279368941","dni":"27936894","coordinador":"MAZZOCHI","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"M","celular":"1133357001","agentes_calle":"","estado":"Activo"},{"id":"3","nombre":"AGUILAR TOMAS","turno":"SADOFE Noche","cuil":"","dni":"","coordinador":"","jefatura":"","modalidad":"","genero":"","celular":"11 54193654","agentes_calle":"","estado":"Activo"},{"id":"4","nombre":"AGUIRRE MARINA ISABEL","turno":"Turno Noche","cuil":"27353766436","dni":"35376643","coordinador":"MURACA","jefatura":"INSPECTOR/A","modalidad":"CLS","genero":"F","celular":"1125848356","agentes_calle":"","estado":"Activo"},{"id":"5","nombre":"ALADRO JULIA","turno":"Turno Mañana","cuil":"27264292315","dni":"26429231","coordinador":"GAMARRA / ROCHA/VILLANUEVA","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"F","celular":"1123660284","agentes_calle":"","estado":"Activo"}];
+// NOTA: La nómina completa de 343 personas se sube desde el backup (ver instrucciones)
+
+// ============================================================
+//  AUTH
+// ============================================================
+const MODULO_ID = 'personal';
+let loggedUser = null;
+window._soloLectura = false;
+
+// Revalida la sesión guardada contra Firestore en vez de confiar a ciegas en
+// localStorage (podría haber sido editado desde la consola del navegador).
+// Se llama desde init(), que ya corre después de que el script módulo dejó
+// listos window._fGetDoc/_fDoc/_db.
+async function restaurarSesion() {
+  try {
+    const saved = localStorage.getItem('dgf_session');
+    if (!saved) return;
+    const parsed = JSON.parse(saved);
+    if (!parsed || !parsed.username) throw new Error('sesión inválida');
+    const snap = await window._fGetDoc(window._fDoc(window._db, 'usuarios', parsed.username));
+    if (!snap.exists()) throw new Error('usuario ya no existe');
+    const data = snap.data();
+    if (data.role !== 'admin' && !(data.modulos && data.modulos.includes(MODULO_ID))) throw new Error('sin permiso');
+    loggedUser = { username: parsed.username, nombre: data.nombre, role: data.role, modulos: data.modulos||[], permisos: data.permisos||{} };
+    localStorage.setItem('dgf_session', JSON.stringify(loggedUser));
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('userBadge').style.display = 'inline';
+    document.getElementById('userBadge').textContent = loggedUser.nombre;
+    actualizarPermisoUI();
+  } catch(e) {
+    localStorage.removeItem('dgf_session');
+  }
+}
+
+function puedeEditar() {
+  return !!loggedUser && (loggedUser.role === 'admin' || !(loggedUser.permisos && loggedUser.permisos[MODULO_ID] === 'viewer'));
+}
+function actualizarPermisoUI() {
+  window._soloLectura = !puedeEditar();
+  const badge = document.getElementById('userBadge');
+  if (badge && window._soloLectura && !/sólo lectura/.test(badge.textContent)) badge.textContent += ' (🔒 sólo lectura)';
+}
+
+function togglePass() {
+  const inp = document.getElementById('lPass');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin() {
+  const u = document.getElementById('lUser').value.trim().toLowerCase();
+  const p = document.getElementById('lPass').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.style.display = 'none';
+  if (!u || !p) { errEl.textContent='Completá usuario y contraseña.'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Verificando…';
+
+  try {
+    const snap = await window._fGetDoc(window._fDoc(window._db, 'usuarios', u));
+    if (!snap.exists()) { showLoginErr('Usuario o contraseña incorrectos.'); return; }
+    const data = snap.data();
+    const hash = await sha256(p);
+    if (data.passHash !== hash) { showLoginErr('Usuario o contraseña incorrectos.'); return; }
+
+    // Verificar permiso de módulo
+    if (data.role !== 'admin' && !(data.modulos && data.modulos.includes(MODULO_ID))) {
+      showLoginErr('No tenés permiso para acceder a este módulo.'); return;
+    }
+
+    loggedUser = { username: u, nombre: data.nombre, role: data.role, modulos: data.modulos||[], permisos: data.permisos||{} };
+    localStorage.setItem('dgf_session', JSON.stringify(loggedUser));
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('userBadge').style.display = 'inline';
+    document.getElementById('userBadge').textContent = loggedUser.nombre;
+    actualizarPermisoUI();
+  } catch(e) {
+    showLoginErr('Error de conexión: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Ingresar';
+  }
+}
+
+function showLoginErr(msg) {
+  const el = document.getElementById('loginErr');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('lPass').value = '';
+  document.getElementById('lPass').focus();
+  document.getElementById('loginBtn').disabled = false;
+  document.getElementById('loginBtn').textContent = 'Ingresar';
+}
+
+function doLogout() {
+  loggedUser = null;
+  localStorage.removeItem('dgf_session');
+  location.reload();
+}
+
+// ============================================================
+//  UTILIDADES
+// ============================================================
+const todayISO = ()=>new Date().toISOString().slice(0,10);
+const fmtDate  = d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-AR'):'—';
+const esc      = s=>(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// Fecha de asignación (puede ser distinta al día visualizado)
+function getFechaAsig() {
+  return document.getElementById('dist-fecha-asig')?.value || todayISO();
+}
+function getDistAsig() { return window.distribuciones[getFechaAsig()]||{}; }
+
+function toast(msg,ms=2400) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),ms);
+}
+
+function getFecha(){return document.getElementById('fecha-global').value||todayISO();}
+function getDistHoy(){return window.distribuciones[getFecha()]||{};}
+
+function getEstadoPersona(p, hoy) {
+  if(p.estado==='Baja') return 'Baja';
+  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==='Licencia'&&n.licIni&&n.licFin);
+  if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin)) return 'Licencia';
+  return 'Activo';
+}
+
+function novedadesHoy() {
+  const hoy=getFecha();
+  return window.novedades.filter(n=>n.fecha===hoy||(n.tipo==='Licencia'&&n.licIni&&n.licFin&&hoy>=n.licIni&&hoy<=n.licFin));
+}
+function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
+
+function allZonas(){return [...(window.zonas||[]),'EVENTO ESPECIAL','PARTIDO FÚTBOL'];}
+
+function badgeTurno(t){return `<span class="badge ${TURNO_BADGE[t]||'bdg-admin'}">${esc(t||'—')}</span>`;}
+function badgeEstado(e){return `<span class="badge ${ESTADO_CLASS[e]||'bdg-activo'}">${esc(e)}</span>`;}
+function badgeNov(tipo){return `<span class="badge ${NOV_CLASS[tipo]||'bdg-nov-otro'}">${esc(tipo)}</span>`;}
+
+function exportCSV(rows,fn){
+  if(!rows.length) return;
+  const h=Object.keys(rows[0]);
+  const lines=[h.join(','),...rows.map(r=>h.map(k=>`"${(r[k]||'').toString().replace(/"/g,'""')}"` ).join(','))];
+  const b=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();
+}
+
+// ============================================================
+//  TABS
+// ============================================================
+// La versión completa de cambiarTab se registra aquí y se llama vía _cambiarTabExtra
+window._cambiarTabExtra = function(id) {
+  if(id==='distribucion') cargarDistYRender();
+  else if(id!=='carga') renderAll();
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+async function init() {
+  // restaurarSesion() ya se disparó antes desde el script módulo, en paralelo
+  // con la carga de datos (para que el usuario aparezca cuanto antes, sin
+  // esperar a que termine de cargar todo lo demás).
+  // Fecha de visualización (header)
+  const f = document.getElementById('fecha-global');
+  f.value = todayISO();
+  f.addEventListener('change', async () => {
+    await window.cargarDistFecha(getFecha());
+    renderAll();
+  });
+
+  // Fecha de asignación: por defecto mañana
+  const manana = new Date();
+  manana.setDate(manana.getDate() + 1);
+  const asigEl = document.getElementById('dist-fecha-asig');
+  if (asigEl) {
+    asigEl.value = manana.toISOString().slice(0,10);
+    // Cargar la distribución de esa fecha
+    window.cargarDistFecha(asigEl.value);
+  }
+
+  poblarSelects();
+  renderAll();
+  // Mostrar tab carga solo para admin
+  try {
+    const s = localStorage.getItem('dgf_session');
+    if (s) {
+      const sess = JSON.parse(s);
+      if (sess && sess.role === 'admin') {
+        document.getElementById('tabCargaNomina').style.display = '';
+      }
+    }
+  } catch(e) {}
+}
+
+async function onCambiarFechaAsig() {
+  const fecha = getFechaAsig();
+  await window.cargarDistFecha(fecha);
+  renderDist();
+}
+
+async function cargarDistYRender() {
+  await window.cargarDistFecha(getFecha());
+  renderAll();
+}
+
+function poblarSelects(){
+  const opts=TURNOS.map(t=>`<option value="${t}">${t}</option>`).join('');
+  ['dist-turno','nom-turno'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    // Limpiar antes de agregar para evitar duplicados si se llama más de una vez
+    el.innerHTML='<option value="">Todos los turnos</option>'+opts;
+  });
+  poblarDistZonaFiltro();
+}
+
+function poblarDistZonaFiltro(){
+  const sel=document.getElementById('dist-zona-filtro');
+  if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>';
+  allZonas().forEach(z=>sel.insertAdjacentHTML('beforeend',`<option value="${z}">${z}</option>`));
+  sel.value=cur;
+}
+
+function renderAll(){
+  actualizarBadgeActivos();
+  renderDist();
+  renderNomina();
+  renderNovedades();
+  renderZonas();
+  renderConfigZonas();
+}
+
+function actualizarBadgeActivos(){
+  const hoy=getFecha();
+  const act=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja').length;
+  document.getElementById('badge-activos').textContent=act+' activos';
+}
+
+// ============================================================
+//  PANEL DISTRIBUCIÓN
+// ============================================================
+// Verifica si una fecha es feriado (configurado en el panel)
+function esFeriado(fecha) {
+  return (window.feriados||[]).includes(fecha);
+}
+
+// Qué turnos trabajan según el día de la semana y si es feriado
+// Feriados = mismo tratamiento que sábado/domingo (SADOFE)
+function turnosQueTrabajan(diaSemana, fecha) {
+  // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
+  const esFinde    = diaSemana === 0 || diaSemana === 6;
+  const esViernes  = diaSemana === 5;
+  const esFeriadoD = fecha ? esFeriado(fecha) : false;
+  const esNoLaboral = esFinde || esFeriadoD;
+
+  const result = new Set();
+  if (esNoLaboral) {
+    // Sábado, domingo o feriado → SADOFE
+    result.add('SADOFE Diurno');
+    result.add('SADOFE Noche');
+  } else {
+    // Día hábil
+    result.add('Turno Mañana');
+    result.add('Turno Tarde');
+    if (diaSemana >= 1 && diaSemana <= 4) result.add('Turno Noche'); // Lun-Jue
+  }
+  // SADOFE Noche también trabaja el viernes hábil (no feriado) por la noche
+  if (esViernes && !esFeriadoD) result.add('SADOFE Noche');
+  // Y siempre en finde/feriado ya está incluido arriba
+  return result;
+}
+
+function trabajaEseDia(persona, fecha) {
+  const diaSemana = new Date(fecha+'T12:00:00').getDay();
+  const trabajan = turnosQueTrabajan(diaSemana, fecha);
+  return trabajan.has(persona.turno);
+}
+
+function renderDist(){
+  const hoy=getFecha();
+  const fechaAsig=getFechaAsig();
+  const dist=getDistAsig();
+  const busq=(document.getElementById('dist-buscar').value||'').toLowerCase();
+  const filtTurno=document.getElementById('dist-turno').value;
+  const filtZona=document.getElementById('dist-zona-filtro').value;
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja');
+
+  // Personas que trabajan en la fecha de asignación
+  const diaAsig = new Date(fechaAsig+'T12:00:00').getDay();
+  const esFeriadoAsig = esFeriado(fechaAsig);
+  const turnosDeEseDia = turnosQueTrabajan(diaAsig, fechaAsig);
+  const trabajanEseDia = activos.filter(p=>turnosDeEseDia.has(p.turno));
+
+  // Mostrar indicador de fecha de asignación
+  const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const labelFechaAsig = document.getElementById('dist-info');
+
+  const conZona=trabajanEseDia.filter(p=>dist[p.id]).length;
+  const sinAsignar=trabajanEseDia.filter(p=>!dist[p.id]&&getEstadoPersona(p,hoy)!=='Licencia').length;
+  const novHoy=novedadesHoy();
+  const ausentes=novHoy.filter(n=>n.tipo==='Ausencia').length;
+  const licencias=activos.filter(p=>getEstadoPersona(p,hoy)==='Licencia').length;
+
+  document.getElementById('dist-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-num">${trabajanEseDia.length}</div><div class="stat-label">Trabajan ${DIAS[diaAsig]}${esFeriadoAsig?' 🔴 Feriado':''}</div></div>
+    <div class="stat-card"><div class="stat-num">${conZona}</div><div class="stat-label">Asignados</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--rojo)">${sinAsignar}</div><div class="stat-label">Sin asignar</div></div>
+    <div class="stat-card"><div class="stat-num">${ausentes}</div><div class="stat-label">Ausentes hoy</div></div>
+    <div class="stat-card"><div class="stat-num">${licencias}</div><div class="stat-label">En licencia</div></div>
+  `;
+
+  const evHoy=(window.eventos||[]).filter(e=>e.fecha===hoy);
+  document.getElementById('eventos-banner').innerHTML=evHoy.length?
+    `<div class="eventos-banner"><span style="font-weight:700;font-size:13px">⚡ Eventos hoy:</span>${evHoy.map(e=>`<span class="ev-pill">${esc(e.nombre)} — ${esc(e.tipo)}</span>`).join('')}</div>`:'';
+
+  const lista=trabajanEseDia.filter(p=>{
+    if(busq&&!p.nombre.toLowerCase().includes(busq)&&!(p.dni||'').includes(busq)) return false;
+    if(filtTurno&&p.turno!==filtTurno) return false;
+    if(filtZona==='__sin__'&&dist[p.id]) return false;
+    if(filtZona&&filtZona!=='__sin__'&&dist[p.id]!==filtZona) return false;
+    return true;
+  });
+
+  const estAsig = fechaAsig !== hoy ? ` · Asignando para ${DIAS[diaAsig]} ${fmtDate(fechaAsig)}` : '';
+  document.getElementById('dist-info').textContent=`Mostrando ${lista.length} de ${trabajanEseDia.length} personas que trabajan ese día${estAsig}`;
+  const opts=`<option value="">— Sin asignar —</option>`+allZonas().map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join('');
+
+  document.getElementById('dist-body').innerHTML=lista.map(p=>{
+    const zona=dist[p.id]||'';
+    const novs=novsDePersonaHoy(p.id);
+    const est=getEstadoPersona(p,hoy);
+    const zonaOpts=opts.replace(`value="${esc(zona)}"`,`value="${esc(zona)}" selected`);
+    return `<div class="table-row grid-dist">
+      <div>
+        <div class="nombre-cell">${esc(p.nombre)}</div>
+        <div class="sub-cell">${esc(p.jefatura||'—')} · ${esc(p.celular||'—')}</div>
+      </div>
+      <div>${badgeTurno(p.turno)}</div>
+      <div><select class="zona-select${zona?' asignada':''}" onchange="asignarZona('${p.id}',this.value)">${zonaOpts}</select></div>
+      <div>${novs.map(n=>badgeNov(n.tipo)).join(' ')}${est==='Licencia'?badgeEstado('Licencia'):''}<button class="btn btn-gris btn-sm" style="margin-left:4px" onclick="abrirModalNovedad('${p.id}')">+ nov.</button></div>
+      <div><button onclick="abrirModalVer('${p.id}')" style="background:none;border:none;font-size:16px;cursor:pointer">👁</button></div>
+    </div>`;
+  }).join('');
+}
+
+async function asignarZona(pid, zona) {
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');renderDist();return;}
+  const fechaAsig=getFechaAsig();
+  if(!window.distribuciones[fechaAsig]) window.distribuciones[fechaAsig]={};
+  if(zona) window.distribuciones[fechaAsig][pid]=zona;
+  else delete window.distribuciones[fechaAsig][pid];
+  renderDist();
+  // Un timer por persona+fecha: cambiar de fecha o asignar a otra persona
+  // no cancela ningún guardado pendiente, y dos usuarios asignando gente
+  // distinta el mismo día ya no compiten por el mismo documento.
+  if (!window._distTimers) window._distTimers = {};
+  const key = fechaAsig+'|'+pid;
+  clearTimeout(window._distTimers[key]);
+  window._distTimers[key] = setTimeout(async ()=>{
+    await window._guardarAsignacion(fechaAsig, pid, zona);
+  }, 1500);
+}
+
+async function copiarAsignacionAnterior(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const fechaAsig = getFechaAsig();
+
+  // Buscar la última fecha con asignaciones (hasta 30 días atrás)
+  let prevFecha = null;
+  let prevDist  = null;
+  const dt = new Date(fechaAsig+'T12:00:00');
+  for (let i = 1; i <= 30; i++) {
+    dt.setDate(dt.getDate()-1);
+    const f = dt.toISOString().slice(0,10);
+    await window.cargarDistFecha(f);
+    const d = window.distribuciones[f];
+    if (d && Object.keys(d).length > 0) {
+      prevFecha = f; prevDist = d; break;
+    }
+  }
+  if (!prevFecha) { toast('No se encontraron asignaciones anteriores.'); return; }
+  if (!confirm(`¿Copiar asignación del ${fmtDate(prevFecha)} a ${fmtDate(fechaAsig)}?
+
+Se saltearán personas en licencia.`)) return;
+
+  if (!window.distribuciones[fechaAsig]) window.distribuciones[fechaAsig] = {};
+  let copiados = 0, saltados = 0;
+  const batch = window._fBatch(window._db);
+
+  Object.entries(prevDist).forEach(([pid, zona]) => {
+    const persona = window.nomina.find(p=>p.id===pid);
+    if (!persona) return;
+    // No asignar si tiene licencia en la fecha destino (no en "hoy")
+    if (getEstadoPersona(persona, fechaAsig) === 'Licencia') { saltados++; return; }
+    window.distribuciones[fechaAsig][pid] = zona;
+    batch.set(window._fDoc(window._db,'distribuciones',fechaAsig,'asignaciones',pid), { zona, ts: new Date().toISOString() });
+    copiados++;
+  });
+
+  await batch.commit();
+  window._refrescarCacheDist(fechaAsig);
+  renderDist();
+  toast(`✅ Copiadas ${copiados} asignaciones del ${fmtDate(prevFecha)}${saltados>0?' · '+saltados+' en licencia (no asignados)':''}`);
+}
+
+// ============================================================
+//  PANEL NÓMINA
+// ============================================================
+function renderNomina(){
+  const hoy=getFecha();
+  const busq=(document.getElementById('nom-buscar').value||'').toLowerCase();
+  const filtTurno=document.getElementById('nom-turno').value;
+  const filtEst=document.getElementById('nom-estado').value;
+
+  const lista=window.nomina.filter(p=>{
+    if(busq&&!p.nombre.toLowerCase().includes(busq)&&!(p.dni||'').includes(busq)) return false;
+    if(filtTurno&&p.turno!==filtTurno) return false;
+    const est=getEstadoPersona(p,hoy);
+    if(filtEst&&est!==filtEst) return false;
+    return true;
+  });
+
+  document.getElementById('nom-info').textContent=`${lista.length} personas encontradas`;
+  document.getElementById('nom-body').innerHTML=lista.map((p,i)=>{
+    const est=getEstadoPersona(p,hoy);
+    return `<div class="table-row grid-nom" style="${est==='Baja'?'background:#fff5f5':''}">
+      <div>
+        <div class="nombre-cell" style="color:${est==='Baja'?'#c0392b':'#222'}">${esc(p.nombre)}</div>
+        <div class="sub-cell">${esc(p.jefatura||'—')} · ${esc(p.coordinador||'—')}</div>
+      </div>
+      <div>${badgeTurno(p.turno)}</div>
+      <div style="font-size:12px;color:#555">${esc(p.dni||'—')}</div>
+      <div>${badgeEstado(est)}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-gris btn-sm" onclick="abrirModalPersona('${p.id}')">✏️ Edit</button>
+        <button class="btn btn-gris btn-sm" onclick="exportarHistPersonaId('${p.id}')" title="Exportar">📥</button>
+        ${est==='Baja'
+          ?`<button class="btn btn-sm" style="background:#e8f8e8;color:#1b5e20;border:1px solid #a5d6a7" onclick="reactivarPersona('${p.id}')">✅ Reactivar</button>`
+          :`<button class="btn btn-sm" style="background:#fff5f5;color:#c0392b;border:1px solid #ef9a9a" onclick="pedirBaja('${p.id}')">🚫 Baja</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+//  MODAL PERSONA
+// ============================================================
+let _editPersonaId=null;
+function abrirModalPersona(id){
+  _editPersonaId=id;
+  const p=id?window.nomina.find(x=>x.id===id):{id:'',nombre:'',turno:'',cuil:'',dni:'',coordinador:'',jefatura:'',modalidad:'',genero:'',celular:'',agentes_calle:'',estado:'Activo'};
+  document.getElementById('mp-title').textContent=id?'Editar persona':'Nueva persona';
+  document.getElementById('mp-form').innerHTML=`
+    <div class="form-field full"><label class="fl">Apellido y Nombre *</label><input class="form-input" id="fp-nombre" value="${esc(p.nombre||'')}"></div>
+    <div class="form-field"><label class="fl">DNI</label><input class="form-input" id="fp-dni" value="${esc(p.dni||'')}"></div>
+    <div class="form-field"><label class="fl">CUIL</label><input class="form-input" id="fp-cuil" value="${esc(p.cuil||'')}"></div>
+    <div class="form-field"><label class="fl">Turno</label>
+      <select class="form-input" id="fp-turno" onchange="actualizarHorario()">
+        <option value="">—</option>${TURNOS.map(t=>`<option value="${t}" ${p.turno===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-field"><label class="fl">Estado</label>
+      <select class="form-input" id="fp-estado">
+        <option value="Activo" ${p.estado==='Activo'?'selected':''}>Activo</option>
+        <option value="Baja" ${p.estado==='Baja'?'selected':''}>Baja</option>
+      </select>
+    </div>
+    <div class="form-field"><label class="fl">Jefatura</label><input class="form-input" id="fp-jefatura" value="${esc(p.jefatura||'')}"></div>
+    <div class="form-field"><label class="fl">Coordinador</label><input class="form-input" id="fp-coordinador" value="${esc(p.coordinador||'')}"></div>
+    <div class="form-field"><label class="fl">Modalidad</label>
+      <select class="form-input" id="fp-modalidad">
+        <option value="">—</option>
+        ${['CLS','PP','PT','RG'].map(m=>`<option value="${m}" ${p.modalidad===m?'selected':''}>${m}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-field"><label class="fl">Género</label>
+      <select class="form-input" id="fp-genero">
+        <option value="">—</option>
+        <option value="F" ${p.genero==='F'||p.genero==='f'?'selected':''}>F</option>
+        <option value="M" ${p.genero==='M'?'selected':''}>M</option>
+      </select>
+    </div>
+    <div class="form-field"><label class="fl">Celular</label><input class="form-input" id="fp-celular" value="${esc(p.celular||'')}"></div>
+  `;
+  actualizarHorario();
+  document.getElementById('modal-persona-overlay').classList.add('open');
+}
+
+function actualizarHorario(){
+  const t=document.getElementById('fp-turno')?.value;
+  const el=document.getElementById('mp-horario');
+  if(t&&HORARIOS[t]){el.style.display='';el.textContent='⏰ Horario: '+HORARIOS[t];}
+  else el.style.display='none';
+}
+
+async function guardarPersona(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const nombre=(document.getElementById('fp-nombre').value||'').trim();
+  if(!nombre){alert('El nombre es obligatorio.');return;}
+  const datos={
+    nombre:nombre.toUpperCase(),
+    dni:document.getElementById('fp-dni').value.trim(),
+    cuil:document.getElementById('fp-cuil').value.trim(),
+    turno:document.getElementById('fp-turno').value,
+    estado:document.getElementById('fp-estado').value,
+    jefatura:document.getElementById('fp-jefatura').value.trim(),
+    coordinador:document.getElementById('fp-coordinador').value.trim(),
+    modalidad:document.getElementById('fp-modalidad').value,
+    genero:document.getElementById('fp-genero').value,
+    celular:document.getElementById('fp-celular').value.trim(),
+    agentes_calle:''
+  };
+  let personaGuardada;
+  if(_editPersonaId){
+    const idx=window.nomina.findIndex(x=>x.id===_editPersonaId);
+    if(idx>=0) window.nomina[idx]={...window.nomina[idx],...datos};
+    personaGuardada=window.nomina[idx];
+  } else {
+    personaGuardada={...datos, id:Date.now().toString()};
+    window.nomina.push(personaGuardada);
+  }
+  cerrarModal('modal-persona-overlay');
+  renderAll();
+  toast('Guardando…');
+  await window._guardarPersona(personaGuardada);
+  toast('✅ Persona guardada en Firestore');
+}
+
+// ============================================================
+//  BAJAS
+// ============================================================
+let _bajaId=null;
+function pedirBaja(id){
+  const p=window.nomina.find(x=>x.id===id);
+  if(!p) return;
+  _bajaId=id;
+  document.getElementById('baja-nombre').textContent=p.nombre;
+  document.getElementById('baja-motivo').value='';
+  document.getElementById('modal-baja-overlay').classList.add('open');
+}
+async function confirmarBaja(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  if(!_bajaId) return;
+  const motivo=document.getElementById('baja-motivo').value.trim();
+  const idx=window.nomina.findIndex(x=>x.id===_bajaId);
+  if(idx>=0){
+    window.nomina[idx].estado='Baja';
+    window.nomina[idx].motivoBaja=motivo;
+    window.nomina[idx].fechaBaja=getFecha();
+  }
+  cerrarModal('modal-baja-overlay');
+  renderAll();
+  if(idx>=0) await window._guardarPersona(window.nomina[idx]);
+  toast('✅ Baja registrada');
+  _bajaId=null;
+}
+async function reactivarPersona(id){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  if(!confirm('¿Reactivar a esta persona?')) return;
+  const idx=window.nomina.findIndex(x=>x.id===id);
+  if(idx>=0){window.nomina[idx].estado='Activo';delete window.nomina[idx].motivoBaja;delete window.nomina[idx].fechaBaja;}
+  renderAll();
+  if(idx>=0) await window._guardarPersona(window.nomina[idx]);
+  toast('✅ Persona reactivada');
+}
+
+// ============================================================
+//  MODAL NOVEDAD
+// ============================================================
+let _novPersonaId=null, _novTipo=null;
+
+function abrirModalNovedad(pid){
+  _novPersonaId=pid||null;
+  _novTipo=null;
+  // Renderizar tipos dinámicos
+  const TIPO_ICONS = {'Licencia':'📋','Llegada tarde':'⏰','Retiro anticipado':'🚪','Ausencia':'❌','Otro':'📝'};
+  const grid = document.getElementById('mn-tipos-grid');
+  grid.innerHTML = (window.tiposNovedad||[]).map((t,i) => {
+    const icono = TIPO_ICONS[t] || '📌';
+    const esLast = i === (window.tiposNovedad.length - 1) && window.tiposNovedad.length % 2 !== 0;
+    return `<button class="tipo-btn" onclick="selTipo(this,'${esc(t)}')" style="${esLast?'grid-column:1/-1':''}">${icono} ${esc(t)}</button>`;
+  }).join('');
+  _novTipo = null;
+  document.getElementById('mn-detalle').value='';
+  document.getElementById('mn-fecha').value=getFecha();
+  document.getElementById('mn-lic-fechas').style.display='none';
+  document.getElementById('mn-lic-inicio').value=getFecha();
+  document.getElementById('mn-lic-fin').value=getFecha();
+  const input=document.getElementById('mn-persona-input');
+  const selDiv=document.getElementById('mn-persona-seleccionada');
+  if(pid){
+    const p=window.nomina.find(x=>x.id===pid);
+    input.value=''; input.style.display='none';
+    selDiv.style.display=''; selDiv.textContent=p?p.nombre:'—';
+  } else {
+    input.value=''; input.style.display='';
+    selDiv.style.display='none'; _novPersonaId=null;
+  }
+  document.getElementById('mn-title').textContent='Cargar novedad';
+  document.getElementById('mn-fecha').addEventListener('change', function() {
+    // el título se actualiza al guardar
+  });
+  document.getElementById('modal-novedad-overlay').classList.add('open');
+}
+
+function filtrarPersonasAC(){
+  const q=(document.getElementById('mn-persona-input').value||'').toLowerCase();
+  const list=document.getElementById('mn-persona-list');
+  if(!q||q.length<2){list.classList.remove('open');return;}
+  const res=window.nomina.filter(p=>p.estado!=='Baja'&&(p.nombre.toLowerCase().includes(q)||(p.dni||'').includes(q))).slice(0,10);
+  if(!res.length){list.classList.remove('open');return;}
+  list.innerHTML=res.map(p=>`<div class="autocomplete-item" onclick="selPersonaAC('${p.id}','${esc(p.nombre)}')">${esc(p.nombre)} <span style="color:#888;font-size:11px">DNI ${p.dni||'—'}</span></div>`).join('');
+  list.classList.add('open');
+}
+function selPersonaAC(id,nombre){
+  _novPersonaId=id;
+  document.getElementById('mn-persona-input').value=nombre;
+  document.getElementById('mn-persona-list').classList.remove('open');
+}
+function selTipo(btn,tipo){
+  _novTipo=tipo;
+  document.querySelectorAll('.tipo-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  // Mostrar fechas de licencia si el tipo contiene "licencia" (insensible a mayúsculas)
+  document.getElementById('mn-lic-fechas').style.display=tipo.toLowerCase().includes('licencia')?'':'none';
+}
+async function guardarNovedad(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  if(!_novPersonaId){alert('Seleccioná una persona.');return;}
+  if(!_novTipo){alert('Seleccioná el tipo de novedad.');return;}
+  const fechaNov = document.getElementById('mn-fecha').value || getFecha();
+  const nov={id:Date.now().toString(),personaId:_novPersonaId,fecha:fechaNov,tipo:_novTipo,detalle:(document.getElementById('mn-detalle').value||'').trim()};
+  if(_novTipo==='Licencia'){
+    const ini=document.getElementById('mn-lic-inicio').value;
+    const fin=document.getElementById('mn-lic-fin').value;
+    if(!ini||!fin){alert('Completá las fechas.');return;}
+    if(fin<ini){alert('La fecha de fin debe ser igual o posterior al inicio.');return;}
+    nov.licIni=ini; nov.licFin=fin;
+  }
+  window.novedades.push(nov);
+  cerrarModal('modal-novedad-overlay');
+  renderAll();
+  await window._guardarNovedad(nov);
+  toast('✅ Novedad guardada');
+}
+
+// ============================================================
+//  PANEL NOVEDADES
+// ============================================================
+function renderNovedades(){
+  const hoy=getFecha();
+  const busq=(document.getElementById('nov-buscar').value||'').toLowerCase();
+  // Actualizar opciones del select dinámicamente
+  const selTipoEl = document.getElementById('nov-tipo');
+  const curVal = selTipoEl.value;
+  selTipoEl.innerHTML = '<option value="">Todos los tipos</option>' +
+    (window.tiposNovedad||[]).map(t=>`<option value="${esc(t)}" ${curVal===t?'selected':''}>${esc(t)}</option>`).join('');
+  const filtTipo=selTipoEl.value;
+
+  const novHoy=novedadesHoy().filter(n=>{
+    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    return !busq||(p.nombre||'').toLowerCase().includes(busq);
+  });
+  document.getElementById('nov-hoy-title').textContent=`Novedades activas — ${fmtDate(hoy)}`;
+  document.getElementById('nov-hoy-list').innerHTML=novHoy.length?
+    novHoy.map(n=>{
+      const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:'Desconocido'};
+      const extra=n.licIni?` (${fmtDate(n.licIni)} → ${fmtDate(n.licFin)})`:''
+      return `<div style="background:#f9f9f9;border:1px solid var(--bor);border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:13px">${esc(p.nombre)}</span>
+        ${badgeNov(n.tipo)}
+        <span style="font-size:12px;color:#555">${esc(extra)}</span>
+        ${n.detalle?`<span style="font-size:12px;color:#555">${esc(n.detalle)}</span>`:''}
+        <button onclick="borrarNovedad('${n.id}')" style="margin-left:auto;background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer">✕</button>
+      </div>`;
+    }).join('')
+    :`<div style="color:#aaa;font-size:13px;padding:8px 0">Sin novedades activas para hoy.</div>`;
+
+  const hist=[...window.novedades].reverse().filter(n=>{
+    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    if(busq&&!(p.nombre||'').toLowerCase().includes(busq)) return false;
+    if(filtTipo&&n.tipo!==filtTipo) return false;
+    return true;
+  }).slice(0,150);
+
+  document.getElementById('nov-body').innerHTML=hist.map((n,i)=>{
+    const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:'—'};
+    const extra=n.licIni?`${fmtDate(n.licIni)}→${fmtDate(n.licFin)}`:'';
+    return `<div class="table-row grid-hist" style="${i%2===0?'':'background:#fafafa'}">
+      <span style="font-size:12px;color:#777">${fmtDate(n.fecha)}</span>
+      <span style="font-size:13px;font-weight:600">${esc(p.nombre)}</span>
+      ${badgeNov(n.tipo)}
+      <span style="font-size:12px;color:#555">${esc(n.detalle||extra||'—')}</span>
+      <button onclick="borrarNovedad('${n.id}')" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:13px">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function borrarNovedad(id){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  if(!confirm('¿Eliminar esta novedad?')) return;
+  window.novedades=window.novedades.filter(n=>n.id!==id);
+  renderAll();
+  await window._eliminarNovedad(id);
+  toast('Novedad eliminada');
+}
+
+// ============================================================
+//  PANEL ZONAS
+// ============================================================
+function renderZonas(){
+  const hoy=getFecha();
+  const dist=getDistHoy();
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja');
+  const novHoy=novedadesHoy();
+  const idc={};
+  novHoy.forEach(n=>{if(!idc[n.personaId])idc[n.personaId]=[];idc[n.personaId].push(n);});
+
+  document.getElementById('zonas-grid').innerHTML=allZonas().map(zona=>{
+    const personas=activos.filter(p=>dist[p.id]===zona);
+    return `<div class="zona-card">
+      <div class="zona-card-head" style="${zona.startsWith('PARTIDO')||zona.startsWith('EVENTO')?'background:#e67e22':''}">
+        <span>${zona.startsWith('PARTIDO')?'⚽ ':''}${esc(zona)}</span>
+        <span class="zona-count">${personas.length}</span>
+      </div>
+      <div class="zona-card-body">
+        ${personas.length===0?`<div class="zona-empty">Sin personal asignado</div>`:
+          personas.map(p=>{
+            const novP=idc[p.id]||[];
+            return `<div class="zona-persona">
+              <span style="font-weight:600">${esc(p.nombre)}</span>
+              <div>${badgeTurno(p.turno)} ${novP.map(n=>badgeNov(n.tipo)).join(' ')}</div>
+            </div>`;
+          }).join('')
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+//  CONFIGURACIÓN ZONAS
+// ============================================================
+function renderConfigZonas(){
+  renderFeriados();
+  renderTiposNovedad();
+  const lista=document.getElementById('zonas-lista');
+  if(!lista) return;
+  lista.innerHTML=(window.zonas||[]).map((z,i)=>`
+    <div class="zona-tag">
+      <span contenteditable="true" onblur="renombrarZona(${i},this.textContent)">${esc(z)}</span>
+      <button class="del-zona" onclick="eliminarZona(${i})">×</button>
+    </div>
+  `).join('');
+  poblarDistZonaFiltro();
+}
+
+// ============================================================
+//  ASIGNACIÓN MASIVA
+// ============================================================
+function abrirModalMasivo(){
+  // Poblar select de turnos
+  const selTurno=document.getElementById('mas-turno');
+  selTurno.innerHTML='<option value="">Todos los turnos</option>'+
+    TURNOS.map(t=>`<option value="${t}">${t}</option>`).join('');
+
+  // Poblar select de zonas
+  const selZona=document.getElementById('mas-zona');
+  selZona.innerHTML='<option value="">— Sin asignar (quitar zona) —</option>'+
+    allZonas().map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join('');
+
+  renderMasivoLista();
+  document.getElementById('modal-masivo-overlay').classList.add('open');
+}
+
+function renderMasivoLista(){
+  const hoy=getFecha();
+  const filtTurno=document.getElementById('mas-turno').value;
+  const dist=getDistHoy();
+  const personas=window.nomina.filter(p=>{
+    if(getEstadoPersona(p,hoy)==='Baja') return false;
+    if(filtTurno && p.turno!==filtTurno) return false;
+    return true;
+  });
+  const lista=document.getElementById('mas-lista');
+  lista.innerHTML=personas.map(p=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px">
+      <input type="checkbox" class="mas-check" value="${p.id}" checked style="width:15px;height:15px;cursor:pointer">
+      <span style="flex:1;font-weight:600">${esc(p.nombre)}</span>
+      <span class="badge ${TURNO_BADGE[p.turno]||'bdg-admin'}" style="font-size:10px">${esc(p.turno||'—')}</span>
+      ${dist[p.id]?`<span style="font-size:11px;color:#888">${esc(dist[p.id])}</span>`:''}
+    </label>
+  `).join('');
+  actualizarCountMasivo();
+}
+
+function masSelectAll(checked){
+  document.querySelectorAll('.mas-check').forEach(cb=>cb.checked=checked);
+  actualizarCountMasivo();
+}
+
+function actualizarCountMasivo(){
+  const total=document.querySelectorAll('.mas-check').length;
+  const sel=document.querySelectorAll('.mas-check:checked').length;
+  document.getElementById('mas-count').textContent=`${sel} de ${total} seleccionados`;
+}
+
+async function aplicarMasivo(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const zona=document.getElementById('mas-zona').value;
+  const fechaAsig=getFechaAsig();
+  const checks=document.querySelectorAll('.mas-check:checked');
+  if(!checks.length){toast('No hay personas seleccionadas.');return;}
+  if(!window.distribuciones[fechaAsig]) window.distribuciones[fechaAsig]={};
+  let count=0;
+  const batch=window._fBatch(window._db);
+  checks.forEach(cb=>{
+    const pid=cb.value;
+    if(zona){
+      window.distribuciones[fechaAsig][pid]=zona;
+      batch.set(window._fDoc(window._db,'distribuciones',fechaAsig,'asignaciones',pid), { zona, ts: new Date().toISOString() });
+    } else {
+      delete window.distribuciones[fechaAsig][pid];
+      batch.delete(window._fDoc(window._db,'distribuciones',fechaAsig,'asignaciones',pid));
+    }
+    count++;
+  });
+  cerrarModal('modal-masivo-overlay');
+  renderDist();
+  toast(`✅ ${count} personas asignadas a "${zona||'Sin asignar'}" para ${fmtDate(fechaAsig)}`);
+  await batch.commit();
+  window._refrescarCacheDist(fechaAsig);
+}
+
+// Actualizar count al hacer click en checkbox
+document.addEventListener('change',function(e){
+  if(e.target.classList.contains('mas-check')) actualizarCountMasivo();
+});
+
+async function agregarZona(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const inp=document.getElementById('nueva-zona-input');
+  const val=(inp.value||'').trim().toUpperCase();
+  if(!val){alert('Ingresá un nombre para la zona.');return;}
+  if(window.zonas.includes(val)){alert('Esa zona ya existe.');return;}
+  window.zonas.push(val);
+  inp.value='';
+  renderAll();
+  await window._guardarZonas();
+  toast('✅ Zona agregada: '+val);
+}
+
+// ============================================================
+//  FERIADOS
+// ============================================================
+const FERIADOS_AR = [
+  // 2025
+  '2025-01-01','2025-03-03','2025-03-04','2025-04-02','2025-04-17','2025-04-18',
+  '2025-05-01','2025-05-25','2025-06-16','2025-06-20','2025-07-09','2025-08-17',
+  '2025-10-12','2025-11-21','2025-11-24','2025-12-08','2025-12-25',
+  // 2026
+  '2026-01-01','2026-02-16','2026-02-17','2026-04-02','2026-04-03','2026-04-09',
+  '2026-05-01','2026-05-25','2026-06-15','2026-06-20','2026-07-09','2026-08-17',
+  '2026-10-12','2026-11-20','2026-11-23','2026-12-08','2026-12-25'
+];
+const FERIADOS_DESC = {
+  '2025-01-01':'Año Nuevo','2025-03-03':'Carnaval','2025-03-04':'Carnaval',
+  '2025-04-02':'Malvinas','2025-04-17':'Jueves Santo','2025-04-18':'Viernes Santo',
+  '2025-05-01':'Día del Trabajador','2025-05-25':'Revolución de Mayo',
+  '2025-06-16':'Feriado Puente','2025-06-20':'Paso a la Inmortalidad',
+  '2025-07-09':'Independencia','2025-08-17':'San Martín',
+  '2025-10-12':'Día de la Diversidad','2025-11-21':'Feriado Puente',
+  '2025-11-24':'Feriado Puente','2025-12-08':'Inmaculada Concepción','2025-12-25':'Navidad',
+  '2026-01-01':'Año Nuevo','2026-02-16':'Carnaval','2026-02-17':'Carnaval',
+  '2026-04-02':'Malvinas','2026-04-03':'Viernes Santo','2026-04-09':'Jueves Santo',
+  '2026-05-01':'Día del Trabajador','2026-05-25':'Revolución de Mayo',
+  '2026-06-15':'Feriado Puente','2026-06-20':'Paso a la Inmortalidad',
+  '2026-07-09':'Independencia','2026-08-17':'San Martín',
+  '2026-10-12':'Día de la Diversidad','2026-11-20':'Soberanía',
+  '2026-11-23':'Feriado Puente','2026-12-08':'Inmaculada Concepción','2026-12-25':'Navidad',
+};
+
+function renderFeriados() {
+  const lista = document.getElementById('feriados-lista');
+  if (!lista) return;
+  const hoy = todayISO();
+  const sorted = [...(window.feriados||[])].sort();
+  if (!sorted.length) {
+    lista.innerHTML = '<span style="font-size:.8rem;color:#aaa">Sin feriados cargados.</span>';
+    return;
+  }
+  lista.innerHTML = sorted.map(f => {
+    const pasado = f < hoy;
+    const desc = (window.feriadosDesc||{})[f] || '';
+    return `<div class="zona-tag" style="opacity:${pasado?'.5':'1'}">
+      <span style="font-size:.8rem">
+        <strong>${fmtDate(f)}</strong>${desc?' · '+esc(desc):''}
+        ${pasado?' <em style="color:#aaa;font-size:.7rem">(pasado)</em>':''}
+      </span>
+      <button class="del-zona" onclick="eliminarFeriado('${f}')" title="Eliminar">×</button>
+    </div>`;
+  }).join('');
+}
+
+async function agregarFeriado() {
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const fecha = document.getElementById('feriado-fecha').value;
+  const desc  = (document.getElementById('feriado-desc').value||'').trim();
+  if (!fecha) { alert('Seleccioná una fecha.'); return; }
+  if ((window.feriados||[]).includes(fecha)) { alert('Ese día ya está marcado como feriado.'); return; }
+  if (!window.feriados) window.feriados = [];
+  if (!window.feriadosDesc) window.feriadosDesc = {};
+  window.feriados.push(fecha);
+  if (desc) window.feriadosDesc[fecha] = desc;
+  document.getElementById('feriado-fecha').value = '';
+  document.getElementById('feriado-desc').value  = '';
+  renderFeriados();
+  renderDist();
+  await guardarFeriadosFirebase();
+  showFeriadoToast(`✅ Feriado ${fmtDate(fecha)} agregado.`);
+}
+
+async function eliminarFeriado(fecha) {
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  if (!confirm(`¿Quitar ${fmtDate(fecha)} de la lista de feriados?`)) return;
+  window.feriados = (window.feriados||[]).filter(f=>f!==fecha);
+  if (window.feriadosDesc) delete window.feriadosDesc[fecha];
+  renderFeriados();
+  renderDist();
+  await guardarFeriadosFirebase();
+}
+
+async function precargarFeriados() {
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  if (!confirm('Precargar feriados AR 2025-2026. Se agregaran los que no esten ya cargados.')) return;
+  if (!window.feriados) window.feriados = [];
+  if (!window.feriadosDesc) window.feriadosDesc = {};
+  let agregados = 0;
+  FERIADOS_AR.forEach(f => {
+    if (!window.feriados.includes(f)) {
+      window.feriados.push(f);
+      window.feriadosDesc[f] = FERIADOS_DESC[f] || '';
+      agregados++;
+    }
+  });
+  renderFeriados();
+  renderDist();
+  await guardarFeriadosFirebase();
+  showFeriadoToast(`✅ ${agregados} feriados precargados.`);
+}
+
+async function guardarFeriadosFirebase() {
+  await window._guardarFeriados(window.feriados, window.feriadosDesc||{});
+}
+
+function showFeriadoToast(msg) {
+  const t = document.getElementById('feriados-toast');
+  if (!t) return;
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(()=>t.style.display='none', 3000);
+}
+
+// ── TIPOS DE NOVEDAD ──────────────────────────────────────────────────────
+function renderTiposNovedad() {
+  const lista = document.getElementById('tipos-nov-lista');
+  if (!lista) return;
+  const FIJOS = ['Licencia','Llegada tarde','Retiro anticipado','Ausencia','Otro'];
+  lista.innerHTML = (window.tiposNovedad||[]).map((t,i) => {
+    const esFijo = FIJOS.includes(t);
+    return `<div class="zona-tag">
+      <span contenteditable="${!esFijo}" onblur="renombrarTipoNov(${i},this.textContent)" title="${esFijo?'Tipo predeterminado':'Clic para editar'}">${esc(t)}</span>
+      ${!esFijo ? `<button class="del-zona" onclick="eliminarTipoNov(${i})" title="Eliminar">×</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function agregarTipoNov() {
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const inp = document.getElementById('nuevo-tipo-input');
+  const val = (inp.value||'').trim();
+  if (!val) { alert('Ingresá un nombre para el tipo.'); return; }
+  if (window.tiposNovedad.map(t=>t.toLowerCase()).includes(val.toLowerCase())) {
+    alert('Ese tipo ya existe.'); return;
+  }
+  window.tiposNovedad.push(val);
+  inp.value = '';
+  renderTiposNovedad();
+  await window._guardarTiposNovedad();
+  const t = document.getElementById('tipos-nov-toast');
+  t.textContent = '✅ Tipo "'+val+'" agregado.';
+  t.style.display = 'block';
+  setTimeout(()=>t.style.display='none', 2500);
+}
+
+async function eliminarTipoNov(idx) {
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const t = window.tiposNovedad[idx];
+  if (!confirm(`¿Eliminar el tipo "${t}"?`)) return;
+  window.tiposNovedad.splice(idx,1);
+  renderTiposNovedad();
+  await window._guardarTiposNovedad();
+}
+
+async function renombrarTipoNov(idx, nuevoNombre) {
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');renderTiposNovedad();return;}
+  const n = (nuevoNombre||'').trim();
+  if (!n || n === window.tiposNovedad[idx]) return;
+  if (window.tiposNovedad.some((t,i)=>i!==idx&&t.toLowerCase()===n.toLowerCase())) {
+    alert('Ya existe ese tipo.'); return;
+  }
+  window.tiposNovedad[idx] = n;
+  await window._guardarTiposNovedad();
+  renderTiposNovedad();
+}
+async function eliminarZona(idx){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const z=window.zonas[idx];
+  if(!confirm(`¿Eliminar la zona "${z}"?`)) return;
+  window.zonas.splice(idx,1);
+  renderAll();
+  await window._guardarZonas();
+  toast('Zona eliminada');
+}
+async function renombrarZona(idx,nuevoNombre){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');renderAll();return;}
+  const n=(nuevoNombre||'').trim().toUpperCase();
+  if(!n||n===window.zonas[idx]) return;
+  if(window.zonas.some((z,i)=>i!==idx&&z===n)){alert('Ya existe una zona con ese nombre.');return;}
+  window.zonas[idx]=n;
+  await window._guardarZonas();
+  renderAll();
+}
+
+// ============================================================
+//  MODAL VER PERSONA
+// ============================================================
+let _verPersonaId=null;
+function abrirModalVer(id){
+  _verPersonaId=id;
+  const p=window.nomina.find(x=>x.id===id);
+  if(!p) return;
+  const hoy=getFecha();
+  const est=getEstadoPersona(p,hoy);
+  document.getElementById('mv-title').textContent=p.nombre+' · '+est;
+  document.getElementById('mv-ficha').innerHTML=[
+    ['Turno',badgeTurno(p.turno)],['Estado',badgeEstado(est)],
+    ['DNI',esc(p.dni||'—')],['CUIL',esc(p.cuil||'—')],
+    ['Jefatura',esc(p.jefatura||'—')],['Coordinador',esc(p.coordinador||'—')],
+    ['Modalidad',esc(p.modalidad||'—')],['Celular',esc(p.celular||'—')],
+  ].map(([k,v])=>`<div class="ficha-item"><div class="ficha-key">${k}</div><div class="ficha-val">${v}</div></div>`).join('');
+
+  const novP=[...window.novedades].filter(n=>n.personaId===id).reverse().slice(0,10);
+  document.getElementById('mv-novs').innerHTML=novP.length?
+    novP.map(n=>`<div class="hist-row">${badgeNov(n.tipo)} <strong>${fmtDate(n.fecha)}</strong>${n.licIni?` (${fmtDate(n.licIni)}→${fmtDate(n.licFin)})`:''} ${n.detalle?'· '+esc(n.detalle):''}</div>`).join('')
+    :`<div style="color:#aaa;font-size:12px">Sin novedades.</div>`;
+
+  const distHist=Object.keys(window.distribuciones).filter(d=>window.distribuciones[d][id]).sort().reverse().slice(0,15);
+  document.getElementById('mv-zonas').innerHTML=distHist.length?
+    distHist.map(d=>`<div class="hist-row"><strong>${fmtDate(d)}</strong> — ${esc(window.distribuciones[d][id])}</div>`).join('')
+    :`<div style="color:#aaa;font-size:12px">Sin historial de zonas.</div>`;
+
+  document.getElementById('modal-ver-overlay').classList.add('open');
+}
+function exportarHistPersona(){exportarHistPersonaId(_verPersonaId);}
+function exportarHistPersonaId(id){
+  const p=window.nomina.find(x=>x.id===id);
+  if(!p) return;
+  const dists=Object.keys(window.distribuciones).filter(d=>window.distribuciones[d][id]).sort().reverse().map(d=>({
+    'Fecha':d,
+    'Zona':window.distribuciones[d][id],
+    'Novedades':window.novedades.filter(n=>n.personaId===id&&n.fecha===d).map(n=>n.tipo).join('; ')||''
+  }));
+  if(!dists.length){toast('Sin historial para exportar.');return;}
+  const ws=XLSX.utils.json_to_sheet(dists);
+  ws['!cols']=[{wch:12},{wch:22},{wch:40}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'HISTORIAL');
+  XLSX.writeFile(wb,`historial_${p.nombre.replace(/ /g,'_')}.xlsx`);
+  toast('✅ Historial exportado');
+}
+
+// ============================================================
+//  MODAL EVENTO
+// ============================================================
+function abrirModalEvento(){
+  document.getElementById('ev-nombre').value='';
+  document.getElementById('modal-evento-overlay').classList.add('open');
+}
+async function guardarEvento(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const nombre=(document.getElementById('ev-nombre').value||'').trim();
+  if(!nombre){alert('Ingresá un nombre para el evento.');return;}
+  const tipo=document.getElementById('ev-tipo').value;
+  window.eventos.push({id:Date.now().toString(),nombre,tipo,fecha:getFecha()});
+  cerrarModal('modal-evento-overlay');
+  renderAll();
+  await window._guardarEventos();
+  toast('✅ Evento registrado');
+}
+
+// ============================================================
+//  CERRAR MODALES
+// ============================================================
+function cerrarModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='loginOverlay')o.classList.remove('open');}));
+document.addEventListener('click',e=>{
+  const list=document.getElementById('mn-persona-list');
+  if(list&&!list.parentElement.contains(e.target)) list.classList.remove('open');
+});
+
+// ============================================================
+//  EXPORTACIONES
+// ============================================================
+function exportarDia(){
+  const hoy=getFecha(); const dist=getDistHoy();
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja');
+  const rows=activos.filter(p=>dist[p.id]).map(p=>({
+    'Nombre':p.nombre,'Turno':p.turno,'Zona':dist[p.id]||'',
+    'Jefatura':p.jefatura||'','Coordinador':p.coordinador||'',
+    'Celular':p.celular||'','Novedad':novsDePersonaHoy(p.id).map(n=>n.tipo).join(', ')||''
+  }));
+  if(!rows.length){toast('Sin personal asignado para exportar.');return;}
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:35},{wch:16},{wch:20},{wch:18},{wch:30},{wch:14},{wch:25}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'DISTRIBUCIÓN');
+  XLSX.writeFile(wb,`nomina_dia_${hoy}.xlsx`);
+  toast('✅ Nómina del día exportada');
+}
+function exportarActivos(){
+  const hoy=getFecha();
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)==='Activo');
+  exportNominaExcel(activos, `nomina_activos_${hoy}.xlsx`, 'ACTIVOS');
+}
+function exportarNominaCompleta(){
+  const hoy=getFecha();
+  exportNominaExcel(window.nomina, `nomina_completa_${hoy}.xlsx`, 'NOMINA COMPLETA');
+}
+function exportarHistorialNovedades(){
+  const rows=[...window.novedades].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
+    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    return {
+      'Fecha':          n.fecha,
+      'Apellido y Nombre': p.nombre||n.personaId,
+      'Turno':          p.turno||'',
+      'DNI':            p.dni||'',
+      'Tipo':           n.tipo,
+      'Inicio Licencia':n.licIni||'',
+      'Fin Licencia':   n.licFin||'',
+      'Detalle':        n.detalle||''
+    };
+  });
+  if (!rows.length) { toast('Sin novedades para exportar.'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // Ancho de columnas
+  ws['!cols'] = [
+    {wch:12},{wch:35},{wch:18},{wch:12},{wch:20},{wch:14},{wch:14},{wch:40}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'NOVEDADES');
+  const hoy = todayISO();
+  XLSX.writeFile(wb, `historial_novedades_${hoy}.xlsx`);
+  toast('✅ Historial exportado en Excel');
+}
+function exportarResumenZonas(){
+  const hoy=getFecha();
+  const fechaAsig=getFechaAsig();
+  const dist=getDistAsig();
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja');
+
+  // Usar SheetJS para formato visual
+  const wb = XLSX.utils.book_new();
+  const aoa = []; // array of arrays
+
+  const fechaObj = new Date(fechaAsig+'T12:00:00');
+  const DIAS = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
+  const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const diaNombre = DIAS[fechaObj.getDay()];
+  const diaNum    = fechaObj.getDate();
+  const mesNombre = MESES[fechaObj.getMonth()];
+  const anio      = fechaObj.getFullYear();
+
+  // Agrupar personas por zona
+  const zonaMap = {};
+  allZonas().forEach(z => { zonaMap[z] = []; });
+  activos.forEach(p => { if(dist[p.id] && zonaMap[dist[p.id]]) zonaMap[dist[p.id]].push(p); });
+  const zonasConPersonas = Object.entries(zonaMap).filter(([z,ps])=>ps.length>0);
+
+  // --- ENCABEZADO ---
+  aoa.push([]);
+  aoa.push(['', diaNombre]);
+  aoa.push([]);
+  aoa.push([]);
+  aoa.push([]);
+  aoa.push(['', `${diaNum} de ${mesNombre} de ${anio}`]);
+  aoa.push([]);
+
+  // --- ZONAS EN COLUMNAS (de a 2 columnas por zona: datos | vacía) ---
+  const COLS_POR_ZONA = 2;
+  const ZONAS_POR_FILA = 4; // 4 zonas por bloque horizontal
+  const bloques = [];
+  for (let i=0; i < zonasConPersonas.length; i+=ZONAS_POR_FILA) {
+    bloques.push(zonasConPersonas.slice(i, i+ZONAS_POR_FILA));
+  }
+
+  bloques.forEach(bloque => {
+    // Fila de nombres de zona
+    const filaZona = [''];
+    bloque.forEach(([zona, ps]) => {
+      filaZona.push(`${zona} (${ps.length})`);
+      filaZona.push('');
+    });
+    aoa.push(filaZona);
+
+    // Filas de personas
+    const maxPersonas = Math.max(...bloque.map(([,ps])=>ps.length));
+    for (let i=0; i<maxPersonas; i++) {
+      const fila = [''];
+      bloque.forEach(([zona, ps]) => {
+        const p = ps[i];
+        fila.push(p ? p.nombre : '');
+        fila.push('');
+      });
+      aoa.push(fila);
+    }
+    aoa.push([]); // espacio entre bloques
+  });
+
+  // --- LISTA COMPLETA (columna I en adelante) ---
+  const colListaStart = ZONAS_POR_FILA * COLS_POR_ZONA + 2;
+  // Inyectar en fila 8 (índice 7): header lista
+  while (aoa.length < 8) aoa.push([]);
+  const headerListaFila = 7;
+  while (aoa[headerListaFila].length < colListaStart) aoa[headerListaFila].push('');
+  aoa[headerListaFila][colListaStart] = 'Lista de Inspectores';
+
+  // Llenar personas de la lista al lado del resumen (todas las asignadas, ordenadas alfabéticamente)
+  const todasAsignadas = activos
+    .filter(p=>dist[p.id])
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  todasAsignadas.forEach((p,i) => {
+    const filaIdx = headerListaFila + 1 + i;
+    while (aoa.length <= filaIdx) aoa.push([]);
+    while (aoa[filaIdx].length < colListaStart) aoa[filaIdx].push('');
+    aoa[filaIdx][colListaStart] = p.nombre;
+    aoa[filaIdx][colListaStart+1] = p.turno;
+    aoa[filaIdx][colListaStart+2] = dist[p.id];
+  });
+
+  // --- RESUMEN LATERAL (conteo por zona) ---
+  const colResStart = colListaStart + 4;
+  const zonaHeader = 6;
+  while (aoa[zonaHeader].length < colResStart) aoa[zonaHeader].push('');
+  aoa[zonaHeader][colResStart] = 'ZONA';
+  aoa[zonaHeader][colResStart+1] = 'CANT.';
+  zonasConPersonas.forEach(([zona, ps], i) => {
+    const filaIdx = zonaHeader + 1 + i;
+    while (aoa.length <= filaIdx) aoa.push([]);
+    while (aoa[filaIdx].length < colResStart) aoa[filaIdx].push('');
+    aoa[filaIdx][colResStart] = zona;
+    aoa[filaIdx][colResStart+1] = ps.length;
+  });
+  // Total
+  const totalFila = zonaHeader + 1 + zonasConPersonas.length;
+  while (aoa.length <= totalFila) aoa.push([]);
+  while (aoa[totalFila].length < colResStart) aoa[totalFila].push('');
+  aoa[totalFila][colResStart] = 'TOTAL';
+  aoa[totalFila][colResStart+1] = todasAsignadas.length;
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  // Anchos de columna
+  const colWidths = [];
+  for (let i=0; i<colResStart+3; i++) {
+    if (i===0) colWidths.push({wch:2});
+    else if (i % 2 === 1 && i < colListaStart) colWidths.push({wch:28});
+    else if (i % 2 === 0 && i < colListaStart) colWidths.push({wch:2});
+    else if (i === colListaStart) colWidths.push({wch:35});
+    else if (i === colListaStart+1) colWidths.push({wch:16});
+    else if (i === colListaStart+2) colWidths.push({wch:22});
+    else if (i === colResStart) colWidths.push({wch:25});
+    else colWidths.push({wch:8});
+  }
+  ws['!cols'] = colWidths;
+
+  XLSX.utils.book_append_sheet(wb, ws, 'DISTRIBUCIÓN');
+  XLSX.writeFile(wb, `distribucion_${fechaAsig}.xlsx`);
+  toast('✅ Resumen de zonas exportado');
+}
+function exportarPorZona(){exportarResumenZonas();}
+
+// ============================================================
+//  EXPORTAR NÓMINA EXCEL COMPLETO
+// ============================================================
+function exportNominaExcel(personas, filename, sheetName) {
+  const TURNO_DESC = {
+    'Turno Mañana':  'Lun–Vie días hábiles 07–14 hs',
+    'Turno Tarde':   'Lun–Vie días hábiles 13–20 hs',
+    'Turno Noche':   'Lun–Jue sin importar feriados 19–01 hs',
+    'SADOFE Diurno': 'Sáb–Dom–Feriados 07–19 hs (10 hs ef.)',
+    'SADOFE Noche':  'Vie–Sáb–Dom 19–01 hs',
+    'Administrativo':'Administrativo',
+    'Gerencia':      'Gerencia',
+  };
+
+  const hoy = getFecha();
+
+  // Columnas y su orden
+  const COLS = [
+    { k:'nombre',             h:'APELLIDO Y NOMBRE'          },
+    { k:'estado',             h:'ESTADO'                     },
+    { k:'turno',              h:'TURNO'                      },
+    { k:'_turnoDesc',         h:'DESCRIPCIÓN TURNO'          },
+    { k:'dni',                h:'DNI'                        },
+    { k:'cuil',               h:'CUIL'                       },
+    { k:'cbu',                h:'CBU'                        },
+    { k:'jefatura',           h:'JEFATURA'                   },
+    { k:'coordinador',        h:'COORDINADOR'                },
+    { k:'modalidad',          h:'MODALIDAD'                  },
+    { k:'genero',             h:'GÉNERO'                     },
+    { k:'fechaNacimiento',    h:'FECHA NACIMIENTO'           },
+    { k:'fechaIngreso',       h:'FECHA INGRESO'              },
+    { k:'celular',            h:'CELULAR PARTICULAR'         },
+    { k:'mailPersonal',       h:'MAIL PERSONAL'              },
+    { k:'mailInstitucional',  h:'MAIL INSTITUCIONAL'         },
+    { k:'oficinaCalle',       h:'OFICINA/CALLE'              },
+    { k:'semanaFds',          h:'SEMANA/FDS'                 },
+    { k:'horario',            h:'HORARIO'                    },
+    { k:'contactoEmergencia', h:'CONTACTO EMERGENCIA'        },
+    { k:'telEmergencia',      h:'TEL. EMERGENCIA'            },
+    { k:'domicilio',          h:'DOMICILIO'                  },
+    { k:'cabaPba',            h:'CABA/PBA'                   },
+    { k:'barrio',             h:'BARRIO/LOCALIDAD'           },
+    { k:'comuna',             h:'COMUNA'                     },
+    { k:'agentes_calle',      h:'AGENTES EN CALLE'           },
+    { k:'chaleco',            h:'CHALECO'                    },
+    { k:'talle',              h:'TALLE'                      },
+    { k:'leyLucio',           h:'LEY LUCIO'                  },
+    { k:'leyYolanda',         h:'LEY YOLANDA'                },
+    { k:'leyMicaela',         h:'LEY MICAELA'                },
+    { k:'leyDiscapacidad',    h:'LEY DISCAPACIDAD'           },
+    { k:'celularFlota',       h:'CELULAR FLOTA'              },
+    { k:'imei',               h:'IMEI'                       },
+    { k:'motivoBaja',         h:'MOTIVO BAJA'                },
+    { k:'fechaBaja',          h:'FECHA BAJA'                 },
+  ];
+
+  // Construir filas
+  const rows = personas.map(p => {
+    const est = getEstadoPersona(p, hoy);
+    const row = {};
+    COLS.forEach(c => {
+      if (c.k === '_turnoDesc') row[c.h] = TURNO_DESC[p.turno] || '';
+      else if (c.k === 'estado') row[c.h] = est;
+      else row[c.h] = p[c.k] || '';
+    });
+    return row;
+  });
+
+  // Crear workbook con XLSX.js
+  const ws = XLSX.utils.json_to_sheet(rows, { header: COLS.map(c=>c.h) });
+
+  // Ancho de columnas
+  const colWidths = COLS.map(c => ({
+    wch: Math.max(c.h.length, 14)
+  }));
+  colWidths[0].wch = 35; // Nombre más ancho
+  colWidths[2].wch = 18; // Turno
+  colWidths[3].wch = 38; // Descripción turno
+  ws['!cols'] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName || 'NOMINA');
+  XLSX.writeFile(wb, filename);
+  toast('✅ Excel exportado: ' + filename);
+}
+
+// ============================================================
+//  BACKUP
+// ============================================================
+function exportarBackup(){
+  const data={nomina:window.nomina,novedades:window.novedades,zonas:window.zonas,eventos:window.eventos,fecha:new Date().toISOString()};
+  const b=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download=`backup_personal_${todayISO()}.json`;a.click();
+  toast('✅ Backup exportado');
+}
+
+async function limpiarDistribuciones(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const snap = await window._fGetDocs(window._fColGroup(window._db,'asignaciones'));
+  await Promise.all(snap.docs.map(d => window._fDelDoc(d.ref)));
+  window.distribuciones={};
+  toast('✅ Distribuciones eliminadas de Firestore');
+}
+
+// ============================================================
+//  CARGA NÓMINA DESDE EXCEL
+// ============================================================
+let _nominaFile = null;
+
+function onNominaFile(input) {
+  _nominaFile = input.files[0];
+  const fc  = document.getElementById('nominaFileChosen');
+  const btn = document.getElementById('nominaLoadBtn');
+  if (_nominaFile) {
+    fc.textContent = '📄 ' + _nominaFile.name;
+    fc.style.display = 'inline-block';
+    btn.disabled = false; btn.style.opacity = '1';
+  }
+}
+
+async function cargarNominaExcel() {
+  if (!_nominaFile) return;
+  if(!puedeEditar()){alert('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const btn   = document.getElementById('nominaLoadBtn');
+  const toast = document.getElementById('nominaToast');
+  const pfill = document.getElementById('nominaPfill');
+  const pwrap = document.getElementById('nominaPwrap');
+
+  btn.disabled = true; btn.textContent = 'Procesando…';
+  toast.style.display = 'none';
+  pwrap.style.display = 'block'; pfill.style.width = '5%';
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+
+      // ── Parsear hoja ACTIVOS ──────────────────────────────────────────
+      const wsActivos = wb.Sheets['NOMINA VENTA ILEGAL DGFIS'];
+      if (!wsActivos) throw new Error('No se encontró la hoja "NOMINA VENTA ILEGAL DGFIS"');
+      const rowsActivos = XLSX.utils.sheet_to_json(wsActivos, {defval:null});
+
+      // ── Parsear hoja BAJAS ────────────────────────────────────────────
+      const wsBajas = wb.Sheets['BAJAS'];
+      const rowsBajas = wsBajas ? XLSX.utils.sheet_to_json(wsBajas, {defval:null}) : [];
+
+      pfill.style.width = '20%';
+
+      function fmtFechaExcel(val) {
+        if (!val) return '';
+        if (val instanceof Date) return val.toISOString().slice(0,10);
+        const d = new Date(val);
+        return isNaN(d) ? String(val) : d.toISOString().slice(0,10);
+      }
+      function cv(v) { return v !== null && v !== undefined ? String(v).trim() : ''; }
+      function cvNum(v) {
+        if (!v) return '';
+        const s = String(v).replace(/\.0+$/, '').trim();
+        if (s.includes('e+') || s.includes('E+')) {
+          return Math.round(parseFloat(s)).toString();
+        }
+        return s;
+      }
+
+      // Normalizar turnos del Excel al formato interno
+      const TURNO_MAP = {
+        'TURNO MAÑANA':           'Turno Mañana',
+        'TURNO MAÑANA ':          'Turno Mañana',
+        'TURNO TARDE':            'Turno Tarde',
+        'TURNO TARDE ':           'Turno Tarde',
+        'TURNO NOCHE':            'Turno Noche',
+        'SAB-DOM Y FERIADOS':     'SADOFE Diurno',
+        'VIER-SAB-DOM':           'SADOFE Noche',
+        'ADMINISTRATIVO/A':       'Administrativo',
+        'GERENCIA':               'Gerencia',
+        'GERENTE OPERATIVO':      'Gerencia',
+        'SUB GERENTE OPERATIVO':  'Gerencia',
+      };
+      function normTurno(v) {
+        const k = (v||'').toString().trim().toUpperCase();
+        return TURNO_MAP[k] || cv(v);
+      }
+
+      // Construir mapa por DNI de los existentes en Firestore
+      const existMap = {};
+      window.nomina.forEach(p => { if(p.dni) existMap[p.dni] = p; });
+
+      let nuevos = 0, actualizados = 0;
+      const registrosExcel = [];
+
+      // ── Procesar activos ──────────────────────────────────────────────
+      rowsActivos.forEach((row, i) => {
+        const nombre = cv(row['APELLIDO Y NOMBRE']);
+        if (!nombre) return;
+        const dni = cvNum(row['DNI']);
+
+        const rec = {
+          id:                  existMap[dni] ? existMap[dni].id : (Date.now() + i).toString(),
+          nombre:              nombre.toUpperCase(),
+          turno:               normTurno(row['TURNO']),
+          cuil:                cvNum(row['CUIL']),
+          dni:                 dni,
+          cbu:                 cv(row['CBU']),
+          mailPersonal:        cv(row['MAIL PERSONAL']),
+          mailInstitucional:   cv(row['MAIL INSTITUCIONAL']),
+          coordinador:         cv(row['COORDINADOR']),
+          jefatura:            cv(row['JEFATURA']),
+          modalidad:           cv(row['MODALIDAD']),
+          genero:              cv(row['GENERO']),
+          fechaNacimiento:     fmtFechaExcel(row['FECHA DE NACIMIENTO']),
+          fechaIngreso:        fmtFechaExcel(row['FECHA DE INGRESO']),
+          oficinaCalle:        cv(row['OFICINA/CALLE']),
+          semanaFds:           cv(row['SEMANA/FDS']),
+          horario:             cv(row['HORARIO']),
+          celular:             cv(row['CELULAR PARTICULAR']),
+          contactoEmergencia:  cv(row['NOMBRE Y APELLIDO  DE CONTACTO DE EMERGENCIA']),
+          telEmergencia:       cv(row['Nº CONTACTOS DE EMERGENCIAS']),
+          domicilio:           cv(row['DOMICILIO']),
+          cabaPba:             cv(row['CABA/PBA']),
+          barrio:              cv(row['BARRIO/LOCALIDAD']),
+          comuna:              cv(row['COMUNA']),
+          chaleco:             cv(row['Entrega chaleco']),
+          talle:               cv(row['TALLE']),
+          leyLucio:            cv(row['LEY LUCIO']),
+          leyYolanda:          cv(row['LEY YOLANDA']),
+          leyMicaela:          cv(row['LEY MICAELA']),
+          agentes_calle:       cv(row['AGENTES EN CALLE ']),
+          leyDiscapacidad:     cv(row['LEY DE DISCAPACIDAD']),
+          celularFlota:        cv(row['CELULAR FLOTA']),
+          imei:                cv(row['IMEI']),
+          estado:              'Activo',
+        };
+
+        if (existMap[dni]) actualizados++;
+        else nuevos++;
+        registrosExcel.push(rec);
+      });
+
+      pfill.style.width = '40%';
+
+      // ── Procesar bajas ────────────────────────────────────────────────
+      rowsBajas.forEach((row, i) => {
+        const apellido = cv(row['APELLIDO']);
+        const nombre   = cv(row['NOMBRE']);
+        const nombreCompleto = (apellido + (nombre ? ' ' + nombre : '')).trim().toUpperCase();
+        if (!nombreCompleto) return;
+        const dni = cvNum(row['DNI']);
+
+        // Si ya está en activos, no lo sobreescribimos con baja
+        if (dni && existMap[dni]) return;
+
+        const rec = {
+          id:               (Date.now() + 50000 + i).toString(),
+          nombre:           nombreCompleto,
+          turno:            normTurno(row['TURNO']),
+          cuil:             cvNum(row['CUIL']),
+          dni:              dni,
+          mailPersonal:     cv(row['MAIL PERSONAL']),
+          mailInstitucional:cv(row['MAIL INSTITUCIONAL']),
+          jefatura:         cv(row['PUESTO']),
+          modalidad:        cv(row['MODALIDAD']),
+          genero:           cv(row['GENERO']),
+          fechaNacimiento:  fmtFechaExcel(row['FECHA DE NACIMIENTO']),
+          fechaIngreso:     fmtFechaExcel(row['FECHA DE INGRESO']),
+          celular:          cv(row['CELULAR PARTICULAR']),
+          domicilio:        cv(row['DOMICILIO']),
+          cabaPba:          cv(row['CABA/PBA']),
+          barrio:           cv(row['BARRIO/LOCALIDAD']),
+          estado:           'Baja',
+          coordinador:'', horario:'', oficinaCalle:'', semanaFds:'',
+          agentes_calle:'', chaleco:'', talle:'',
+        };
+        registrosExcel.push(rec);
+        nuevos++;
+      });
+
+      pfill.style.width = '55%';
+
+      // ── Conservar personas existentes que no aparecen en este Excel ───
+      // (el upsert es por DNI: si alguien no está en ninguna de las dos
+      // hojas del archivo subido, no se borra su registro existente)
+      const dnisExcel = new Set(registrosExcel.filter(r => r.dni).map(r => r.dni));
+      const noEncontrados = window.nomina.filter(p => !p.dni || !dnisExcel.has(p.dni));
+      registrosExcel.push(...noEncontrados);
+
+      showNominaToast(`🔄 ${nuevos} nuevos, ${actualizados} actualizados. Subiendo a Firestore…`, '');
+
+      // ── Subir a Firestore (un documento por persona) ──────────────────
+      window.nomina = registrosExcel;
+      await window._guardarNominaCompleta(registrosExcel);
+
+      pfill.style.width = '100%';
+      sessionStorage.removeItem('dgf_personal_nomina');
+      sessionStorage.removeItem('dgf_personal_nomina_ts');
+
+      showNominaToast(
+        `✅ ${registrosExcel.length.toLocaleString('es-AR')} registros cargados ` +
+        `(${nuevos} nuevos, ${actualizados} actualizados). ` +
+        `Activos: ${registrosExcel.filter(r=>r.estado==='Activo').length} · ` +
+        `Bajas: ${registrosExcel.filter(r=>r.estado==='Baja').length}`,
+        'ok'
+      );
+      renderAll();
+
+    } catch(err) {
+      showNominaToast('❌ Error: ' + err.message, 'err');
+      console.error(err);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Subir a Firestore';
+      setTimeout(()=>{ pwrap.style.display='none'; pfill.style.width='0%'; }, 3000);
+    }
+  };
+  reader.readAsArrayBuffer(_nominaFile);
+}
+
+function showNominaToast(msg, type) {
+  const t = document.getElementById('nominaToast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  t.style.background = type==='ok' ? '#dcfce7' : type==='err' ? '#fee2e2' : '#f0f8ff';
+  t.style.color      = type==='ok' ? '#15803d' : type==='err' ? '#b91c1c' : '#1a3a5c';
+}
+</script>
+</body>
+</html>

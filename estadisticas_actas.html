@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA — Estadísticas Actas</title>
+<script src="config.js"></script>
+
+<!-- Leaflet para mapa -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet heatmap -->
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- XLSX para carga -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --bg:#f0f4f8;--sur:#fff;--pri:#1a3a5c;--pli:#2563a8;
+  --acc:#e85d04;--txt:#1e293b;--mut:#64748b;--bor:#dde3ec;
+  --ok:#15803d;--da:#b91c1c;--r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
+
+header{
+  background:var(--pri);color:#fff;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 2px 12px rgba(0,0,0,.2);flex-wrap:wrap;gap:8px;
+}
+.htitle h1{font-size:1.05rem;font-weight:700;}
+.htitle p{font-size:.73rem;opacity:.55;margin-top:2px;}
+.hright{display:flex;align-items:center;gap:10px;}
+.pill{font-size:.72rem;border-radius:20px;padding:4px 11px;display:flex;align-items:center;gap:5px;}
+.pill.ok{background:rgba(74,222,128,.18);color:#4ade80;}
+.pill.warn{background:rgba(251,191,36,.18);color:#fbbf24;}
+.pill.loading{background:rgba(147,197,253,.18);color:#93c5fd;}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+.hbtn{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:6px;padding:5px 11px;font-size:.76rem;cursor:pointer;}
+.hbtn:hover{background:rgba(255,255,255,.22);}
+
+/* TABS */
+.tabs{display:flex;border-bottom:2px solid var(--bor);background:#fff;padding:0 20px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:12px 18px;background:none;border:none;border-bottom:2px solid transparent;
+  font-size:.84rem;font-weight:600;color:var(--mut);cursor:pointer;white-space:nowrap;margin-bottom:-2px;}
+.tab.active{color:var(--pri);border-bottom-color:var(--acc);}
+
+main{max-width:1300px;margin:0 auto;padding:22px 16px;}
+
+/* FILTROS */
+.filtros{
+  background:var(--sur);border-radius:var(--r);padding:16px 20px;
+  box-shadow:0 1px 6px rgba(0,0,0,.07);margin-bottom:18px;
+  display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;
+}
+.ffield{display:flex;flex-direction:column;gap:4px;min-width:140px;}
+.ffield label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);}
+.ffield select,.ffield input{
+  padding:7px 10px;border:1.5px solid var(--bor);border-radius:6px;
+  font-size:.84rem;outline:none;background:#fff;
+}
+.ffield select:focus,.ffield input:focus{border-color:var(--pli);}
+.fbtn{padding:8px 16px;border:none;border-radius:6px;background:var(--pri);color:#fff;font-size:.82rem;font-weight:600;cursor:pointer;}
+.fbtn:hover{background:var(--pli);}
+.fbtn.sec{background:#fff;color:var(--pri);border:1.5px solid var(--bor);}
+.fbtn.sec:hover{border-color:var(--pri);}
+
+/* KPI CARDS */
+.kpigrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:18px;}
+.kpi{background:var(--sur);border-radius:var(--r);padding:16px;box-shadow:0 1px 6px rgba(0,0,0,.07);border-left:4px solid var(--pli);}
+.kpi.acc{border-left-color:var(--acc);}
+.kpi.ok{border-left-color:#22c55e;}
+.kpi.warn{border-left-color:#f59e0b;}
+.kpi.da{border-left-color:var(--da);}
+.kpi-val{font-size:1.7rem;font-weight:800;color:var(--pri);}
+.kpi-lbl{font-size:.73rem;color:var(--mut);margin-top:2px;}
+
+/* CHARTS GRID */
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;}
+@media(max-width:800px){.cgrid{grid-template-columns:1fr;}}
+.ccard{background:var(--sur);border-radius:var(--r);padding:18px;box-shadow:0 1px 6px rgba(0,0,0,.07);}
+.ccard.wide{grid-column:1/-1;}
+.ctitle{font-size:.78rem;font-weight:700;color:var(--pri);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;}
+.chart-wrap{position:relative;height:240px;}
+.chart-wrap.tall{height:300px;}
+
+/* MAPA */
+#mapWrap{background:var(--sur);border-radius:var(--r);padding:18px;box-shadow:0 1px 6px rgba(0,0,0,.07);margin-bottom:18px;}
+#map{height:480px;border-radius:8px;}
+.map-controls{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;}
+.mctl{padding:6px 12px;border:1.5px solid var(--bor);border-radius:6px;font-size:.78rem;font-weight:600;cursor:pointer;background:#fff;}
+.mctl.active{background:var(--pri);color:#fff;border-color:var(--pri);}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.72rem;color:var(--mut);}
+.litem{display:flex;align-items:center;gap:5px;}
+.ldot{width:12px;height:12px;border-radius:50%;}
+
+/* TABLA */
+.twrap{background:var(--sur);border-radius:var(--r);box-shadow:0 1px 6px rgba(0,0,0,.07);overflow:hidden;}
+table{width:100%;border-collapse:collapse;font-size:.81rem;}
+thead{background:var(--pri);color:#fff;}
+th{text-align:left;padding:9px 11px;font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+td{padding:8px 11px;border-bottom:1px solid var(--bor);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#f8fafc;}
+.bdg{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.66rem;font-weight:700;text-transform:uppercase;}
+.bdg-op{background:#dbeafe;color:var(--pli);}
+.bdg-ev{background:#fef9c3;color:#854d0e;}
+.bdg-ft{background:#fee2e2;color:var(--da);}
+
+/* PANEL CARGA */
+#panelCarga{display:none;} /* JS lo muestra con display:block al hacer clic en la tab */
+.ucard{background:var(--sur);border-radius:var(--r);padding:22px;box-shadow:0 1px 6px rgba(0,0,0,.07);margin-bottom:16px;}
+.uarea{border:2px dashed var(--bor);border-radius:var(--r);padding:32px;text-align:center;cursor:pointer;background:#f8fafc;position:relative;}
+.uarea:hover{border-color:var(--pli);background:#eff6ff;}
+.uarea input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.pwrap{height:8px;background:var(--bor);border-radius:4px;margin-top:14px;overflow:hidden;display:none;}
+.pfill{height:100%;background:linear-gradient(90deg,var(--pli),#38bdf8);border-radius:4px;transition:width .3s;}
+.toast{display:none;padding:10px 14px;border-radius:var(--r);margin-top:12px;font-size:.82rem;font-weight:500;}
+.toast.ok{background:#dcfce7;color:var(--ok);display:block;}
+.toast.err{background:#fee2e2;color:var(--da);display:block;}
+
+#emptyState{text-align:center;padding:60px 20px;color:var(--mut);}
+#emptyState .ei{font-size:3rem;margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="htitle">
+    <h1>📊 Estadísticas — Actas de Venta Ilegal</h1>
+    <p>DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" style="color:#fff;font-size:.75rem;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:6px;text-decoration:none;font-weight:600;">&#8592; Portal</a></p>
+  </div>
+  <div class="hright">
+    <div class="pill loading" id="dbPill"><span class="dot"></span><span id="dbTxt">Cargando…</span></div>
+    <button class="hbtn" onclick="forzarRecarga()">⟳ Actualizar</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('stats',this)">📊 Estadísticas</button>
+  <button class="tab" onclick="switchTab('mapa',this)">🗺️ Mapa de calor</button>
+  <button class="tab" onclick="switchTab('tabla',this)">📋 Registros</button>
+  <button class="tab" id="tabCarga" onclick="switchTab('carga',this)" style="display:none">📥 Cargar Excel</button>
+</div>
+
+<!-- ===== FILTROS ===== -->
+<main>
+<div class="filtros" id="filtrosBar">
+  <div class="ffield">
+    <label>Operativo</label>
+    <select id="fOperativo" onchange="aplicarFiltros()">
+      <option value="">Todos</option>
+      <option>VENTA ILEGAL</option>
+      <option>EVENTO MASIVO</option>
+      <option>PARTIDO DE FUTBOL</option>
+    </select>
+  </div>
+  <div class="ffield">
+    <label>Zona</label>
+    <select id="fZona" onchange="aplicarFiltros()"><option value="">Todas</option></select>
+  </div>
+  <div class="ffield">
+    <label>Turno</label>
+    <select id="fTurno" onchange="aplicarFiltros()">
+      <option value="">Todos</option>
+      <option>MAÑANA</option>
+      <option>TARDE</option>
+      <option>NOCHE</option>
+    </select>
+  </div>
+  <div class="ffield">
+    <label>Desde</label>
+    <input type="date" id="fDesde" onchange="aplicarFiltros()">
+  </div>
+  <div class="ffield">
+    <label>Hasta</label>
+    <input type="date" id="fHasta" onchange="aplicarFiltros()">
+  </div>
+  <button class="fbtn sec" onclick="limpiarFiltros()">✕ Limpiar</button>
+</div>
+
+<!-- ===== PANEL ESTADÍSTICAS ===== -->
+<div id="panelStats">
+  <div id="emptyState"><div class="ei">📊</div><p>Cargando datos…</p></div>
+  <div id="statsContent" style="display:none">
+    <!-- KPIs -->
+    <div class="kpigrid">
+      <div class="kpi"><div class="kpi-val" id="kTotal">–</div><div class="kpi-lbl">Actas totales</div></div>
+      <div class="kpi acc"><div class="kpi-val" id="kVI">–</div><div class="kpi-lbl">Venta ilegal</div></div>
+      <div class="kpi warn"><div class="kpi-val" id="kEM">–</div><div class="kpi-lbl">Eventos masivos</div></div>
+      <div class="kpi da"><div class="kpi-val" id="kFT">–</div><div class="kpi-lbl">Partidos de fútbol</div></div>
+      <div class="kpi ok"><div class="kpi-val" id="kPrecintos">–</div><div class="kpi-lbl">Precintos totales</div></div>
+      <div class="kpi"><div class="kpi-val" id="kZonas">–</div><div class="kpi-lbl">Zonas activas</div></div>
+    </div>
+
+    <!-- Charts row 1 -->
+    <div class="cgrid">
+      <div class="ccard">
+        <div class="ctitle" id="ctitleMes">Actas por mes</div>
+        <div class="chart-wrap"><canvas id="chartMes"></canvas></div>
+      </div>
+      <div class="ccard">
+        <div class="ctitle">Distribución por tipo de operativo</div>
+        <div class="chart-wrap"><canvas id="chartOp"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts row 2 -->
+    <div class="cgrid">
+      <div class="ccard">
+        <div class="ctitle">Top 10 zonas con más actas</div>
+        <div class="chart-wrap tall"><canvas id="chartZona"></canvas></div>
+      </div>
+      <div class="ccard">
+        <div class="ctitle">Categorías de artículos secuestrados</div>
+        <div class="chart-wrap tall"><canvas id="chartCat"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts row 3 -->
+    <div class="cgrid">
+      <div class="ccard">
+        <div class="ctitle">Actas por turno</div>
+        <div class="chart-wrap"><canvas id="chartTurno"></canvas></div>
+      </div>
+      <div class="ccard">
+        <div class="ctitle">Top 10 barrios</div>
+        <div class="chart-wrap"><canvas id="chartBarrio"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts row 4 -->
+    <div class="cgrid">
+      <div class="ccard wide">
+        <div class="ctitle">Actas por día de la semana × tipo de operativo</div>
+        <div class="chart-wrap"><canvas id="chartDia"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PANEL MAPA ===== -->
+<div id="panelMapa" style="display:none">
+  <div id="mapWrap">
+    <div class="map-controls">
+      <button class="mctl active" onclick="setMapMode('heat',this)">🔥 Calor</button>
+      <button class="mctl" onclick="setMapMode('puntos',this)">📍 Puntos</button>
+      <div style="margin-left:auto;font-size:.78rem;color:var(--mut)" id="mapCount"></div>
+    </div>
+    <div class="legend" id="mapLegend" style="margin-bottom:10px;display:none">
+      <div class="litem"><div class="ldot" style="background:#2563a8"></div>Venta Ilegal</div>
+      <div class="litem"><div class="ldot" style="background:#f59e0b"></div>Evento Masivo</div>
+      <div class="litem"><div class="ldot" style="background:#dc2626"></div>Partido de Fútbol</div>
+    </div>
+    <div id="map"></div>
+  </div>
+</div>
+
+<!-- ===== PANEL TABLA ===== -->
+<div id="panelTabla" style="display:none">
+  <div class="twrap">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span style="font-size:.8rem;color:var(--mut)">Mostrando <strong id="tblCount">–</strong> registros</span>
+      <input type="text" id="tblSearch" placeholder="Buscar en la tabla…" oninput="renderTabla()"
+             style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:6px;font-size:.82rem;outline:none;width:220px">
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>Fecha</th><th>Inspector</th><th>Turno</th>
+            <th>Operativo</th><th>Zona</th><th>Dirección</th>
+            <th>Acta Secuestro</th><th>Barrio</th><th>Precintos</th><th>Foto</th>
+          </tr>
+        </thead>
+        <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+    <div style="padding:10px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--bor)">
+      <button onclick="tblPrev()" style="padding:5px 10px;border:1.5px solid var(--bor);border-radius:5px;cursor:pointer;background:#fff;font-size:.78rem">← Ant</button>
+      <span id="tblPage" style="font-size:.78rem;color:var(--mut)">1 / 1</span>
+      <button onclick="tblNext()" style="padding:5px 10px;border:1.5px solid var(--bor);border-radius:5px;cursor:pointer;background:#fff;font-size:.78rem">Sig →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PANEL CARGA ===== -->
+<div id="panelCarga">
+  <div class="ucard">
+    <h3 style="font-size:.9rem;font-weight:700;color:var(--pri);margin-bottom:4px">📥 Cargar Excel de Actas</h3>
+    <p style="font-size:.8rem;color:var(--mut);margin-bottom:16px">
+      Seleccioná el archivo <strong>VENTA_ILEGAL_DEF.xlsx</strong>. Se leerá la hoja <strong>Forms ACTAS</strong>
+      y se subirán los registros a Firestore usando el campo <strong>Id</strong> como identificador.
+      Los registros existentes se actualizan, los nuevos se crean.
+    </p>
+    <div class="uarea" id="uarea">
+      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="onFileChosen(this)">
+      <div style="font-size:2rem;margin-bottom:8px">📄</div>
+      <div style="font-weight:600;color:var(--pri)">Arrastrá o hacé clic para seleccionar el Excel</div>
+      <div style="font-size:.78rem;color:var(--mut);margin-top:4px">Formatos: .xlsx, .xls</div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span id="fChosen" style="display:none;font-size:.82rem;color:var(--pli);font-weight:600;background:#dbeafe;padding:4px 10px;border-radius:5px"></span>
+      <button id="loadBtn" onclick="cargarExcel()" disabled
+              style="padding:9px 18px;border:none;border-radius:var(--r);background:var(--acc);color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;opacity:.45">
+        Subir a Firestore
+      </button>
+    </div>
+    <div class="pwrap" id="pwrap"><div class="pfill" id="pfill" style="width:0%"></div></div>
+    <div class="toast" id="uToast"></div>
+  </div>
+  <div class="ucard" style="font-size:.82rem;color:var(--mut);line-height:1.9">
+    <strong style="color:var(--pri)">Campos que se guardan en Firestore:</strong><br>
+    Id · fecha · inspector · turno · operativo · zona · direccion · infractor · actaSecuestro · actaComprobacion ·
+    barrio · comuna · lat · lng · mesAnio · precintos (array con artículo/cantidad/categoría por precinto)
+  </div>
+</div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+if (typeof FIREBASE_CONFIG === 'undefined') {
+  alert('Error: falta config.js'); throw new Error();
+}
+const app = initializeApp(FIREBASE_CONFIG);
+const db  = getFirestore(app);
+window._db     = db;
+window._setDoc = setDoc;
+window._getDoc = getDoc;
+window._deleteDoc = deleteDoc;
+window._doc    = doc;
+window._collection = collection;
+window._getDocs    = getDocs;
+
+// ── CACHÉ sessionStorage ────────────────────────────────────────────────────
+const CKEY = 'dgf_actas_cache';
+const CTS  = 'dgf_actas_ts';
+const TTL  = 24 * 60 * 60 * 1000; // 24 horas
+
+// ── LECTURA POR CHUNKS ──────────────────────────────────────────────────────
+// La colección "actas_chunks" tiene documentos chunk_0, chunk_1, …
+// Cada uno guarda hasta 500 registros en un campo "registros" (array).
+// Leer todos los chunks = N documentos en lugar de miles de lecturas.
+function mostrarTabCargaSegunRol() {
+  try {
+    const s = localStorage.getItem('dgf_session');
+    if (s) {
+      const sess = JSON.parse(s);
+      if (sess && sess.role === 'admin') {
+        document.getElementById('tabCarga').style.display = '';
+      }
+    }
+  } catch(e) {}
+}
+
+// Mostrar tab apenas carga la página, sin esperar a Firestore
+mostrarTabCargaSegunRol();
+
+async function cargarDatos() {
+  // 1. Intentar caché
+  try {
+    const ts = parseInt(sessionStorage.getItem(CTS)||'0');
+    const c  = sessionStorage.getItem(CKEY);
+    if (c && (Date.now()-ts) < TTL) {
+      window.ACTAS = JSON.parse(c);
+      dbPill('ok', '✅ ' + window.ACTAS.length + ' actas (caché)');
+      init();
+      return;
+    }
+  } catch(e){}
+
+  // 2. Leer índice: documento "actas_meta/index" guarda cuántos chunks hay
+  try {
+    dbPill('loading','Cargando…');
+    const metaSnap = await getDoc(doc(db, 'actas_meta', 'index'));
+    if (!metaSnap.exists()) {
+      window.ACTAS = [];
+      dbPill('warn','⚠️ Sin datos — cargá el Excel');
+      mostrarTabCargaSegunRol();
+      mostrarVacio(); return;
+    }
+    const { totalChunks } = metaSnap.data();
+
+    // 3. Descargar todos los chunks en paralelo
+    const promises = [];
+    for (let i = 0; i < totalChunks; i++) {
+      promises.push(getDoc(doc(db, 'actas_chunks', 'chunk_' + i)));
+    }
+    const snaps = await Promise.all(promises);
+
+    const recs = [];
+    snaps.forEach(s => { if (s.exists()) recs.push(...(s.data().registros||[])); });
+
+    window.ACTAS = recs;
+    try {
+      sessionStorage.setItem(CKEY, JSON.stringify(recs));
+      sessionStorage.setItem(CTS, Date.now().toString());
+    } catch(e){}
+
+    dbPill('ok', `✅ ${recs.length} actas (${totalChunks} lecturas)`);
+    init();
+
+  } catch(e) {
+    window.ACTAS = [];
+    dbPill('warn','⚠️ Error: ' + e.message);
+    mostrarVacio();
+  }
+}
+
+window.forzarRecarga = function() {
+  sessionStorage.removeItem(CKEY);
+  sessionStorage.removeItem(CTS);
+  cargarDatos();
+};
+
+cargarDatos();
+</script>
+
+<script>
+// ── UTILIDADES ─────────────────────────────────────────────────────────────
+function dbPill(type, txt) {
+  const p = document.getElementById('dbPill');
+  p.className = 'pill ' + type;
+  document.getElementById('dbTxt').textContent = txt;
+}
+
+function fmtFecha(f) {
+  if (!f) return '–';
+  const d = new Date(f);
+  return isNaN(d) ? f : d.toLocaleDateString('es-AR');
+}
+
+function esc(text) {
+  return String(text||'').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+// Sólo permite links http(s)/relativos — evita XSS vía "javascript:" en fotoActa
+function safeHref(url) {
+  const u = String(url||'').trim();
+  return /^(https?:\/\/|\.?\/)/i.test(u) ? u : '';
+}
+function badgeOp(op) {
+  if (!op) return '';
+  const cls = op.includes('FUTBOL') ? 'bdg-ft' : op.includes('EVENTO') ? 'bdg-ev' : 'bdg-op';
+  return `<span class="bdg ${cls}">${esc(op)}</span>`;
+}
+
+// ── FILTROS ────────────────────────────────────────────────────────────────
+let datosFiltrados = [];
+let tblPage = 1;
+const TBL_PER = 50;
+
+function poblarZonas() {
+  const zonas = [...new Set((window.ACTAS||[]).map(r=>r.zona).filter(Boolean))].sort();
+  const sel = document.getElementById('fZona');
+  zonas.forEach(z => { const o = document.createElement('option'); o.textContent = z; sel.appendChild(o); });
+}
+
+function aplicarFiltros() {
+  const op    = document.getElementById('fOperativo').value;
+  const zona  = document.getElementById('fZona').value;
+  const turno = document.getElementById('fTurno').value;
+  const desde = document.getElementById('fDesde').value;
+  const hasta = document.getElementById('fHasta').value;
+
+  datosFiltrados = (window.ACTAS||[]).filter(r => {
+    if (op && r.operativo !== op) return false;
+    if (zona && r.zona !== zona) return false;
+    if (turno && r.turno !== turno) return false;
+    if (desde && r.fecha && r.fecha < desde) return false;
+    if (hasta && r.fecha && r.fecha > hasta) return false;
+    return true;
+  });
+
+  tblPage = 1;
+  renderStats();
+  renderMapa();
+  renderTabla();
+}
+
+function limpiarFiltros() {
+  ['fOperativo','fZona','fTurno'].forEach(id => document.getElementById(id).value = '');
+  ['fDesde','fHasta'].forEach(id => document.getElementById(id).value = '');
+  aplicarFiltros();
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+function init() {
+  poblarZonas();
+  aplicarFiltros();
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('statsContent').style.display = 'block';
+}
+
+function mostrarVacio() {
+  document.getElementById('emptyState').innerHTML = '<div class="ei">📥</div><p>No hay datos en Firestore.<br>Usá la pestaña <strong>Cargar Excel</strong> para importar los datos.</p>';
+}
+
+// ── CHARTS ─────────────────────────────────────────────────────────────────
+const charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+const COLORS = ['#2563a8','#f59e0b','#22c55e','#e85d04','#a855f7','#ec4899','#14b8a6','#64748b','#ef4444','#0ea5e9'];
+
+function renderStats() {
+  const D = datosFiltrados;
+
+  // KPIs
+  document.getElementById('kTotal').textContent     = D.length.toLocaleString('es-AR');
+  document.getElementById('kVI').textContent        = D.filter(r=>r.operativo==='VENTA ILEGAL').length.toLocaleString('es-AR');
+  document.getElementById('kEM').textContent        = D.filter(r=>r.operativo==='EVENTO MASIVO').length.toLocaleString('es-AR');
+  document.getElementById('kFT').textContent        = D.filter(r=>r.operativo==='PARTIDO DE FUTBOL').length.toLocaleString('es-AR');
+  document.getElementById('kPrecintos').textContent = D.reduce((s,r)=>(s+(r.precintos||[]).length),0).toLocaleString('es-AR');
+  document.getElementById('kZonas').textContent     = [...new Set(D.map(r=>r.zona).filter(Boolean))].length;
+
+  // Plugin para mostrar números en barras (encima) y tortas (fuera)
+  const datalabelsPlugin = {
+    id:'datalabels_custom',
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      const type = chart.config.type;
+      chart.data.datasets.forEach((ds,di)=>{
+        const meta = chart.getDatasetMeta(di);
+        if (meta.hidden) return;
+        meta.data.forEach((el,idx)=>{
+          const val = ds.data[idx];
+          if (!val) return;
+          ctx.save();
+          ctx.font = 'bold 11px Segoe UI';
+          ctx.textAlign = 'center';
+
+          if (type === 'doughnut' || type === 'pie') {
+            // Torta: número fuera del segmento
+            const angle = (el.startAngle + el.endAngle) / 2;
+            const r = el.outerRadius * 0.75;
+            const x = el.x + Math.cos(angle) * r;
+            const y = el.y + Math.sin(angle) * r;
+            ctx.fillStyle = '#fff';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(val, x, y);
+          } else if (type === 'bar') {
+            const isHorizontal = chart.config.options?.indexAxis === 'y';
+            const pos = el.tooltipPosition();
+            if (isHorizontal) {
+              // Barra horizontal: número al final de la barra, hacia adentro
+              const barEnd = el.x;
+              const x = barEnd - 4;
+              ctx.fillStyle = '#fff';
+              ctx.textAlign = 'right';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(val, x, pos.y);
+            } else {
+              // Barra vertical: número encima de la barra
+              const barTop = el.y;
+              ctx.fillStyle = '#1e293b';
+              ctx.textBaseline = 'bottom';
+              ctx.fillText(val, pos.x, barTop - 2);
+            }
+          }
+          ctx.restore();
+        });
+      });
+    }
+  };
+
+  // ── Actas por mes — usando fecha directamente (mesAnio puede estar roto) ──
+  const MESES_LABEL  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  const byMesMap = {};
+  D.forEach(r => {
+    if (!r.fecha) return;
+    const d = new Date(r.fecha + 'T12:00:00');
+    if (isNaN(d)) return;
+    const anio = d.getFullYear();
+    const mes  = d.getMonth() + 1;
+    const key  = anio + '-' + String(mes).padStart(2,'0');
+    const label = MESES_LABEL[mes-1];
+    if (!byMesMap[key]) byMesMap[key] = { count:0, label, anio };
+    byMesMap[key].count++;
+  });
+
+  const clavesMes = Object.keys(byMesMap).sort();
+  const aniosPresentes = [...new Set(clavesMes.map(k=>byMesMap[k].anio))].sort();
+  const tituloMes = aniosPresentes.length
+    ? 'ACTAS POR MES — ' + aniosPresentes.join(' / ')
+    : 'ACTAS POR MES';
+  document.getElementById('ctitleMes').textContent = tituloMes;
+
+  destroyChart('mes');
+  charts.mes = new Chart(document.getElementById('chartMes'), {
+    type:'bar',
+    data:{
+      labels: clavesMes.map(k => byMesMap[k].label),
+      datasets:[{ label:'Actas', data:clavesMes.map(k=>byMesMap[k].count), backgroundColor:'#2563a8', borderRadius:4 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, datalabels_custom:{} },
+      scales:{ y:{ beginAtZero:true } }
+    },
+    plugins:[datalabelsPlugin]
+  });
+
+  // ── Por operativo (donut) con números ────────────────────────────────
+  const byOp = {};
+  D.forEach(r => { const o = r.operativo||'Otro'; byOp[o] = (byOp[o]||0)+1; });
+  destroyChart('op');
+  charts.op = new Chart(document.getElementById('chartOp'), {
+    type:'doughnut',
+    data:{ labels:Object.keys(byOp), datasets:[{data:Object.values(byOp), backgroundColor:COLORS}] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'right'},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed.toLocaleString('es-AR')} (${Math.round(ctx.parsed/D.length*100)}%)`}}
+      }
+    }
+  });
+
+  // ── Top 10 zonas ─────────────────────────────────────────────────────
+  const byZona = {};
+  D.forEach(r => { if(r.zona){byZona[r.zona]=(byZona[r.zona]||0)+1;} });
+  const topZona = Object.entries(byZona).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  destroyChart('zona');
+  charts.zona = new Chart(document.getElementById('chartZona'), {
+    type:'bar',
+    data:{ labels:topZona.map(x=>x[0]), datasets:[{label:'Actas',data:topZona.map(x=>x[1]),backgroundColor:COLORS,borderRadius:4}] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, datalabels_custom:{}},
+      scales:{x:{beginAtZero:true}}
+    },
+    plugins:[datalabelsPlugin]
+  });
+
+  // ── Categorías ───────────────────────────────────────────────────────
+  const byCat = {};
+  D.forEach(r => (r.precintos||[]).forEach(p => {
+    const c = (p.categoria||'Sin categoría').toUpperCase().trim();
+    byCat[c] = (byCat[c]||0)+1;
+  }));
+  const topCat = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  destroyChart('cat');
+  charts.cat = new Chart(document.getElementById('chartCat'), {
+    type:'bar',
+    data:{ labels:topCat.map(x=>x[0]), datasets:[{label:'Precintos',data:topCat.map(x=>x[1]),backgroundColor:'#e85d04',borderRadius:4}] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, datalabels_custom:{}},
+      scales:{x:{beginAtZero:true}}
+    },
+    plugins:[datalabelsPlugin]
+  });
+
+  // ── Turno — todos los valores del Excel ──────────────────────────────
+  // Incluye: MAÑANA, TARDE, NOCHE, SADOFE, VIER/SAB/DOM y otros
+  const byTurno = {};
+  D.forEach(r => {
+    const t = (r.turno||'SIN TURNO').toUpperCase().trim();
+    byTurno[t] = (byTurno[t]||0)+1;
+  });
+  // Ordenar: primero los conocidos, luego el resto
+  const ordenTurno = ['MAÑANA','TARDE','NOCHE','SADOFE','VIER/SAB/DOM'];
+  const turnosOrdenados = [
+    ...ordenTurno.filter(t=>byTurno[t]),
+    ...Object.keys(byTurno).filter(t=>!ordenTurno.includes(t)).sort()
+  ];
+  destroyChart('turno');
+  charts.turno = new Chart(document.getElementById('chartTurno'), {
+    type:'bar',
+    data:{
+      labels: turnosOrdenados,
+      datasets:[{label:'Actas',data:turnosOrdenados.map(t=>byTurno[t]||0),backgroundColor:COLORS,borderRadius:4}]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, datalabels_custom:{}},
+      scales:{y:{beginAtZero:true}}
+    },
+    plugins:[datalabelsPlugin]
+  });
+
+  // ── Barrios top 10 ───────────────────────────────────────────────────
+  const byBarrio = {};
+  D.forEach(r => { if(r.barrio&&r.barrio!=='0'){byBarrio[r.barrio]=(byBarrio[r.barrio]||0)+1;} });
+  const topBarrio = Object.entries(byBarrio).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  destroyChart('barrio');
+  charts.barrio = new Chart(document.getElementById('chartBarrio'), {
+    type:'bar',
+    data:{ labels:topBarrio.map(x=>x[0]), datasets:[{label:'Actas',data:topBarrio.map(x=>x[1]),backgroundColor:'#a855f7',borderRadius:4}] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, datalabels_custom:{}},
+      scales:{y:{beginAtZero:true}}
+    },
+    plugins:[datalabelsPlugin]
+  });
+
+  // ── Por día de semana × operativo ────────────────────────────────────
+  const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const operativos = ['VENTA ILEGAL','EVENTO MASIVO','PARTIDO DE FUTBOL'];
+  const diaData = {};
+  operativos.forEach(op => { diaData[op] = new Array(7).fill(0); });
+  D.forEach(r => {
+    if (!r.fecha) return;
+    const d = new Date(r.fecha+'T12:00:00').getDay();
+    const op = r.operativo||'VENTA ILEGAL';
+    if (diaData[op]) diaData[op][d]++;
+  });
+  destroyChart('dia');
+  charts.dia = new Chart(document.getElementById('chartDia'), {
+    type:'bar',
+    data:{
+      labels: dias,
+      datasets: operativos.map((op,i) => ({
+        label: op, data: diaData[op], backgroundColor: COLORS[i], borderRadius:3
+      }))
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{datalabels_custom:{}},
+      scales:{x:{stacked:false},y:{beginAtZero:true}}
+    },
+    plugins:[datalabelsPlugin]
+  });
+}
+
+// ── MAPA ───────────────────────────────────────────────────────────────────
+let mapInstance = null;
+let heatLayer = null;
+let markersGroup = null;
+let mapMode = 'heat';
+
+function initMap() {
+  if (mapInstance) return;
+  mapInstance = L.map('map').setView([-34.615, -58.433], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'© OpenStreetMap'
+  }).addTo(mapInstance);
+}
+
+function setMapMode(mode, btn) {
+  mapMode = mode;
+  document.querySelectorAll('.mctl').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('mapLegend').style.display = mode==='puntos' ? 'flex' : 'none';
+  renderMapa();
+}
+
+function renderMapa() {
+  if (document.getElementById('panelMapa').style.display === 'none') return;
+  initMap();
+
+  // Limpiar capas anteriores
+  if (heatLayer) { mapInstance.removeLayer(heatLayer); heatLayer = null; }
+  if (markersGroup) { mapInstance.removeLayer(markersGroup); markersGroup = null; }
+
+  const conCoords = datosFiltrados.filter(r => r.lat && r.lng && r.lat !== 0);
+  document.getElementById('mapCount').textContent = conCoords.length + ' puntos con coordenadas';
+
+  if (mapMode === 'heat') {
+    const pts = conCoords.map(r => [r.lat, r.lng, 1]);
+    heatLayer = L.heatLayer(pts, { radius:18, blur:15, maxZoom:17,
+      gradient:{0.3:'blue',0.6:'yellow',0.9:'orange',1:'red'}
+    }).addTo(mapInstance);
+  } else {
+    markersGroup = L.layerGroup();
+    const colores = {'VENTA ILEGAL':'#2563a8','EVENTO MASIVO':'#f59e0b','PARTIDO DE FUTBOL':'#dc2626'};
+    conCoords.forEach(r => {
+      const color = colores[r.operativo] || '#2563a8';
+      const m = L.circleMarker([r.lat, r.lng], {
+        radius:5, fillColor:color, color:'#fff', weight:1, fillOpacity:0.8
+      });
+      m.bindPopup(`<b>${esc(r.actaSecuestro||'–')}</b><br>${esc(r.zona||'')}<br>${esc(r.direccion||'')}<br><i>${fmtFecha(r.fecha)}</i>`);
+      markersGroup.addLayer(m);
+    });
+    markersGroup.addTo(mapInstance);
+  }
+
+  setTimeout(() => mapInstance.invalidateSize(), 100);
+}
+
+// ── TABLA ──────────────────────────────────────────────────────────────────
+function renderTabla() {
+  const q = (document.getElementById('tblSearch').value||'').toLowerCase();
+  let datos = datosFiltrados.filter(r => {
+    if (!q) return true;
+    return [r.inspector,r.zona,r.direccion,r.barrio,r.actaSecuestro,r.operativo]
+      .some(v => v && String(v).toLowerCase().includes(q));
+  });
+
+  const total = datos.length;
+  const pages = Math.max(1, Math.ceil(total/TBL_PER));
+  if (tblPage > pages) tblPage = pages;
+
+  document.getElementById('tblCount').textContent = total.toLocaleString('es-AR');
+  document.getElementById('tblPage').textContent  = tblPage + ' / ' + pages;
+
+  const slice = datos.slice((tblPage-1)*TBL_PER, tblPage*TBL_PER);
+  const tbody = document.getElementById('tblBody');
+  tbody.innerHTML = slice.map(r => {
+    const fotoUrl = safeHref(r.fotoActa);
+    return `
+    <tr>
+      <td>${esc(r.id||'–')}</td>
+      <td>${fmtFecha(r.fecha)}</td>
+      <td>${esc(r.inspector||'–')}</td>
+      <td>${esc(r.turno||'–')}</td>
+      <td>${badgeOp(r.operativo)}</td>
+      <td>${esc(r.zona||'–')}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.direccion||'–')}</td>
+      <td>${esc(r.actaSecuestro||'–')}</td>
+      <td>${esc(r.barrio||'–')}</td>
+      <td>${(r.precintos||[]).length}</td>
+      <td>${fotoUrl ? `<a href="${esc(fotoUrl)}" target="_blank" rel="noopener" style="color:var(--pli);font-weight:600;text-decoration:none" title="${esc(fotoUrl)}">📄 Ver acta</a>` : '–'}</td>
+    </tr>
+  `;
+  }).join('');
+
+  window._tblTotal = total;
+  window._tblPages = pages;
+}
+
+window.tblPrev = function() { if(tblPage>1){tblPage--;renderTabla();} };
+window.tblNext = function() { if(tblPage<(window._tblPages||1)){tblPage++;renderTabla();} };
+
+// ── TABS ───────────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panelStats').style.display  = name==='stats'  ? 'block' : 'none';
+  document.getElementById('panelMapa').style.display   = name==='mapa'   ? 'block' : 'none';
+  document.getElementById('panelTabla').style.display  = name==='tabla'  ? 'block' : 'none';
+  document.getElementById('panelCarga').style.display  = name==='carga'  ? 'block' : 'none';
+  document.getElementById('filtrosBar').style.display  = name==='carga'  ? 'none'  : 'flex';
+  if (name==='mapa') renderMapa();
+  if (name==='tabla') renderTabla();
+}
+window.switchTab = switchTab;
+window.setMapMode = setMapMode;
+
+// ── CARGA EXCEL → FIRESTORE ────────────────────────────────────────────────
+let chosenFile = null;
+
+window.onFileChosen = function(input) {
+  chosenFile = input.files[0];
+  const fc = document.getElementById('fChosen');
+  const btn = document.getElementById('loadBtn');
+  if (chosenFile) {
+    fc.textContent = '📄 ' + chosenFile.name;
+    fc.style.display = 'inline-block';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  } else {
+    fc.style.display = 'none';
+    btn.disabled = true;
+    btn.style.opacity = '.45';
+  }
+};
+
+window.cargarExcel = async function() {
+  if (!chosenFile) return;
+  const db  = window._db;
+  const btn = document.getElementById('loadBtn');
+  const toast = document.getElementById('uToast');
+  const pfill = document.getElementById('pfill');
+  const pwrap = document.getElementById('pwrap');
+
+  btn.disabled = true; btn.textContent = 'Procesando…';
+  toast.className = 'toast'; toast.style.display = 'none';
+  pwrap.style.display = 'block'; pfill.style.width = '2%';
+
+  const CHUNK_SIZE = 500; // registros por documento Firestore
+
+  const PRECINTO_COLS = [
+    ['Nº de Precinto 0','Cantidad','Artículo','Categoría'],
+    ['Nº de Precinto 1','Cantidad1','Artículo1','Categoría1'],
+    ['Nº de Precinto 2','Cantidad2','Artículo2','Categoría2'],
+    ['Nº de Precinto 3','Cantidad3','Artículo3','Categoría3'],
+    ['Nº de Precinto 4','Cantidad4','Artículo4','Categoría4'],
+    ['Nº de Precinto 5','Cantidad5','Artículo5','Categoría5'],
+    ['Nº de Precinto 6','Cantidad6','Artículo6','Categoría6'],
+    ['Nº de Precinto 7','Cantidad7','Artículo7','Categoría7'],
+    ['Nº de Precinto 8','Cantidad8','Artículo8','Categoría8'],
+    ['Nº de Precinto 9','Cantidad9','Artículo9','Categoría9'],
+    ['Nº de Precinto 10','Cantidad10','Artículo10','Categoría10'],
+    ['Nº de Precinto 11','Cantidad11','Artículo11','Categoría11'],
+    ['Nº de Precinto 12','Cantidad12','Artículo12','Categoría12'],
+    ['Nº de Precinto 13','Cantidad13','Artículo13','Categoría13'],
+    ['Nº de Precinto 14','Cantidad14','Artículo14','Categoría14'],
+    ['Nº de Precinto 15','Cantidad15','Artículo15','Categoría15'],
+    ['Nº de Precinto 16','Cantidad16','Artículo16','Categoría16'],
+    ['Nº de Precinto 17','Cantidad17','Artículo17','Categoría17'],
+    ['Nº de Precinto 18','Cantidad18','Artículo18','Categoría18'],
+    ['Nº de Precinto 19','Cantidad19','Artículo19','Categoría19'],
+  ];
+
+  function parsearFila(row) {
+    const id = String(row['Id'] || row['ID'] || '').trim();
+    if (!id) return null;
+
+    const precintos = [];
+    PRECINTO_COLS.forEach(([np, cant, art, cat]) => {
+      const num = row[np];
+      if (num !== null && num !== undefined && String(num).trim() !== '') {
+        precintos.push({
+          precinto: String(num),
+          cantidad: row[cant] ?? null,
+          articulo: row[art] ?? null,
+          categoria: row[cat] ?? null,
+        });
+      }
+    });
+
+    let fecha = '';
+    const raw = row['Fecha Labrado'];
+    if (raw) {
+      if (typeof raw === 'number') {
+        const d = new Date(Math.round((raw - 25569) * 86400 * 1000));
+        fecha = d.toISOString().substring(0, 10);
+      } else {
+        const d = new Date(raw);
+        fecha = isNaN(d) ? String(raw) : d.toISOString().substring(0, 10);
+      }
+    }
+
+    return {
+      id, fecha,
+      inspector:        String(row['Nombre del Inspector']||'').trim() || null,
+      turno:            String(row['Turno2']||row['Turno']||'').trim() || null,
+      operativo:        String(row['Operativos']||'').trim() || null,
+      zona:             String(row['Zona']||'').trim() || null,
+      direccion:        String(row['Dirección y Altura']||'').trim() || null,
+      infractor:        String(row['Nombre del Infractor']||'').trim() || null,
+      actaSecuestro:    row['Nº de Acta de Secuestro'] != null ? String(row['Nº de Acta de Secuestro']) : null,
+      actaComprobacion: row['Nº de Acta de Comprobacíon'] != null ? String(row['Nº de Acta de Comprobacíon']) : null,
+      barrio:           String(row['BARRIO']||'').trim() || null,
+      comuna:           row['COMUNA SIN C'] != null ? String(row['COMUNA SIN C']) : null,
+      lat:              row['Y'] ?? null,
+      lng:              row['X'] ?? null,
+      mesAnio:         (()=>{
+        if (!fecha) return null;
+        const d = new Date(fecha + 'T12:00:00');
+        if (isNaN(d)) return null;
+        // Guardar como "YYYY-MM" para ordenar, mostrar solo mes en el gráfico
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      })(),
+      anioActa:        fecha ? new Date(fecha+'T12:00:00').getFullYear() : null,
+      precintos,
+      fueDecomisado:    String(row['FUE DECOMISADO?']||'NO').trim(),
+      fotoActa:         row['Foto de acta'] ? String(row['Foto de acta']).trim() : null,
+    };
+  }
+
+  try {
+    // ── PASO 1: Leer Excel ─────────────────────────────────────────────────
+    toast.style.display = 'block';
+    toast.className = 'toast';
+    toast.textContent = '📄 Leyendo Excel…';
+
+    const data = await chosenFile.arrayBuffer();
+    const wb = XLSX.read(data);
+    const ws = wb.Sheets['Forms ACTAS'];
+    if (!ws) throw new Error('No se encontró la hoja "Forms ACTAS"');
+    const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
+
+    // Construir mapa Id → registro del Excel
+    const excelMap = {};
+    rows.forEach(row => {
+      const rec = parsearFila(row);
+      if (rec) excelMap[rec.id] = rec;
+    });
+    const excelIds = Object.keys(excelMap);
+    pfill.style.width = '10%';
+
+    // ── PASO 2: Leer chunks existentes de Firestore ────────────────────────
+    toast.textContent = '☁️ Leyendo datos existentes de Firestore…';
+
+    const metaSnap = await window._getDoc(window._doc(db, 'actas_meta', 'index')).catch(()=>null);
+    const totalChunksActual = metaSnap?.exists() ? (metaSnap.data().totalChunks || 0) : 0;
+
+    // Leer todos los chunks actuales en paralelo
+    const chunkPromises = [];
+    for (let i = 0; i < totalChunksActual; i++) {
+      chunkPromises.push(window._getDoc(window._doc(db, 'actas_chunks', 'chunk_' + i)));
+    }
+    const chunkSnaps = await Promise.all(chunkPromises);
+
+    // Construir mapa Id → registro existente en Firestore
+    const firestoreMap = {};
+    chunkSnaps.forEach(s => {
+      if (s.exists()) (s.data().registros||[]).forEach(r => { firestoreMap[r.id] = r; });
+    });
+
+    pfill.style.width = '30%';
+
+    // ── PASO 3: Calcular diferencia ────────────────────────────────────────
+    // Registros nuevos o modificados del Excel
+    let nuevos = 0, actualizados = 0;
+    excelIds.forEach(id => {
+      if (!firestoreMap[id]) {
+        nuevos++;
+        firestoreMap[id] = excelMap[id]; // agregar
+      } else {
+        // Actualizar siempre con los datos del Excel (el Excel es la fuente de verdad)
+        const antes = JSON.stringify(firestoreMap[id]);
+        firestoreMap[id] = excelMap[id];
+        if (JSON.stringify(firestoreMap[id]) !== antes) actualizados++;
+      }
+    });
+
+    toast.textContent = `🔄 ${nuevos} nuevos, ${actualizados} actualizados. Guardando chunks…`;
+    pfill.style.width = '40%';
+
+    // ── PASO 4: Reconstruir chunks con todos los registros ─────────────────
+    const todosLosRegistros = Object.values(firestoreMap);
+    const totalNuevosChunks = Math.ceil(todosLosRegistros.length / CHUNK_SIZE);
+
+    for (let i = 0; i < totalNuevosChunks; i++) {
+      const slice = todosLosRegistros.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+      await window._setDoc(
+        window._doc(db, 'actas_chunks', 'chunk_' + i),
+        { registros: slice, actualizadoEn: new Date().toISOString() }
+      );
+      pfill.style.width = Math.round(40 + (i + 1) / totalNuevosChunks * 55) + '%';
+    }
+
+    // Borrar chunks sobrantes de una carga anterior más grande (si no, quedan huérfanos)
+    for (let i = totalNuevosChunks; i < totalChunksActual; i++) {
+      await window._deleteDoc(window._doc(db, 'actas_chunks', 'chunk_' + i));
+    }
+
+    // ── PASO 5: Actualizar metadato ────────────────────────────────────────
+    await window._setDoc(window._doc(db, 'actas_meta', 'index'), {
+      totalChunks: totalNuevosChunks,
+      totalRegistros: todosLosRegistros.length,
+      actualizadoEn: new Date().toISOString(),
+    });
+
+    pfill.style.width = '100%';
+
+    // Invalidar caché local
+    sessionStorage.removeItem('dgf_actas_cache');
+    sessionStorage.removeItem('dgf_actas_ts');
+
+    toast.textContent = `✅ ${todosLosRegistros.length.toLocaleString('es-AR')} registros totales guardados en ${totalNuevosChunks} chunks (${nuevos} nuevos, ${actualizados} actualizados). Lecturas futuras: ${totalNuevosChunks + 1}.`;
+    toast.className = 'toast ok';
+
+  } catch(e) {
+    toast.textContent = '❌ Error: ' + e.message;
+    toast.className = 'toast err';
+    console.error(e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Subir a Firestore';
+  }
+};
+</script>
+</body>
+</html>

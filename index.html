@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA</title>
+<script src="config.js"></script>
+<style>
+:root{
+  --bg:#f0f4f8;--sur:#fff;--pri:#1a3a5c;--pli:#2563a8;
+  --acc:#e85d04;--txt:#1e293b;--mut:#64748b;--bor:#dde3ec;
+  --ok:#15803d;--da:#b91c1c;--r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;display:flex;flex-direction:column;}
+
+header{
+  background:var(--pri);color:#fff;
+  padding:18px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 2px 14px rgba(0,0,0,.22);
+  flex-wrap:wrap;gap:10px;
+}
+.htitle h1{font-size:1.18rem;font-weight:700;}
+.htitle p{font-size:.74rem;opacity:.5;margin-top:2px;}
+.huser{display:flex;align-items:center;gap:12px;}
+#userBadge{
+  display:none;align-items:center;gap:8px;
+  background:rgba(255,255,255,.12);border-radius:20px;
+  padding:5px 14px;font-size:.82rem;
+}
+#userBadge .dot{width:8px;height:8px;border-radius:50%;background:#4ade80;}
+#logoutBtn{
+  font-size:.78rem;opacity:.7;cursor:pointer;
+  background:none;border:none;color:#fff;text-decoration:underline;display:none;
+}
+#logoutBtn:hover{opacity:1;}
+
+/* LOGIN */
+#loginOverlay{
+  display:flex;position:fixed;inset:0;
+  background:rgba(15,23,42,.72);backdrop-filter:blur(5px);
+  z-index:1000;align-items:center;justify-content:center;
+}
+.lbox{
+  background:#fff;border-radius:16px;padding:40px 36px;
+  width:100%;max-width:380px;
+  box-shadow:0 24px 70px rgba(0,0,0,.3);text-align:center;
+}
+.lbox .lic{font-size:2.4rem;margin-bottom:8px;}
+.lbox h2{font-size:1.1rem;color:var(--pri);font-weight:700;margin-bottom:4px;}
+.lbox p{font-size:.79rem;color:var(--mut);margin-bottom:22px;}
+.lfield{text-align:left;margin-bottom:14px;}
+.lfield label{display:block;font-size:.72rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-bottom:5px;}
+.lfield input{
+  width:100%;padding:11px 13px;
+  border:1.5px solid var(--bor);border-radius:var(--r);
+  font-size:.93rem;outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.lfield input:focus{border-color:var(--pli);box-shadow:0 0 0 3px rgba(37,99,168,.12);}
+.lerr{
+  font-size:.78rem;color:var(--da);background:#fee2e2;
+  border-radius:6px;padding:8px 12px;margin-bottom:12px;display:none;
+}
+.lbtn{
+  width:100%;padding:12px;background:var(--pri);color:#fff;
+  border:none;border-radius:var(--r);font-size:.93rem;font-weight:700;
+  cursor:pointer;transition:background .18s;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.lbtn:hover{background:var(--pli);}
+.lbtn:disabled{opacity:.5;cursor:not-allowed;}
+.spinner{
+  width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;
+  animation:spin .7s linear infinite;display:none;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* MAIN */
+main{flex:1;max-width:1100px;margin:0 auto;padding:32px 20px;width:100%;}
+.welcome{margin-bottom:28px;}
+.welcome h2{font-size:1.32rem;font-weight:700;color:var(--pri);}
+.welcome p{font-size:.87rem;color:var(--mut);margin-top:4px;}
+
+/* MÓDULOS */
+.mgrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:18px;margin-bottom:28px;
+}
+.mcard{
+  background:var(--sur);border-radius:var(--r);
+  padding:22px 20px 18px;
+  box-shadow:0 1px 8px rgba(0,0,0,.09);
+  border:2px solid transparent;
+  transition:all .2s;display:flex;flex-direction:column;gap:10px;
+  text-decoration:none;color:inherit;
+}
+.mcard:hover,.mcard:focus{border-color:var(--pli);box-shadow:0 4px 20px rgba(37,99,168,.15);outline:none;}
+.mcard.locked{opacity:.42;cursor:not-allowed;pointer-events:none;}
+.mcard .micon{font-size:2rem;}
+.mcard .mtitle{font-size:1rem;font-weight:700;color:var(--pri);}
+.mcard .mdesc{font-size:.8rem;color:var(--mut);line-height:1.5;}
+.mtag{
+  display:inline-block;padding:2px 9px;border-radius:12px;
+  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+  background:#dbeafe;color:var(--pli);align-self:flex-start;margin-top:4px;
+}
+.mtag.lock{background:#f1f5f9;color:var(--mut);}
+
+/* PANEL ADMIN */
+#adminPanel{
+  background:var(--sur);border-radius:var(--r);
+  padding:22px 24px;box-shadow:0 1px 8px rgba(0,0,0,.09);
+  margin-bottom:26px;display:none;
+}
+#adminPanel h3{
+  font-size:.82rem;font-weight:700;color:var(--pri);
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;
+}
+#adminPanel .subtitle{font-size:.79rem;color:var(--mut);margin-bottom:18px;}
+
+/* Tabla de usuarios */
+.utbl{width:100%;border-collapse:collapse;font-size:.83rem;}
+.utbl thead{background:#f1f5f9;}
+.utbl th{text-align:left;padding:8px 12px;font-size:.71rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;color:var(--mut);}
+.utbl td{padding:9px 12px;border-bottom:1px solid var(--bor);vertical-align:middle;}
+.utbl tr:last-child td{border-bottom:none;}
+.role-badge{
+  display:inline-block;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:700;
+}
+.role-badge.admin{background:#fef9c3;color:#854d0e;}
+.role-badge.viewer{background:#dbeafe;color:var(--pli);}
+.pinput{
+  padding:6px 10px;border:1.5px solid var(--bor);border-radius:6px;
+  font-size:.82rem;outline:none;width:160px;
+  transition:border-color .15s;
+}
+.pinput:focus{border-color:var(--pli);}
+.abtn{
+  padding:6px 12px;border:none;border-radius:6px;font-size:.78rem;
+  font-weight:600;cursor:pointer;background:var(--pri);color:#fff;
+  transition:background .15s;white-space:nowrap;
+}
+.abtn:hover{background:var(--pli);}
+.abtn:disabled{opacity:.45;cursor:not-allowed;}
+.abtn.danger{background:#dc2626;}
+.abtn.danger:hover{background:#b91c1c;}
+.abtn.success{background:var(--ok);}
+
+/* Agregar usuario */
+.add-user-form{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;
+  margin-top:16px;padding-top:16px;border-top:1px solid var(--bor);
+}
+.add-user-form .afield{display:flex;flex-direction:column;gap:4px;}
+.add-user-form label{font-size:.7rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--mut);}
+.add-user-form input, .add-user-form select{
+  padding:7px 10px;border:1.5px solid var(--bor);border-radius:6px;
+  font-size:.82rem;outline:none;
+}
+.add-user-form input:focus,.add-user-form select:focus{border-color:var(--pli);}
+
+.toast-msg{
+  display:none;font-size:.79rem;padding:8px 14px;border-radius:6px;
+  margin-top:12px;font-weight:500;
+}
+.toast-msg.ok{background:#dcfce7;color:var(--ok);}
+.toast-msg.err{background:#fee2e2;color:var(--da);}
+
+footer{padding:14px;background:#e2e8f0;font-size:.72rem;color:var(--mut);text-align:center;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginOverlay">
+  <div class="lbox">
+    <div class="lic">🏛️</div>
+    <h2>DGFIS-GCABA</h2>
+    <p>Ingresá tus credenciales para continuar.</p>
+    <div class="lerr" id="loginErr"></div>
+    <div class="lfield">
+      <label>Usuario</label>
+      <input type="text" id="lUser" autocomplete="username" placeholder="usuario"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="lfield">
+      <label>Contraseña</label>
+      <input type="password" id="lPass" autocomplete="current-password" placeholder="••••••"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="lbtn" id="loginBtn" onclick="doLogin()">
+      <div class="spinner" id="loginSpinner"></div>
+      <span id="loginBtnTxt">Ingresar</span>
+    </button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="htitle">
+    <h1>🏛️ DGFIS-GCABA</h1>
+    <p>Portal de herramientas internas</p>
+  </div>
+  <div class="huser">
+    <div id="userBadge">
+      <span class="dot"></span>
+      <span id="userBadgeName"></span>
+    </div>
+    <button id="logoutBtn" onclick="doLogout()">Cerrar sesión</button>
+  </div>
+</header>
+
+<main>
+  <!-- Panel admin -->
+  <div id="adminPanel">
+    <h3>⚙️ Panel de Administración — Usuarios</h3>
+    <p class="subtitle">Gestioná usuarios y contraseñas. Los cambios aplican en todos los navegadores.</p>
+    <table class="utbl" id="userTable">
+      <thead>
+        <tr>
+          <th>Usuario</th><th>Nombre</th><th>Rol</th>
+          <th>Módulos</th><th>Nueva contraseña</th><th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="userTableBody">
+        <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--mut)">Cargando usuarios…</td></tr>
+      </tbody>
+    </table>
+
+    <div class="add-user-form">
+      <div class="afield">
+        <label>Usuario</label>
+        <input type="text" id="newUsername" placeholder="nombre_usuario" style="width:140px">
+      </div>
+      <div class="afield">
+        <label>Nombre visible</label>
+        <input type="text" id="newNombre" placeholder="Ej: J. García" style="width:150px">
+      </div>
+      <div class="afield">
+        <label>Contraseña</label>
+        <input type="password" id="newPass" placeholder="mínimo 6 caracteres" style="width:180px">
+      </div>
+      <div class="afield">
+        <label>Rol</label>
+        <select id="newRole">
+          <option value="viewer">Viewer</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <button class="abtn success" onclick="addUser()">+ Agregar usuario</button>
+    </div>
+    <div class="toast-msg" id="adminToast"></div>
+  </div>
+
+  <!-- Bienvenida -->
+  <div class="welcome">
+    <h2 id="welcomeTitle">Bienvenido</h2>
+    <p id="welcomeSub">Seleccioná un módulo para comenzar.</p>
+  </div>
+
+  <!-- Módulos -->
+  <div class="mgrid" id="moduleGrid"></div>
+</main>
+
+<footer>DGFIS-GCABA &nbsp;|&nbsp; Uso interno</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// -- INIT FIREBASE ----------------------------------------------
+if (typeof FIREBASE_CONFIG === 'undefined') {
+  alert('Error: falta config.js. Ejecutá generate-config.js.');
+  throw new Error('FIREBASE_CONFIG no definido');
+}
+const app = initializeApp(FIREBASE_CONFIG);
+const db  = getFirestore(app);
+
+// -- MÓDULOS DEL PORTAL ----------------------------------------
+// Para agregar uno nuevo, solo sumá un objeto acá.
+const MODULES = [
+  {
+    id: 'permisos',
+    icon: '🔍',
+    title: 'Buscador de Permisos',
+    desc: 'Consultá permisos de alimentos por nombre, DNI, expediente o ubicación.',
+    tag: 'Activo',
+    roles: ['admin','viewer'],
+    url: 'buscador_permisos.html',
+  },
+  {
+    id: 'estadisticas',
+    icon: '📊',
+    title: 'Estadísticas — Actas',
+    desc: 'Mapa de calor, gráficos por zona, fecha, tipo de operativo y categorías de artículos.',
+    tag: 'Activo',
+    roles: ['admin','viewer'],
+    url: 'estadisticas_actas.html',
+  },
+  {
+    id: 'novedades',
+    icon: '📋',
+    title: 'Novedades de Personal',
+    desc: 'Carga de licencias, novedades, nómina y bajas del personal.',
+    tag: 'Activo',
+    roles: ['admin','novedades'],
+    url: 'novedades_personal.html',
+  },
+  {
+    id: 'asignacion',
+    icon: '📍',
+    title: 'Asignación de Zonas',
+    desc: 'Distribución diaria por zona, resumen y configuración de feriados.',
+    tag: 'Activo',
+    roles: ['admin','asignacion'],
+    url: 'asignacion_zonas.html',
+  },
+  {
+    id: 'personal',
+    icon: '👥',
+    title: 'Gestión de Personal',
+    desc: 'Alta, edición y baja de personal, nómina y carga desde Excel.',
+    tag: 'Activo',
+    roles: ['admin','personal'],
+    url: 'gestion_personal.html',
+  },
+  {
+    id: 'expedientes',
+    icon: '📋',
+    title: 'Gestión de Expedientes',
+    desc: 'Alta, baja y seguimiento de expedientes.',
+    tag: 'Próximamente',
+    roles: [],
+    url: null,
+  },
+];
+
+// -- HASH SHA-256 (contraseñas nunca se guardan en texto plano) -
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// -- ESCAPE HTML (evita XSS al mostrar datos guardados en Firestore) --
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+// -- ESTADO ----------------------------------------------------
+let loggedUser = null; // { username, nombre, role }
+
+// -- SETUP INICIAL: crea el usuario srepetto si la colección está vacía --
+async function ensureAdminExists() {
+  const snap = await getDocs(collection(db, 'usuarios'));
+  if (snap.empty) {
+    const hash = await sha256('Admin2024!');
+    await setDoc(doc(db, 'usuarios', 'srepetto'), {
+      nombre: 'S. Repetto',
+      role: 'admin',
+      passHash: hash,
+    });
+    console.log('Usuario admin creado.');
+  }
+}
+
+// -- LOGIN ------------------------------------------------------
+window.doLogin = async function() {
+  const u = document.getElementById('lUser').value.trim().toLowerCase();
+  const p = document.getElementById('lPass').value;
+  const err = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  const sp  = document.getElementById('loginSpinner');
+  const txt = document.getElementById('loginBtnTxt');
+
+  if (!u || !p) { showErr('Completá usuario y contraseña.'); return; }
+
+  btn.disabled = true;
+  sp.style.display = 'block';
+  txt.textContent = 'Verificando…';
+  err.style.display = 'none';
+
+  try {
+    const snap = await getDoc(doc(db, 'usuarios', u));
+    if (!snap.exists()) { showErr('Usuario o contraseña incorrectos.'); return; }
+
+    const data = snap.data();
+    const hash = await sha256(p);
+
+    if (data.passHash !== hash) { showErr('Usuario o contraseña incorrectos.'); return; }
+
+    loggedUser = { username: u, nombre: data.nombre, role: data.role, modulos: data.modulos||[], permisos: data.permisos||{} };
+    // Guardar sesión en localStorage (persiste aunque se cierre el navegador)
+    localStorage.setItem('dgf_session', JSON.stringify(loggedUser));
+    document.getElementById('loginOverlay').style.display = 'none';
+    onLoginSuccess();
+
+  } catch(e) {
+    showErr('Error de conexión. Revisá tu red.');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    sp.style.display = 'none';
+    txt.textContent = 'Ingresar';
+  }
+};
+
+function showErr(msg) {
+  const el = document.getElementById('loginErr');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('lPass').value = '';
+  document.getElementById('lPass').focus();
+}
+
+// -- LOGOUT -----------------------------------------------------
+window.doLogout = function() {
+  loggedUser = null;
+  localStorage.removeItem('dgf_session');
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('lUser').value = '';
+  document.getElementById('lPass').value = '';
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('moduleGrid').innerHTML = '';
+  document.getElementById('welcomeTitle').textContent = 'Bienvenido';
+};
+
+// -- POST-LOGIN -------------------------------------------------
+function onLoginSuccess() {
+  document.getElementById('userBadge').style.display = 'flex';
+  document.getElementById('userBadgeName').textContent = loggedUser.nombre;
+  document.getElementById('logoutBtn').style.display = 'inline';
+  document.getElementById('welcomeTitle').textContent = '👋 Hola, ' + loggedUser.nombre;
+  document.getElementById('welcomeSub').textContent =
+    loggedUser.role === 'admin'
+      ? 'Acceso completo — Panel de administración habilitado.'
+      : 'Seleccioná un módulo para comenzar.';
+
+  if (loggedUser.role === 'admin') {
+    document.getElementById('adminPanel').style.display = 'block';
+    loadUserTable();
+  }
+  renderModules();
+}
+
+// -- MÓDULOS ----------------------------------------------------
+function renderModules() {
+  const grid = document.getElementById('moduleGrid');
+  grid.innerHTML = '';
+  MODULES.forEach(mod => {
+    const canAccess = loggedUser.role === 'admin' ||
+      mod.roles.includes(loggedUser.role) ||
+      (loggedUser.modulos && mod.roles.some(r => (loggedUser.modulos||[]).includes(r)));
+    const locked = !canAccess || !mod.url;
+    const el = document.createElement(locked ? 'div' : 'a');
+    if (!locked) el.href = mod.url;
+    el.className = 'mcard' + (locked ? ' locked' : '');
+    el.innerHTML = `
+      <div class="micon">${mod.icon}</div>
+      <div class="mtitle">${mod.title}</div>
+      <div class="mdesc">${mod.desc}</div>
+      <span class="mtag${locked ? ' lock' : ''}">${mod.tag}</span>
+    `;
+    grid.appendChild(el);
+  });
+}
+
+// -- TABLA DE USUARIOS (admin) ----------------------------------
+async function loadUserTable() {
+  const tbody = document.getElementById('userTableBody');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--mut)">Cargando…</td></tr>';
+  try {
+    const snap = await getDocs(collection(db, 'usuarios'));
+    tbody.innerHTML = '';
+    snap.forEach(d => {
+      const { nombre, role, modulos, permisos } = d.data();
+      const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal'];
+      const modsActuales = modulos || [];
+      const permisosActuales = permisos || {};
+      const tr = document.createElement('tr');
+      tr.id = 'urow_' + d.id;
+      tr.innerHTML = `
+        <td><strong>${esc(d.id)}</strong></td>
+        <td>${esc(nombre)}</td>
+        <td><span class="role-badge ${esc(role)}">${esc(role)}</span></td>
+        <td>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${MODULOS_DISPONIBLES.map(m => `
+              <label style="font-size:.74rem;display:flex;align-items:center;gap:3px;cursor:pointer">
+                <input type="checkbox" ${modsActuales.includes(m)?'checked':''}
+                  onchange="toggleModulo('${d.id}','${m}',this.checked)"
+                  ${role==='admin'?'disabled title="Admin tiene acceso a todo"':''}
+                > ${esc(m)}
+              </label>
+              ${modsActuales.includes(m)&&role!=='admin' ? `
+              <select style="font-size:.7rem;padding:1px 3px" title="Nivel de permiso en ${esc(m)}"
+                onchange="cambiarPermiso('${d.id}','${m}',this.value)">
+                <option value="editor" ${(permisosActuales[m]||'editor')==='editor'?'selected':''}>✏️ Editor</option>
+                <option value="viewer" ${permisosActuales[m]==='viewer'?'selected':''}>👁 Sólo ver</option>
+              </select>` : ''}`).join('')}
+          </div>
+        </td>
+        <td>
+          <input class="pinput" type="password" id="np_${d.id}"
+                 placeholder="Nueva contraseña">
+        </td>
+        <td style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="abtn" onclick="changePass('${d.id}', this)">Cambiar pass</button>
+          ${d.id !== 'srepetto'
+            ? `<button class="abtn danger" onclick="deleteUser('${d.id}')">Eliminar</button>`
+            : ''}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    if (snap.empty) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--mut)">Sin usuarios.</td></tr>';
+    }
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--da);padding:12px">Error al cargar usuarios.</td></tr>';
+  }
+}
+
+// -- CAMBIAR CONTRASEÑA -----------------------------------------
+window.changePass = async function(username, btn) {
+  const input = document.getElementById('np_' + username);
+  const newPass = input.value.trim();
+  if (!newPass || newPass.length < 6) {
+    showAdminToast('La contraseña debe tener al menos 6 caracteres.', 'err');
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const hash = await sha256(newPass);
+    await setDoc(doc(db, 'usuarios', username), { passHash: hash }, { merge: true });
+    input.value = '';
+    showAdminToast('✅ Contraseña de ' + username + ' actualizada.', 'ok');
+  } catch(e) {
+    showAdminToast('Error al guardar: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Cambiar pass';
+  }
+};
+
+// -- AGREGAR USUARIO --------------------------------------------
+window.addUser = async function() {
+  const username = document.getElementById('newUsername').value.trim().toLowerCase();
+  const nombre   = document.getElementById('newNombre').value.trim();
+  const pass     = document.getElementById('newPass').value.trim();
+  const role     = document.getElementById('newRole').value;
+
+  if (!username || !nombre || !pass) {
+    showAdminToast('Completá todos los campos.', 'err'); return;
+  }
+  if (pass.length < 6) {
+    showAdminToast('La contraseña debe tener al menos 6 caracteres.', 'err'); return;
+  }
+  if (!/^[a-z0-9_]+$/.test(username)) {
+    showAdminToast('El usuario solo puede tener letras, números y guión bajo.', 'err'); return;
+  }
+
+  const existSnap = await getDoc(doc(db, 'usuarios', username));
+  if (existSnap.exists()) {
+    showAdminToast('Ese nombre de usuario ya existe.', 'err'); return;
+  }
+
+  try {
+    const hash = await sha256(pass);
+    await setDoc(doc(db, 'usuarios', username), { nombre, role, passHash: hash });
+    document.getElementById('newUsername').value = '';
+    document.getElementById('newNombre').value   = '';
+    document.getElementById('newPass').value     = '';
+    document.getElementById('newRole').value     = 'viewer';
+    showAdminToast('✅ Usuario ' + username + ' creado correctamente.', 'ok');
+    loadUserTable();
+  } catch(e) {
+    showAdminToast('Error al crear usuario: ' + e.message, 'err');
+  }
+};
+
+// -- ELIMINAR USUARIO -------------------------------------------
+window.deleteUser = async function(username) {
+  if (!confirm('¿Eliminar el usuario "' + username + '"? Esta acción no se puede deshacer.')) return;
+  try {
+    await deleteDoc(doc(db, 'usuarios', username));
+    document.getElementById('urow_' + username)?.remove();
+    showAdminToast('Usuario ' + username + ' eliminado.', 'ok');
+  } catch(e) {
+    showAdminToast('Error al eliminar: ' + e.message, 'err');
+  }
+};
+
+// -- TOGGLE MÓDULO ----------------------------------------------
+window.toggleModulo = async function(username, modulo, enabled) {
+  try {
+    const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const snap = await getDoc(doc(db, 'usuarios', username));
+    if (!snap.exists()) return;
+    let mods = snap.data().modulos || [];
+    if (enabled) { if (!mods.includes(modulo)) mods.push(modulo); }
+    else { mods = mods.filter(m => m !== modulo); }
+    await setDoc(doc(db, 'usuarios', username), { modulos: mods }, { merge: true });
+    showAdminToast(`✅ Módulo "${modulo}" ${enabled?'habilitado':'deshabilitado'} para ${username}.`, 'ok');
+  } catch(e) {
+    showAdminToast('Error: ' + e.message, 'err');
+  }
+};
+
+// -- NIVEL DE PERMISO POR MÓDULO (editor puede editar, viewer sólo ve) ----
+window.cambiarPermiso = async function(username, modulo, nivel) {
+  try {
+    const snap = await getDoc(doc(db, 'usuarios', username));
+    if (!snap.exists()) return;
+    const permisos = snap.data().permisos || {};
+    permisos[modulo] = nivel;
+    await setDoc(doc(db, 'usuarios', username), { permisos }, { merge: true });
+    showAdminToast(`✅ Permiso de "${modulo}" para ${username}: ${nivel==='viewer'?'sólo ver':'editor'}.`, 'ok');
+  } catch(e) {
+    showAdminToast('Error: ' + e.message, 'err');
+  }
+};
+
+// -- TOAST ADMIN ------------------------------------------------
+function showAdminToast(msg, type) {
+  const t = document.getElementById('adminToast');
+  t.textContent = msg;
+  t.className = 'toast-msg ' + type;
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+// -- ARRANQUE ---------------------------------------------------
+ensureAdminExists();
+
+// Restaurar sesión si el usuario ya estaba logueado en otra página.
+// No confiamos en los datos guardados en localStorage (pueden ser editados
+// desde la consola del navegador): sólo usamos el username para volver a
+// leer el rol/módulos reales desde Firestore.
+(async function() {
+  const saved = localStorage.getItem('dgf_session');
+  if (!saved) return;
+  try {
+    const parsed = JSON.parse(saved);
+    if (!parsed || !parsed.username) throw new Error('sesión inválida');
+    const snap = await getDoc(doc(db, 'usuarios', parsed.username));
+    if (!snap.exists()) throw new Error('usuario ya no existe');
+    const data = snap.data();
+    loggedUser = { username: parsed.username, nombre: data.nombre, role: data.role, modulos: data.modulos || [], permisos: data.permisos || {} };
+    localStorage.setItem('dgf_session', JSON.stringify(loggedUser));
+    document.getElementById('loginOverlay').style.display = 'none';
+    onLoginSuccess();
+  } catch(e) {
+    localStorage.removeItem('dgf_session');
+  }
+})();
+</script>
+</body>
+</html>

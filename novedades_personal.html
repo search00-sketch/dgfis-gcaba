@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA — Novedades de Personal</title>
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#222;font-size:14px}
+:root{--azul:#1a3a5c;--azul2:#2c6fad;--verde:#27ae60;--rojo:#c0392b;--naranja:#e67e22;--gris:#f4f6f8;--bor:#e0e0e0}
+
+.header{background:var(--azul);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.header-title{font-size:16px;font-weight:700}
+.header-sub{font-size:11px;opacity:.6;margin-top:2px}
+.header-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.header input[type=date]{background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:6px 10px;color:#fff;font-size:13px;cursor:pointer}
+.badge-count{background:rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;font-size:12px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;padding:5px 11px;font-size:.76rem;cursor:pointer;font-weight:600;text-decoration:none;display:inline-block}
+.hbtn:hover{background:rgba(255,255,255,.25)}
+
+.tabs{display:flex;gap:0;padding:0 16px;flex-wrap:wrap;background:#fff;border-bottom:2px solid var(--bor);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:none;border-radius:8px 8px 0 0;padding:10px 18px;font-size:13px;cursor:pointer;background:transparent;color:#777;font-weight:600;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap}
+.tab.active{color:var(--azul);border-bottom-color:var(--naranja)}
+.tab:hover:not(.active){background:#f5f5f5}
+
+.content{padding:16px;max-width:1250px;margin:0 auto}
+.panel{display:none}.panel.active{display:block}
+
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.btn{border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-weight:600;transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.85}
+.btn-azul{background:var(--azul);color:#fff}
+.btn-verde{background:var(--verde);color:#fff}
+.btn-naranja{background:var(--naranja);color:#fff}
+.btn-rojo{background:var(--rojo);color:#fff}
+.btn-gris{background:#e0e0e0;color:#444}
+.btn-sm{padding:4px 10px;font-size:11px;font-weight:600}
+.search-input{flex:1;min-width:180px;border:1.5px solid var(--bor);border-radius:8px;padding:8px 12px;font-size:13px;outline:none}
+.search-input:focus{border-color:var(--azul2)}
+select.ctrl{border:1.5px solid var(--bor);border-radius:8px;padding:8px 10px;font-size:13px;background:#fff;outline:none;cursor:pointer}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.stat-card{background:#fff;border-radius:10px;padding:14px;text-align:center;border:1px solid var(--bor)}
+.stat-num{font-size:26px;font-weight:700;color:var(--azul)}
+.stat-label{font-size:11px;color:#777;margin-top:3px}
+
+.table-wrap{background:#fff;border-radius:12px;border:1px solid var(--bor);overflow:hidden}
+.table-head{display:grid;background:var(--azul);color:#fff;padding:10px 14px;font-size:12px;font-weight:700;gap:6px}
+.table-body{max-height:520px;overflow-y:auto}
+.table-row{display:grid;padding:8px 14px;gap:6px;align-items:center;border-bottom:1px solid #f0f0f0;transition:background .1s}
+.table-row:hover{background:#f7f9fb}
+.table-row:nth-child(even){background:#fafafa}
+.table-row:nth-child(even):hover{background:#f0f4f8}
+
+.grid-dist{grid-template-columns:2fr .9fr 1.4fr 1.2fr 50px}
+.grid-nom{grid-template-columns:2fr .9fr .9fr .8fr 120px}
+.grid-hist{grid-template-columns:90px 2fr 1fr 2fr 40px}
+
+.nombre-cell{font-weight:600;font-size:13px}
+.sub-cell{font-size:11px;color:#888;margin-top:1px}
+.zona-select{width:100%;border:1.5px solid var(--bor);border-radius:6px;padding:4px 6px;font-size:12px;background:#fff;cursor:pointer;outline:none}
+.zona-select.asignada{background:#e8f4fd;border-color:#90caf9}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;white-space:nowrap;margin:1px 1px 0 0}
+.bdg-turno-man{background:#e8f5e9;color:#2e7d32}
+.bdg-turno-tar{background:#fff3e0;color:#e65100}
+.bdg-turno-noc{background:#ede7f6;color:#4527a0}
+.bdg-sadofe-d{background:#e1f5fe;color:#0277bd}
+.bdg-sadofe-n{background:#fce4ec;color:#880e4f}
+.bdg-admin{background:#f5f5f5;color:#616161}
+.bdg-ger{background:#fafafa;color:#424242}
+.bdg-activo{background:#e8f8e8;color:#1b5e20}
+.bdg-licencia{background:#e3f2fd;color:#0d47a1}
+.bdg-baja{background:#ffebee;color:#b71c1c}
+.bdg-nov-lic{background:#e0f0ff;color:#1a3a5c}
+.bdg-nov-tar{background:#fff4cc;color:#7a5500}
+.bdg-nov-ret{background:#ffe0cc;color:#7a2f00}
+.bdg-nov-aus{background:#ffd6d6;color:#7a0000}
+.bdg-nov-otro{background:#ece7ff;color:#4a0080}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:26px;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;position:relative}
+.modal-title{font-weight:700;font-size:16px;color:var(--azul);margin-bottom:18px}
+.modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:#888}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-field.full{grid-column:1/-1}
+label.fl{font-size:11px;color:#666;font-weight:600}
+.form-input{border:1.5px solid var(--bor);border-radius:7px;padding:8px 10px;font-size:13px;outline:none;width:100%}
+.form-input:focus{border-color:var(--azul2)}
+.form-note{background:#f0f8ff;border-radius:8px;padding:9px 12px;font-size:12px;color:var(--azul);margin-bottom:12px}
+.modal-actions{display:flex;gap:10px;margin-top:4px}
+.modal-actions .btn{flex:1;padding:10px;font-size:14px}
+.tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.tipo-btn{border:2px solid var(--bor);border-radius:8px;padding:9px;text-align:center;font-size:13px;cursor:pointer;background:#fff;transition:all .15s}
+.tipo-btn.sel{font-weight:700;border-color:var(--azul)}
+
+.zonas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.zona-card{background:#fff;border:1px solid var(--bor);border-radius:12px;overflow:hidden}
+.zona-card-head{background:var(--azul);color:#fff;padding:9px 14px;display:flex;justify-content:space-between;align-items:center}
+.zona-card-head span{font-size:13px;font-weight:700}
+.zona-count{background:rgba(255,255,255,.22);border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700}
+.zona-card-body{padding:8px 14px}
+.zona-persona{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5}
+.zona-persona:last-child{border-bottom:none}
+.zona-empty{color:#aaa;font-size:12px;padding:8px 0}
+
+.eventos-banner{background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ev-pill{background:#ffe082;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:#5c4000}
+
+.autocomplete-wrap{position:relative}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--azul2);border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:100;display:none}
+.autocomplete-list.open{display:block}
+.autocomplete-item{padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0}
+.autocomplete-item:hover{background:#e8f4fd}
+
+.gestion-zonas{background:#fff;border-radius:12px;border:1px solid var(--bor);padding:16px;margin-bottom:16px}
+.gz-title{font-weight:700;font-size:14px;color:var(--azul);margin-bottom:12px}
+.zonas-lista{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.zona-tag{background:var(--gris);border:1px solid var(--bor);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.zona-tag .del-zona{background:none;border:none;color:#c0392b;cursor:pointer;font-size:15px;line-height:1;padding:0}
+.gz-add{display:flex;gap:8px;align-items:center}
+.gz-add input{flex:1;border:1.5px solid var(--bor);border-radius:8px;padding:7px 10px;font-size:13px;outline:none}
+
+.ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.ficha-item{background:#f9f9f9;border-radius:8px;padding:8px 12px}
+.ficha-key{font-size:11px;color:#888}
+.ficha-val{font-size:13px;font-weight:600}
+.hist-novs{max-height:160px;overflow-y:auto;margin-bottom:10px}
+.hist-zona{max-height:140px;overflow-y:auto}
+.hist-row{background:#f5f5f5;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:12px}
+
+.nov-info{background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px}
+.confirm-box{background:#fff3cd;border:1.5px solid #ffc107;border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px}
+.confirm-box strong{color:#856404}
+.lic-dates{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.table-info{font-size:12px;color:#777;margin-bottom:6px}
+
+/* Sync status */
+.sync-bar{background:#fff;border-bottom:1px solid var(--bor);padding:4px 20px;font-size:11px;color:#888;display:flex;gap:12px;align-items:center}
+.sync-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:3px}
+.sync-ok{background:#22c55e}
+.sync-loading{background:#f59e0b;animation:pulse .8s infinite}
+.sync-err{background:#ef4444}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#f0f0f0}
+::-webkit-scrollbar-thumb{background:#bbb;border-radius:3px}
+
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<!-- LOGIN -->
+<div class="overlay open" id="loginOverlay" style="z-index:3000">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">📋</div>
+    <div class="modal-title" style="text-align:center">Novedades de Personal</div>
+    <p style="font-size:.79rem;color:#888;margin-bottom:18px">DGFIS-GCABA</p>
+    <div class="lerr" id="loginErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:6px;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px;text-align:left">
+      <label class="fl">Usuario</label>
+      <input class="form-input" type="text" id="lUser" placeholder="usuario" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px;text-align:left">
+      <label class="fl">Contraseña</label>
+      <div style="position:relative">
+        <input class="form-input" type="password" id="lPass" placeholder="••••••" style="padding-right:36px" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" onclick="togglePass()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:#888">👁️</button>
+      </div>
+    </div>
+    <button class="btn btn-azul" style="width:100%;padding:11px" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <p style="margin-top:12px;font-size:.74rem"><a href="index.html" style="color:var(--azul2)">← Volver al portal</a></p>
+  </div>
+</div>
+
+<header class="header">
+  <div>
+    <div class="header-title">📋 Novedades de Personal</div>
+    <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a> &nbsp;|&nbsp; <a href="asignacion_zonas.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">Asignación →</a></div>
+  </div>
+  <div class="header-right">
+    <input type="date" id="fecha-global">
+    <div class="badge-count" id="badge-activos">— activos</div>
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<div class="sync-bar">
+  <span><span class="sync-dot sync-loading" id="syncDot"></span><span id="syncTxt">Conectando…</span></span>
+  <button onclick="forzarRecarga()" style="background:none;border:none;color:#2c6fad;cursor:pointer;font-size:11px;font-weight:600">⟳ Actualizar</button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="window.cambiarTab('novedades',this)">📋 Novedades del día</button>
+  <button class="tab" onclick="window.cambiarTab('nomina',this)">👥 Nómina</button>
+  <button class="tab" onclick="window.cambiarTab('historial',this)">📅 Historial</button>
+  <button class="tab" id="tabCargaNomina" style="display:none" onclick="window.cambiarTab('carga',this)">📥 Cargar Nómina</button>
+</div>
+
+<div class="content">
+
+<!-- PANEL NOVEDADES -->
+<div class="panel active" id="panel-novedades">
+  <div class="toolbar">
+    <button class="btn btn-azul" onclick="abrirModalNovedad(null)">+ Cargar novedad</button>
+    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar nombre…" oninput="renderNovedades()">
+    <select class="ctrl" id="nov-tipo" onchange="renderNovedades()"><option value="">Todos los tipos</option></select>
+  </div>
+  <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--azul)" id="nov-hoy-title"></div>
+  <div id="nov-hoy-list" style="margin-bottom:20px"></div>
+</div>
+
+<!-- PANEL NÓMINA -->
+<div class="panel" id="panel-nomina">
+  <div class="toolbar">
+    <button class="btn btn-azul" onclick="abrirModalPersona(null)">+ Agregar persona</button>
+    <button class="btn btn-verde" onclick="exportarActivos()">⬇ Exportar activos</button>
+    <button class="btn btn-gris" onclick="exportarNominaCompleta()">⬇ Nómina completa</button>
+    <input class="search-input" id="nom-buscar" placeholder="🔍 Nombre o DNI…" oninput="renderNomina()">
+    <select class="ctrl" id="nom-turno" onchange="renderNomina()"><option value="">Todos los turnos</option></select>
+    <select class="ctrl" id="nom-rol" onchange="renderNomina()">
+      <option value="">Todos los roles</option>
+      <option>Inspector</option><option>Coordinador Zonal</option>
+      <option>Coordinador General</option><option>Chofer</option><option>Administrativo</option>
+    </select>
+    <select class="ctrl" id="nom-estado" onchange="renderNomina()">
+      <option value="">Todos</option><option value="Activo" selected>Activos</option>
+      <option value="Licencia">Con licencia</option><option value="Baja">Bajas</option>
+    </select>
+  </div>
+  <div class="table-info" id="nom-info"></div>
+  <div class="table-wrap">
+    <div class="table-head" style="grid-template-columns:2fr .9fr .8fr .8fr .8fr 120px">
+      <span>Nombre</span><span>Turno</span><span>Rol</span><span>DNI</span><span>Estado</span><span>Acciones</span>
+    </div>
+    <div class="table-body" id="nom-body"></div>
+  </div>
+</div>
+
+<!-- PANEL HISTORIAL -->
+<div class="panel" id="panel-historial">
+  <div class="toolbar">
+    <button class="btn btn-verde" onclick="exportarHistorialNovedades()">⬇ Exportar historial Excel</button>
+    <input class="search-input" id="hist-buscar" placeholder="🔍 Buscar…" oninput="renderHistorial()">
+    <select class="ctrl" id="hist-tipo" onchange="renderHistorial()">
+      <option value="">Todos los tipos</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <div class="table-head grid-hist"><span>Fecha</span><span>Persona</span><span>Tipo</span><span>Detalle</span><span></span></div>
+    <div class="table-body" id="hist-body"></div>
+  </div>
+</div>
+
+<!-- PANEL CARGA NÓMINA -->
+<div class="panel" id="panel-carga">
+  <div class="gestion-zonas">
+    <div class="gz-title">📥 Cargar Nómina desde Excel</div>
+    <p style="font-size:.82rem;color:#777;margin-bottom:14px">Hoja <strong>NOMINA VENTA ILEGAL DGFIS</strong> y hoja <strong>BAJAS</strong>. Actualiza por DNI.</p>
+    <div style="border:2px dashed #ddd;border-radius:10px;padding:28px;text-align:center;background:#f9f9f9;position:relative;cursor:pointer">
+      <input type="file" accept=".xlsx,.xls" id="nominaFileInput" onchange="onNominaFile(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+      <div style="font-size:2rem;margin-bottom:8px">📄</div>
+      <div style="font-weight:600;color:#1a3a5c">Arrastrá o hacé clic para seleccionar</div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span id="nominaFileChosen" style="display:none;font-size:.82rem;color:#2563a8;font-weight:600;background:#dbeafe;padding:4px 10px;border-radius:5px"></span>
+      <button id="nominaLoadBtn" onclick="cargarNominaExcel()" disabled style="padding:9px 18px;border:none;border-radius:10px;background:#e67e22;color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;opacity:.45">Subir a Firestore</button>
+    </div>
+    <div style="height:8px;background:#e0e0e0;border-radius:4px;margin-top:14px;display:none" id="nominaPwrap">
+      <div id="nominaPfill" style="height:100%;background:linear-gradient(90deg,#2563a8,#38bdf8);border-radius:4px;width:0%;transition:width .3s"></div>
+    </div>
+    <div id="nominaToast" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:.82rem;font-weight:500"></div>
+  </div>
+</div>
+
+</div>
+
+<!-- MODAL NOVEDAD -->
+<div class="overlay" id="modal-novedad-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="cerrarModal('modal-novedad-overlay')">✕</button>
+    <div class="modal-title" id="mn-title">Cargar novedad</div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Fecha de la novedad</label>
+      <input type="date" class="form-input" id="mn-fecha">
+    </div>
+    <div class="form-field full" id="mn-persona-wrap" style="margin-bottom:12px">
+      <label class="fl">Persona</label>
+      <div class="autocomplete-wrap">
+        <input class="form-input" id="mn-persona-input" placeholder="Escribir nombre…" oninput="filtrarPersonasAC()" autocomplete="off">
+        <div class="autocomplete-list" id="mn-persona-list"></div>
+      </div>
+      <div id="mn-persona-seleccionada" style="display:none;background:#e8f4fd;border-radius:7px;padding:8px 10px;font-size:13px;margin-top:4px;font-weight:600"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="fl">Tipo de novedad</label>
+      <div class="tipo-grid" style="margin-top:6px" id="mn-tipos-grid"></div>
+    </div>
+    <div id="mn-lic-fechas" style="display:none;margin-bottom:12px">
+      <div class="nov-info">📋 Las licencias se aplican a un rango de fechas.</div>
+      <div class="lic-dates">
+        <div class="form-field"><label class="fl">Inicio</label><input type="date" class="form-input" id="mn-lic-inicio"></div>
+        <div class="form-field"><label class="fl">Fin</label><input type="date" class="form-input" id="mn-lic-fin"></div>
+      </div>
+    </div>
+    <div class="form-field full" style="margin-bottom:14px">
+      <label class="fl">Detalle (opcional)</label>
+      <textarea class="form-input" id="mn-detalle" rows="3" placeholder="Motivo, observaciones…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-azul" onclick="guardarNovedad()">Guardar novedad</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-novedad-overlay')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PERSONA -->
+<div class="overlay" id="modal-persona-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="cerrarModal('modal-persona-overlay')">✕</button>
+    <div class="modal-title" id="mp-title">Editar persona</div>
+    <div class="form-grid" id="mp-form"></div>
+    <div class="form-note" id="mp-horario" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-azul" onclick="guardarPersona()">Guardar</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-persona-overlay')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VER PERSONA -->
+<div class="overlay" id="modal-ver-overlay">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-close" onclick="cerrarModal('modal-ver-overlay')">✕</button>
+    <div class="modal-title" id="mv-title"></div>
+    <div class="ficha-grid" id="mv-ficha"></div>
+    <div style="font-weight:700;font-size:13px;color:var(--azul);margin-bottom:6px">Novedades recientes</div>
+    <div class="hist-novs" id="mv-novs"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-gris" onclick="cerrarModal('modal-ver-overlay')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BAJA -->
+<div class="overlay" id="modal-baja-overlay">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="cerrarModal('modal-baja-overlay')">✕</button>
+    <div class="modal-title">⚠ Confirmar baja</div>
+    <div class="confirm-box"><strong>¿Dar de baja a <span id="baja-nombre"></span>?</strong><br><br>La persona mantendrá sus datos y podrá ser reactivada.</div>
+    <div class="form-field full" style="margin-bottom:14px">
+      <label class="fl">Motivo de baja (opcional)</label>
+      <textarea class="form-input" id="baja-motivo" rows="2"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-rojo" onclick="confirmarBaja()">Confirmar baja</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-baja-overlay')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
+
+// Utilidades del módulo
+const _todayISO = () => {const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+
+// Constantes y estado que el módulo necesita ANTES de que cargue el script inline
+const ZONAS_DEFAULT_MOD = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
+
+// Inicializar window.distribuciones AQUÍ para que cargarDistFecha funcione
+window.distribuciones = {};
+const app = initializeApp(FIREBASE_CONFIG);
+const db  = getFirestore(app);
+
+// Exponer para el script global
+window._db      = db;
+window._fDoc    = doc;
+window._fGetDoc = getDoc;
+window._fGetDocs= getDocs;
+window._fSetDoc = setDoc;
+window._fDelDoc = deleteDoc;
+window._fCol    = collection;
+window._fBatch  = writeBatch;
+
+// Validar la sesión YA, en paralelo con cargarTodo() (que puede tardar varios
+// segundos leyendo nómina/novedades/zonas/etc.) — así el usuario ve su nombre
+// apenas se valida, sin esperar a que termine de cargar todo lo demás.
+if (window.restaurarSesion) window.restaurarSesion();
+
+// -- CONSTANTES DE CACHÉ --------------------------------------------------
+const CACHE = {
+  nomina:     { key:'dgf_personal_nomina',  ts:'dgf_personal_nomina_ts',  ttl: 24*60*60*1000 },
+  novedades:  { key:'dgf_personal_nov',     ts:'dgf_personal_nov_ts',     ttl: 24*60*60*1000 },
+  zonas:      { key:'dgf_personal_zonas',   ts:'dgf_personal_zonas_ts',   ttl: 24*60*60*1000 },
+  dist:       { key:'dgf_personal_dist_',   ts:'dgf_personal_dist_ts_',   ttl:  5*60*1000     },
+};
+function getCache(cfg, suffix='') {
+  try {
+    const ts = parseInt(sessionStorage.getItem(cfg.ts + suffix)||'0');
+    const c  = sessionStorage.getItem(cfg.key + suffix);
+    if (c && (Date.now()-ts) < cfg.ttl) return JSON.parse(c);
+  } catch(e) {}
+  return null;
+}
+function setCache(cfg, data, suffix='') {
+  try {
+    sessionStorage.setItem(cfg.key + suffix, JSON.stringify(data));
+    sessionStorage.setItem(cfg.ts  + suffix, Date.now().toString());
+  } catch(e) {}
+}
+function clearCache(cfg, suffix='') {
+  sessionStorage.removeItem(cfg.key + suffix);
+  sessionStorage.removeItem(cfg.ts  + suffix);
+}
+
+// -- LECTURA/ESCRITURA: UN DOCUMENTO POR REGISTRO --------------------------
+async function leerColeccion(nombreCol, cacheConf) {
+  const cached = getCache(cacheConf);
+  if (cached) return cached;
+  const snap = await getDocs(collection(db, nombreCol));
+  const recs = [];
+  snap.forEach(d => recs.push({ id: d.id, ...d.data() }));
+  setCache(cacheConf, recs);
+  return recs;
+}
+
+// Carga masiva (alta inicial / import de Excel): un batch cada 500 registros
+async function escribirColeccionBatch(nombreCol, recs) {
+  for (let i = 0; i < recs.length; i += 500) {
+    const batch = writeBatch(db);
+    recs.slice(i, i+500).forEach(r => {
+      const { id, ...datos } = r;
+      batch.set(doc(db, nombreCol, id), datos);
+    });
+    await batch.commit();
+  }
+}
+
+// -- CARGA INICIAL --------------------------------------------------------
+window._fsReady = false;
+
+async function cargarTodo() {
+  setSyncStatus('loading', 'Cargando…');
+  try {
+    // Nómina
+    window.nomina = await leerColeccion('nomina', CACHE.nomina);
+
+    // Si Firestore está vacío, subir la nómina inicial
+    if (!window.nomina.length) {
+      await escribirColeccionBatch('nomina', NOMINA_INICIAL);
+      window.nomina = [...NOMINA_INICIAL];
+      setCache(CACHE.nomina, window.nomina);
+    }
+
+    // Novedades
+    window.novedades = await leerColeccion('novedades', CACHE.novedades);
+
+    // Zonas
+    const zonasCache = getCache(CACHE.zonas);
+    if (zonasCache) {
+      window.zonas = zonasCache;
+    } else {
+      const zSnap = await getDoc(doc(db,'personal_config','zonas')).catch(()=>null);
+      window.zonas = (zSnap && zSnap.exists()) ? zSnap.data().lista : [...ZONAS_DEFAULT_MOD];
+      setCache(CACHE.zonas, window.zonas);
+    }
+
+    // Tipos de novedad
+    const tiposSnap = await getDoc(doc(db,'personal_config','tipos_novedad')).catch(()=>null);
+    if (tiposSnap && tiposSnap.exists()) {
+      window.tiposNovedad = tiposSnap.data().lista;
+    }
+
+    // Feriados
+    const feriadosSnap = await getDoc(doc(db,'personal_config','feriados')).catch(()=>null);
+    if (feriadosSnap && feriadosSnap.exists()) {
+      window.feriados      = feriadosSnap.data().lista || [];
+      window.feriadosDesc  = feriadosSnap.data().desc  || {};
+    }
+
+    // Distribución de hoy
+    await cargarDistFecha(_todayISO());
+
+    window._fsReady = true;
+    setSyncStatus('ok', `✅ ${window.nomina.length} personas · ${window.novedades.length} novedades`);
+    init();
+  } catch(e) {
+    setSyncStatus('err', '⚠️ Error: ' + e.message);
+    console.error(e);
+  }
+}
+
+// -- DISTRIBUCIÓN (por fecha, caché 5 min) --------------------------------
+window.cargarDistFecha = async function(fecha) {
+  const cached = getCache(CACHE.dist, fecha);
+  if (cached) { window.distribuciones[fecha] = cached; return; }
+
+  const snap = await getDocs(collection(db,'distribuciones', fecha, 'asignaciones')).catch(()=>null);
+  const data = {};
+  if (snap) snap.forEach(d => { data[d.id] = d.data().zona; });
+  window.distribuciones[fecha] = data;
+  setCache(CACHE.dist, data, fecha);
+};
+
+// -- GUARDADO A FIREBASE (un documento por registro) -----------------------
+window._guardarPersona = async function(persona) {
+  const { id, ...datos } = persona;
+  await setDoc(doc(db, 'nomina', id), datos);
+  clearCache(CACHE.nomina);
+};
+window._eliminarPersona = async function(id) {
+  await deleteDoc(doc(db, 'nomina', id));
+  clearCache(CACHE.nomina);
+};
+window._guardarNominaCompleta = async function(lista) {
+  await escribirColeccionBatch('nomina', lista);
+  clearCache(CACHE.nomina);
+};
+
+window._guardarNovedad = async function(nov) {
+  const { id, ...datos } = nov;
+  await setDoc(doc(db, 'novedades', id), datos);
+  clearCache(CACHE.novedades);
+};
+window._eliminarNovedad = async function(id) {
+  await deleteDoc(doc(db, 'novedades', id));
+  clearCache(CACHE.novedades);
+};
+
+window._guardarZonas = async function() {
+  await setDoc(doc(db,'personal_config','zonas'), { lista: window.zonas, ts: new Date().toISOString() });
+  clearCache(CACHE.zonas);
+};
+
+window._guardarTiposNovedad = async function() {
+  await setDoc(doc(db,'personal_config','tipos_novedad'), { lista: window.tiposNovedad, ts: new Date().toISOString() });
+};
+
+window._guardarFeriados = async function(lista, desc) {
+  await setDoc(doc(db,'personal_config','feriados'), {
+    lista: lista || window.feriados || [],
+    desc:  desc  || window.feriadosDesc || {},
+    ts: new Date().toISOString()
+  });
+};
+
+
+window._guardarEventos = async function() {
+  await setDoc(doc(db,'personal_config','eventos'), { lista: window.eventos, ts: new Date().toISOString() });
+};
+
+window.forzarRecarga = function() {
+  ['nomina','novedades','zonas'].forEach(k => {
+    clearCache(CACHE[k]);
+  });
+  // limpiar cache de distribuciones
+  Object.keys(sessionStorage).filter(k=>k.startsWith('dgf_personal_dist_')).forEach(k=>sessionStorage.removeItem(k));
+  cargarTodo();
+};
+
+function setSyncStatus(type, msg) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncTxt');
+  if (!dot) return;
+  dot.className = 'sync-dot sync-' + type;
+  txt.textContent = msg;
+}
+
+// -- ARRANQUE -------------------------------------------------------------
+// -- ARRANQUE ---------------------------------------------------------
+// Exponer cambiarTab globalmente desde el módulo para que los onclick HTML funcionen
+// incluso si el script inline todavia no cargó
+window.cambiarTab = function(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('panel-' + id);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  // Las acciones adicionales se ejecutarán cuando el script inline esté listo
+  if (window._cambiarTabExtra) window._cambiarTabExtra(id);
+};
+
+cargarTodo();
+
+</script>
+
+<script>
+// ============================================================
+//  CONSTANTES
+// ============================================================
+const TURNOS   = ["Turno Mañana","Turno Tarde","Turno Noche","SADOFE Diurno","SADOFE Noche","Administrativo","Gerencia"];
+const HORARIOS = {"Turno Mañana":"Lun-Vie 07-14h","Turno Tarde":"Lun-Vie 13-20h","Turno Noche":"Lun-Jue 19-01h","SADOFE Diurno":"Sab-Dom-Fer 07-19h","SADOFE Noche":"Vie-Sab-Dom 19-01h","Administrativo":"Administrativo","Gerencia":"Gerencia"};
+const TURNOS_BADGE = {"Turno Mañana":"bdg-turno-man","Turno Tarde":"bdg-turno-tar","Turno Noche":"bdg-turno-noc","SADOFE Diurno":"bdg-sadofe-d","SADOFE Noche":"bdg-sadofe-n","Administrativo":"bdg-admin","Gerencia":"bdg-ger"};
+const NOV_CLASS  = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro"};
+const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bdg-baja"};
+const ROLES = ["Inspector","Coordinador Zonal","Coordinador General","Chofer","Administrativo"];
+const NOMINA_INICIAL = [{"id":"1","nombre":"ACOSTA LORENA","turno":"Turno Tarde","cuil":"27246686152","dni":"24668615","coordinador":"ROTONDO/CARRIZO/PASCAL/ESCOBAR","jefatura":"COORDINADOR/A","modalidad":"CLS","genero":"F","celular":"1161250764","agentes_calle":"SI","estado":"Activo"},{"id":"2","nombre":"ACUÑA JULIO CESAR","turno":"SADOFE Noche","cuil":"20279368941","dni":"27936894","coordinador":"MAZZOCHI","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"M","celular":"1133357001","agentes_calle":"","estado":"Activo"},{"id":"3","nombre":"AGUILAR TOMAS","turno":"SADOFE Noche","cuil":"","dni":"","coordinador":"","jefatura":"","modalidad":"","genero":"","celular":"11 54193654","agentes_calle":"","estado":"Activo"},{"id":"4","nombre":"AGUIRRE MARINA ISABEL","turno":"Turno Noche","cuil":"27353766436","dni":"35376643","coordinador":"MURACA","jefatura":"INSPECTOR/A","modalidad":"CLS","genero":"F","celular":"1125848356","agentes_calle":"","estado":"Activo"},{"id":"5","nombre":"ALADRO JULIA","turno":"Turno Mañana","cuil":"27264292315","dni":"26429231","coordinador":"GAMARRA / ROCHA/VILLANUEVA","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"F","celular":"1123660284","agentes_calle":"","estado":"Activo"}];
+const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCION","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVINO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
+
+// ============================================================
+//  ESTADO GLOBAL
+// ============================================================
+window.nomina        = [];
+window.novedades     = [];
+window.zonas         = [];
+window.tiposNovedad  = ["Licencia","Llegada tarde","Retiro anticipado","Ausencia","Otro"];
+window.distribuciones= {};
+window.feriados      = [];
+window.feriadosDesc  = {};
+
+// ============================================================
+//  AUTH
+// ============================================================
+const MODULO_ID = "novedades";
+let loggedUser = null;
+window._soloLectura = false;
+
+// Revalida la sesión guardada contra Firestore en vez de confiar a ciegas en
+// localStorage (podría haber sido editado desde la consola del navegador).
+// Se llama desde init(), que ya corre después de que el script módulo dejó
+// listos window._fGetDoc/_fDoc/_db.
+async function restaurarSesion(){
+  try {
+    const saved = localStorage.getItem("dgf_session");
+    if(!saved) return;
+    const parsed = JSON.parse(saved);
+    if(!parsed||!parsed.username) throw new Error("sesión inválida");
+    const snap = await window._fGetDoc(window._fDoc(window._db,"usuarios",parsed.username));
+    if(!snap.exists()) throw new Error("usuario ya no existe");
+    const data = snap.data();
+    if(data.role!=="admin" && !(data.modulos&&data.modulos.includes(MODULO_ID))) throw new Error("sin permiso");
+    loggedUser={username:parsed.username,nombre:data.nombre,role:data.role,modulos:data.modulos||[],permisos:data.permisos||{}};
+    localStorage.setItem("dgf_session",JSON.stringify(loggedUser));
+    document.getElementById("loginOverlay").style.display = "none";
+    document.getElementById("userBadge").style.display = "inline";
+    document.getElementById("userBadge").textContent = loggedUser.nombre;
+    if (loggedUser.role === "admin") document.getElementById("tabCargaNomina").style.display = "";
+    actualizarPermisoUI();
+  } catch(e) {
+    localStorage.removeItem("dgf_session");
+  }
+}
+
+function puedeEditar(){
+  return !!loggedUser && (loggedUser.role==="admin" || !(loggedUser.permisos&&loggedUser.permisos[MODULO_ID]==="viewer"));
+}
+function actualizarPermisoUI(){
+  window._soloLectura = !puedeEditar();
+  const badge=document.getElementById("userBadge");
+  if(badge && window._soloLectura && !/sólo lectura/.test(badge.textContent)) badge.textContent += " (🔒 sólo lectura)";
+}
+
+function togglePass(){const i=document.getElementById("lPass");i.type=i.type==="password"?"text":"password";}
+async function sha256(t){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));return Array.from(new Uint8Array(b)).map(b=>b.toString(16).padStart(2,"0")).join("");}
+
+async function doLogin(){
+  const u=document.getElementById("lUser").value.trim().toLowerCase();
+  const p=document.getElementById("lPass").value;
+  const err=document.getElementById("loginErr");
+  err.style.display="none";
+  if(!u||!p){err.textContent="Completá usuario y contraseña.";err.style.display="block";return;}
+  const btn=document.getElementById("loginBtn");
+  btn.disabled=true;btn.textContent="Verificando…";
+  try {
+    const snap=await window._fGetDoc(window._fDoc(window._db,"usuarios",u));
+    if(!snap.exists()){showLoginErr("Usuario o contraseña incorrectos.");return;}
+    const data=snap.data();
+    if(data.passHash!==await sha256(p)){showLoginErr("Usuario o contraseña incorrectos.");return;}
+    if(data.role!=="admin"&&!(data.modulos&&data.modulos.includes(MODULO_ID))){showLoginErr("Sin permiso de acceso.");return;}
+    loggedUser={username:u,nombre:data.nombre,role:data.role,modulos:data.modulos||[],permisos:data.permisos||{}};
+    localStorage.setItem("dgf_session",JSON.stringify(loggedUser));
+    document.getElementById("loginOverlay").style.display="none";
+    document.getElementById("userBadge").style.display="inline";
+    document.getElementById("userBadge").textContent=loggedUser.nombre;
+    if(loggedUser.role==="admin") document.getElementById("tabCargaNomina").style.display="";
+    actualizarPermisoUI();
+  } catch(e){showLoginErr("Error: "+e.message);}
+  finally{btn.disabled=false;btn.textContent="Ingresar";}
+}
+function showLoginErr(m){const e=document.getElementById("loginErr");e.textContent=m;e.style.display="block";document.getElementById("lPass").value="";}
+function doLogout(){loggedUser=null;localStorage.removeItem("dgf_session");location.reload();}
+
+// ============================================================
+//  UTILS
+// ============================================================
+const todayISO=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("es-AR"):"—";
+const esc=s=>(s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+// Para insertar texto como argumento de string dentro de un onclick="fn('...')":
+// escapar con entidades HTML no alcanza (el navegador las decodifica ANTES de
+// ejecutar el atributo como JS), así que hay que escapar la comilla a nivel JS.
+const escJsAttr=s=>(s||"").toString().replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function getFecha(){return document.getElementById("fecha-global").value||todayISO();}
+function toast(msg,ms=2400){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),ms);}
+function getEstadoPersona(p,hoy){
+  if(p.estado==="Baja")return "Baja";
+  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==="Licencia"&&n.licIni&&n.licFin);
+  if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin))return "Licencia";
+  return "Activo";
+}
+function novedadesHoy(){const h=getFecha();return window.novedades.filter(n=>n.fecha===h||(n.tipo==="Licencia"&&n.licIni&&n.licFin&&h>=n.licIni&&h<=n.licFin));}
+function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
+function badgeTurno(t){return "<span class=\"badge "+(TURNOS_BADGE[t]||"bdg-admin")+"\">"+(t||"—")+"</span>";}
+function badgeEstado(e){return "<span class=\"badge "+(ESTADO_CLASS[e]||"bdg-activo")+"\">"+e+"</span>";}
+function badgeNov(tipo){return "<span class=\"badge "+(NOV_CLASS[tipo]||"bdg-nov-otro")+"\">"+esc(tipo)+"</span>";}
+function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filter(p=>getEstadoPersona(p,h)!=="Baja").length;document.getElementById("badge-activos").textContent=a+" activos";}
+
+// ============================================================
+//  TABS
+// ============================================================
+window._cambiarTabExtra = function(id) {
+  if(id==="historial") renderHistorial();
+  else if(id!=="carga") renderNovedades();
+};
+
+// ============================================================
+//  INIT
+// ============================================================
+async function init(){
+  // restaurarSesion() ya se disparó antes desde el script módulo, en paralelo
+  // con la carga de datos (para que el usuario aparezca cuanto antes, sin
+  // esperar a que termine de cargar todo lo demás).
+  const f=document.getElementById("fecha-global");
+  f.value=todayISO();
+  f.addEventListener("change",()=>{renderNovedades();actualizarBadgeActivos();});
+  poblarSelects();
+  renderAll();
+}
+
+function poblarSelects(){
+  const opts=TURNOS.map(t=>"<option value=\""+t+"\">"+t+"</option>").join("");
+  const tn=document.getElementById("nom-turno");
+  if(tn) tn.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
+}
+
+function renderAll(){
+  actualizarBadgeActivos();
+  renderNovedades();
+  renderNomina();
+}
+
+// ============================================================
+//  NOVEDADES DEL DÍA
+// ============================================================
+function renderNovedades(){
+  const hoy=getFecha();
+  const busq=(document.getElementById("nov-buscar").value||"").toLowerCase();
+  const selTipoEl=document.getElementById("nov-tipo");
+  const curVal=selTipoEl.value;
+  selTipoEl.innerHTML="<option value=\"\">Todos los tipos</option>"+(window.tiposNovedad||[]).map(t=>"<option value=\""+esc(t)+"\""+( curVal===t?" selected":"")+">"+esc(t)+"</option>").join("");
+  const filtTipo=selTipoEl.value;
+
+  const novHoy=novedadesHoy().filter(n=>{
+    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    return !busq||(p.nombre||"").toLowerCase().includes(busq);
+  }).filter(n=>!filtTipo||n.tipo===filtTipo);
+
+  document.getElementById("nov-hoy-title").textContent="Novedades activas — "+fmtDate(hoy)+" ("+novHoy.length+")";
+  document.getElementById("nov-hoy-list").innerHTML=novHoy.length?
+    novHoy.map(n=>{
+      const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:"Desconocido"};
+      const extra=n.licIni?" ("+fmtDate(n.licIni)+" al "+fmtDate(n.licFin)+")":"";
+      return "<div style=\"background:#f9f9f9;border:1px solid var(--bor);border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap\">"
+        +"<span style=\"font-weight:700;font-size:13px\">"+esc(p.nombre)+"</span>"
+        +badgeTurno(p.turno)
+        +(p.rol?"<span style=\"font-size:11px;color:#666\">"+esc(p.rol)+"</span>":"")
+        +badgeNov(n.tipo)
+        +(extra?"<span style=\"font-size:12px;color:#555\">"+esc(extra)+"</span>":"")
+        +(n.detalle?"<span style=\"font-size:12px;color:#555\">"+esc(n.detalle)+"</span>":"")
+        +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"margin-left:auto;background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer\">✕</button>"
+        +"</div>";
+    }).join("")
+    :"<div style=\"color:#aaa;font-size:13px;padding:8px 0\">Sin novedades activas para hoy.</div>";
+}
+
+// ============================================================
+//  HISTORIAL
+// ============================================================
+function renderHistorial(){
+  const busq=(document.getElementById("hist-buscar").value||"").toLowerCase();
+  const selTipoEl=document.getElementById("hist-tipo");
+  const curVal=selTipoEl.value;
+  selTipoEl.innerHTML="<option value=\"\">Todos los tipos</option>"+(window.tiposNovedad||[]).map(t=>"<option value=\""+esc(t)+"\""+( curVal===t?" selected":"")+">"+esc(t)+"</option>").join("");
+  const filtTipo=selTipoEl.value;
+
+  const hist=[...window.novedades].reverse().filter(n=>{
+    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    if(busq&&!(p.nombre||"").toLowerCase().includes(busq))return false;
+    if(filtTipo&&n.tipo!==filtTipo)return false;
+    return true;
+  }).slice(0,200);
+
+  document.getElementById("hist-body").innerHTML=hist.map((n,i)=>{
+    const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:"—"};
+    const extra=n.licIni?fmtDate(n.licIni)+"→"+fmtDate(n.licFin):"";
+    return "<div class=\"table-row grid-hist\" style=\""+(i%2===0?"":"background:#fafafa")+";\">"
+      +"<span style=\"font-size:12px;color:#777\">"+fmtDate(n.fecha)+"</span>"
+      +"<span style=\"font-size:13px;font-weight:600\">"+esc(p.nombre)+"</span>"
+      +badgeNov(n.tipo)
+      +"<span style=\"font-size:12px;color:#555\">"+esc(n.detalle||extra||"—")+"</span>"
+      +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#c0392b;cursor:pointer;font-size:13px\">✕</button>"
+      +"</div>";
+  }).join("");
+}
+
+async function borrarNovedad(id){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  if(!confirm("¿Eliminar esta novedad?"))return;
+  window.novedades=window.novedades.filter(n=>n.id!==id);
+  renderNovedades();renderHistorial();
+  try{
+    await window._eliminarNovedad(id);
+    toast("Novedad eliminada");
+  }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
+}
+
+// ============================================================
+//  NÓMINA
+// ============================================================
+function renderNomina(){
+  const hoy=getFecha();
+  const busq=(document.getElementById("nom-buscar").value||"").toLowerCase();
+  const filtTurno=document.getElementById("nom-turno").value;
+  const filtRol=document.getElementById("nom-rol").value;
+  const filtEst=document.getElementById("nom-estado").value;
+  const lista=window.nomina.filter(p=>{
+    if(busq&&!p.nombre.toLowerCase().includes(busq)&&!(p.dni||"").includes(busq))return false;
+    if(filtTurno&&p.turno!==filtTurno)return false;
+    if(filtRol&&(p.rol||"Inspector")!==filtRol)return false;
+    const est=getEstadoPersona(p,hoy);
+    if(filtEst&&est!==filtEst)return false;
+    return true;
+  });
+  document.getElementById("nom-info").textContent=lista.length+" personas";
+  document.getElementById("nom-body").innerHTML=lista.map(p=>{
+    const est=getEstadoPersona(p,hoy);
+    const rol=p.rol||"Inspector";
+    return "<div class=\"table-row\" style=\"grid-template-columns:2fr .9fr .8fr .8fr .8fr 120px;"+(est==="Baja"?"background:#fff5f5":"")+"\">"
+      +"<div><div class=\"nombre-cell\" style=\"color:"+(est==="Baja"?"#c0392b":"#222")+"\">"
+      +esc(p.nombre)+(rol==="Chofer"?" 🚗":"")+"</div>"
+      +"<div class=\"sub-cell\">"+esc(p.jefatura||"—")+"</div></div>"
+      +badgeTurno(p.turno)
+      +"<span style=\"font-size:12px;color:#555\">"+esc(rol)+"</span>"
+      +"<span style=\"font-size:12px;color:#555\">"+esc(p.dni||"—")+"</span>"
+      +badgeEstado(est)
+      +"<div style=\"display:flex;gap:4px;flex-wrap:wrap\">"
+      +"<button class=\"btn btn-gris btn-sm\" onclick=\"abrirModalVer(\'"+p.id+"\')\" >👁</button>"
+      +"<button class=\"btn btn-gris btn-sm\" onclick=\"abrirModalPersona(\'"+p.id+"\')\" >✏️</button>"
+      +"<button class=\"btn btn-gris btn-sm\" onclick=\"abrirModalNovedad(\'"+p.id+"\')\"  >+ nov</button>"
+      +(est==="Baja"
+        ?"<button class=\"btn btn-sm\" style=\"background:#e8f8e8;color:#1b5e20;border:1px solid #a5d6a7\" onclick=\"reactivarPersona(\'"+p.id+"\')\" >✅</button>"
+        :"<button class=\"btn btn-sm\" style=\"background:#fff5f5;color:#c0392b;border:1px solid #ef9a9a\" onclick=\"pedirBaja(\'"+p.id+"\')\" >🚫</button>")
+      +"</div></div>";
+  }).join("");
+}
+
+// ============================================================
+//  MODAL PERSONA (con campo Rol)
+// ============================================================
+let _editPersonaId=null;
+function abrirModalPersona(id){
+  _editPersonaId=id;
+  const p=id?window.nomina.find(x=>x.id===id):{id:"",nombre:"",turno:"",rol:"Inspector",cuil:"",dni:"",coordinador:"",jefatura:"",modalidad:"",genero:"",celular:"",estado:"Activo"};
+  document.getElementById("mp-title").textContent=id?"Editar persona":"Nueva persona";
+  const rol=p.rol||"Inspector";
+  document.getElementById("mp-form").innerHTML=
+    "<div class=\"form-field full\"><label class=\"fl\">Apellido y Nombre *</label><input class=\"form-input\" id=\"fp-nombre\" value=\""+esc(p.nombre||"")+"\"></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">DNI</label><input class=\"form-input\" id=\"fp-dni\" value=\""+esc(p.dni||"")+"\"></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">CUIL</label><input class=\"form-input\" id=\"fp-cuil\" value=\""+esc(p.cuil||"")+"\"></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Rol</label>"
+    +"<select class=\"form-input\" id=\"fp-rol\">"
+    +ROLES.map(r=>"<option value=\""+r+"\""+( rol===r?" selected":"")+">"+r+"</option>").join("")
+    +"</select></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Turno</label>"
+    +"<select class=\"form-input\" id=\"fp-turno\" onchange=\"actualizarHorario()\">"
+    +"<option value=\"\">—</option>"+TURNOS.map(t=>"<option value=\""+t+"\""+( p.turno===t?" selected":"")+">"+t+"</option>").join("")
+    +"</select></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Estado</label>"
+    +"<select class=\"form-input\" id=\"fp-estado\">"
+    +"<option value=\"Activo\""+( p.estado==="Activo"?" selected":"")+">Activo</option>"
+    +"<option value=\"Baja\""+( p.estado==="Baja"?" selected":"")+">Baja</option>"
+    +"</select></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Jefatura</label><input class=\"form-input\" id=\"fp-jefatura\" value=\""+esc(p.jefatura||"")+"\"></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Coordinador</label><input class=\"form-input\" id=\"fp-coordinador\" value=\""+esc(p.coordinador||"")+"\"></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Celular</label><input class=\"form-input\" id=\"fp-celular\" value=\""+esc(p.celular||"")+"\"></div>";
+  actualizarHorario();
+  document.getElementById("modal-persona-overlay").classList.add("open");
+}
+function actualizarHorario(){
+  const t=document.getElementById("fp-turno")?.value;
+  const el=document.getElementById("mp-horario");
+  if(t&&HORARIOS[t]){el.style.display="";el.textContent="Horario: "+HORARIOS[t];}
+  else el.style.display="none";
+}
+async function guardarPersona(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const nombre=(document.getElementById("fp-nombre").value||"").trim();
+  if(!nombre){alert("El nombre es obligatorio.");return;}
+  const datos={
+    nombre:nombre.toUpperCase(),
+    rol:document.getElementById("fp-rol").value||"Inspector",
+    dni:document.getElementById("fp-dni").value.trim(),
+    cuil:document.getElementById("fp-cuil").value.trim(),
+    turno:document.getElementById("fp-turno").value,
+    estado:document.getElementById("fp-estado").value,
+    jefatura:document.getElementById("fp-jefatura").value.trim(),
+    coordinador:document.getElementById("fp-coordinador").value.trim(),
+    celular:document.getElementById("fp-celular").value.trim(),
+  };
+  let personaGuardada;
+  if(_editPersonaId){const idx=window.nomina.findIndex(x=>x.id===_editPersonaId);if(idx>=0){window.nomina[idx]={...window.nomina[idx],...datos};personaGuardada=window.nomina[idx];}}
+  else{personaGuardada={...datos,id:Date.now().toString(),modalidad:"",genero:"",agentes_calle:""};window.nomina.push(personaGuardada);}
+  cerrarModal("modal-persona-overlay");
+  renderAll();
+  try{
+    await window._guardarPersona(personaGuardada);
+    toast("✅ Persona guardada");
+  }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
+}
+
+// ============================================================
+//  BAJAS
+// ============================================================
+let _bajaId=null;
+function pedirBaja(id){const p=window.nomina.find(x=>x.id===id);if(!p)return;_bajaId=id;document.getElementById("baja-nombre").textContent=p.nombre;document.getElementById("baja-motivo").value="";document.getElementById("modal-baja-overlay").classList.add("open");}
+async function confirmarBaja(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  if(!_bajaId)return;
+  const motivo=document.getElementById("baja-motivo").value.trim();
+  const idx=window.nomina.findIndex(x=>x.id===_bajaId);
+  if(idx>=0){window.nomina[idx].estado="Baja";window.nomina[idx].motivoBaja=motivo;window.nomina[idx].fechaBaja=getFecha();}
+  cerrarModal("modal-baja-overlay");renderAll();
+  try{
+    if(idx>=0) await window._guardarPersona(window.nomina[idx]);
+    toast("✅ Baja registrada");
+  }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
+  _bajaId=null;
+}
+async function reactivarPersona(id){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  if(!confirm("¿Reactivar a esta persona?"))return;
+  const idx=window.nomina.findIndex(x=>x.id===id);
+  if(idx>=0){window.nomina[idx].estado="Activo";delete window.nomina[idx].motivoBaja;delete window.nomina[idx].fechaBaja;}
+  renderAll();
+  try{
+    if(idx>=0) await window._guardarPersona(window.nomina[idx]);
+    toast("✅ Persona reactivada");
+  }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
+}
+
+// ============================================================
+//  MODAL NOVEDAD
+// ============================================================
+let _novPersonaId=null,_novTipo=null;
+function abrirModalNovedad(pid){
+  _novPersonaId=pid||null;_novTipo=null;
+  document.getElementById("mn-detalle").value="";
+  document.getElementById("mn-fecha").value=getFecha();
+  document.getElementById("mn-lic-fechas").style.display="none";
+  document.getElementById("mn-lic-inicio").value=getFecha();
+  document.getElementById("mn-lic-fin").value=getFecha();
+  const TIPO_ICONS={"Licencia":"📋","Llegada tarde":"⏰","Retiro anticipado":"🚪","Ausencia":"❌","Otro":"📝"};
+  document.getElementById("mn-tipos-grid").innerHTML=(window.tiposNovedad||[]).map((t,i)=>{
+    const esLast=i===(window.tiposNovedad.length-1)&&window.tiposNovedad.length%2!==0;
+    return "<button class=\"tipo-btn\" onclick=\"selTipo(this,\'"+escJsAttr(t)+"\')\" style=\""+(esLast?"grid-column:1/-1":"")+"\">"+(TIPO_ICONS[t]||"📌")+" "+esc(t)+"</button>";
+  }).join("");
+  const input=document.getElementById("mn-persona-input");
+  const selDiv=document.getElementById("mn-persona-seleccionada");
+  if(pid){const p=window.nomina.find(x=>x.id===pid);input.value="";input.style.display="none";selDiv.style.display="";selDiv.textContent=p?p.nombre:"—";}
+  else{input.value="";input.style.display="";selDiv.style.display="none";_novPersonaId=null;}
+  document.getElementById("mn-title").textContent="Cargar novedad";
+  document.getElementById("modal-novedad-overlay").classList.add("open");
+}
+function filtrarPersonasAC(){
+  const q=(document.getElementById("mn-persona-input").value||"").toLowerCase();
+  const list=document.getElementById("mn-persona-list");
+  if(!q||q.length<2){list.classList.remove("open");return;}
+  const res=window.nomina.filter(p=>p.estado!=="Baja"&&(p.nombre.toLowerCase().includes(q)||(p.dni||"").includes(q))).slice(0,10);
+  if(!res.length){list.classList.remove("open");return;}
+  list.innerHTML=res.map(p=>"<div class=\"autocomplete-item\" onclick=\"selPersonaAC(\'"+p.id+"\',\'"+escJsAttr(p.nombre)+"\')\" >"+esc(p.nombre)+" <span style=\"color:#888;font-size:11px\">"+esc(p.rol||"")+"</span></div>").join("");
+  list.classList.add("open");
+}
+function selPersonaAC(id,nombre){_novPersonaId=id;document.getElementById("mn-persona-input").value=nombre;document.getElementById("mn-persona-list").classList.remove("open");}
+function selTipo(btn,tipo){_novTipo=tipo;document.querySelectorAll(".tipo-btn").forEach(b=>b.classList.remove("sel"));btn.classList.add("sel");document.getElementById("mn-lic-fechas").style.display=tipo.toLowerCase().includes("licencia")?"":"none";}
+async function guardarNovedad(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  if(!_novPersonaId){alert("Seleccioná una persona.");return;}
+  if(!_novTipo){alert("Seleccioná el tipo.");return;}
+  const fechaNov=document.getElementById("mn-fecha").value||getFecha();
+  const nov={id:Date.now().toString(),personaId:_novPersonaId,fecha:fechaNov,tipo:_novTipo,detalle:(document.getElementById("mn-detalle").value||"").trim()};
+  if(_novTipo.toLowerCase().includes("licencia")){
+    const ini=document.getElementById("mn-lic-inicio").value;
+    const fin=document.getElementById("mn-lic-fin").value;
+    if(!ini||!fin){alert("Completá las fechas.");return;}
+    if(fin<ini){alert("La fecha de fin debe ser igual o posterior al inicio.");return;}
+    nov.licIni=ini;nov.licFin=fin;
+  }
+  window.novedades.push(nov);
+  cerrarModal("modal-novedad-overlay");
+  renderAll();
+  try{
+    await window._guardarNovedad(nov);
+    toast("✅ Novedad guardada");
+  }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
+}
+
+// ============================================================
+//  EXPORTACIONES
+// ============================================================
+function exportarActivos(){
+  const hoy=getFecha();
+  exportNominaExcel(window.nomina.filter(p=>getEstadoPersona(p,hoy)==="Activo"),"nomina_activos_"+hoy+".xlsx","ACTIVOS");
+}
+function exportarNominaCompleta(){exportNominaExcel(window.nomina,"nomina_completa_"+getFecha()+".xlsx","NOMINA COMPLETA");}
+function exportarHistorialNovedades(){
+  const rows=[...window.novedades].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
+    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    return{"Fecha":n.fecha,"Nombre":p.nombre||n.personaId,"Turno":p.turno||"","Rol":p.rol||"","DNI":p.dni||"","Tipo":n.tipo,"Inicio Licencia":n.licIni||"","Fin Licencia":n.licFin||"","Detalle":n.detalle||""};
+  });
+  if(!rows.length){toast("Sin novedades.");return;}
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws["!cols"]=[{wch:12},{wch:35},{wch:18},{wch:18},{wch:12},{wch:20},{wch:14},{wch:14},{wch:40}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"NOVEDADES");
+  XLSX.writeFile(wb,"historial_novedades_"+todayISO()+".xlsx");
+  toast("✅ Historial exportado");
+}
+
+const TURNO_DESC={"Turno Mañana":"Lun-Vie 07-14h","Turno Tarde":"Lun-Vie 13-20h","Turno Noche":"Lun-Jue 19-01h","SADOFE Diurno":"Sab-Dom-Fer 07-19h","SADOFE Noche":"Vie-Sab-Dom 19-01h","Administrativo":"Administrativo","Gerencia":"Gerencia"};
+function exportNominaExcel(personas,filename,sheetName){
+  const hoy=getFecha();
+  const COLS=[
+    {k:"nombre",h:"APELLIDO Y NOMBRE"},{k:"_estado",h:"ESTADO"},{k:"rol",h:"ROL"},
+    {k:"turno",h:"TURNO"},{k:"_turnoDesc",h:"DESC. TURNO"},{k:"dni",h:"DNI"},
+    {k:"cuil",h:"CUIL"},{k:"jefatura",h:"JEFATURA"},{k:"coordinador",h:"COORDINADOR"},
+    {k:"celular",h:"CELULAR"},{k:"mailPersonal",h:"MAIL PERSONAL"},
+    {k:"fechaIngreso",h:"FECHA INGRESO"},{k:"domicilio",h:"DOMICILIO"},
+    {k:"barrio",h:"BARRIO"},{k:"motivoBaja",h:"MOTIVO BAJA"},{k:"fechaBaja",h:"FECHA BAJA"},
+  ];
+  const rows=personas.map(p=>{
+    const est=getEstadoPersona(p,hoy);
+    const row={};
+    COLS.forEach(c=>{
+      if(c.k==="_estado")row[c.h]=est;
+      else if(c.k==="_turnoDesc")row[c.h]=TURNO_DESC[p.turno]||"";
+      else row[c.h]=p[c.k]||"";
+    });
+    return row;
+  });
+  const ws=XLSX.utils.json_to_sheet(rows,{header:COLS.map(c=>c.h)});
+  ws["!cols"]=[{wch:35},{wch:10},{wch:20},{wch:18},{wch:22},{wch:12},{wch:14},{wch:18},{wch:22},{wch:14},{wch:28},{wch:12},{wch:30},{wch:18},{wch:25},{wch:12}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheetName||"NOMINA");
+  XLSX.writeFile(wb,filename);toast("✅ Excel exportado");
+}
+
+// ============================================================
+//  CARGA NÓMINA EXCEL
+// ============================================================
+let _nominaFile=null;
+function onNominaFile(input){
+  _nominaFile=input.files[0];
+  const fc=document.getElementById("nominaFileChosen");
+  const btn=document.getElementById("nominaLoadBtn");
+  if(_nominaFile){fc.textContent="📄 "+_nominaFile.name;fc.style.display="inline-block";btn.disabled=false;btn.style.opacity="1";}
+}
+async function cargarNominaExcel(){
+  if(!_nominaFile)return;
+  if(!puedeEditar()){alert("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const btn=document.getElementById("nominaLoadBtn");
+  const toastEl=document.getElementById("nominaToast");
+  const pfill=document.getElementById("nominaPfill");
+  const pwrap=document.getElementById("nominaPwrap");
+  btn.disabled=true;btn.textContent="Procesando…";toastEl.style.display="none";
+  pwrap.style.display="block";pfill.style.width="5%";
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+      const wsA=wb.Sheets["NOMINA VENTA ILEGAL DGFIS"];
+      if(!wsA)throw new Error("No se encontró la hoja NOMINA VENTA ILEGAL DGFIS");
+      const rowsA=XLSX.utils.sheet_to_json(wsA,{defval:null});
+      const wsB=wb.Sheets["BAJAS"];
+      const rowsB=wsB?XLSX.utils.sheet_to_json(wsB,{defval:null}):[];
+      pfill.style.width="20%";
+      function cv(v){return v!==null&&v!==undefined?String(v).trim():"";}
+      function cvNum(v){if(!v)return"";const s=String(v).replace(/\.0+$/,"").trim();return s.includes("e+")||s.includes("E+")?Math.round(parseFloat(s)).toString():s;}
+      function fmtF(val){if(!val)return"";if(val instanceof Date)return val.toISOString().slice(0,10);const d=new Date(val);return isNaN(d)?String(val):d.toISOString().slice(0,10);}
+      const TURNO_MAP={"TURNO MAÑANA":"Turno Mañana","TURNO MAÑANA ":"Turno Mañana","TURNO TARDE":"Turno Tarde","TURNO TARDE ":"Turno Tarde","TURNO NOCHE":"Turno Noche","SAB-DOM Y FERIADOS":"SADOFE Diurno","VIER-SAB-DOM":"SADOFE Noche","ADMINISTRATIVO/A":"Administrativo","GERENCIA":"Gerencia","GERENTE OPERATIVO":"Gerencia","SUB GERENTE OPERATIVO":"Gerencia"};
+      function normTurno(v){return TURNO_MAP[(v||"").toString().trim().toUpperCase()]||cv(v);}
+      const existMap={};window.nomina.forEach(p=>{if(p.dni)existMap[p.dni]=p;});
+      const recs=[];let nuevos=0,actualizados=0;
+      rowsA.forEach((row,i)=>{
+        const nombre=cv(row["APELLIDO Y NOMBRE"]);if(!nombre)return;
+        const dni=cvNum(row["DNI"]);
+        const rec={
+          id:existMap[dni]?existMap[dni].id:(Date.now()+i).toString(),
+          nombre:nombre.toUpperCase(),rol:"Inspector",
+          turno:normTurno(row["TURNO"]),cuil:cvNum(row["CUIL"]),dni,
+          cbu:cv(row["CBU"]),mailPersonal:cv(row["MAIL PERSONAL"]),
+          mailInstitucional:cv(row["MAIL INSTITUCIONAL"]),
+          coordinador:cv(row["COORDINADOR"]),jefatura:cv(row["JEFATURA"]),
+          modalidad:cv(row["MODALIDAD"]),genero:cv(row["GENERO"]),
+          fechaNacimiento:fmtF(row["FECHA DE NACIMIENTO"]),fechaIngreso:fmtF(row["FECHA DE INGRESO"]),
+          celular:cv(row["CELULAR PARTICULAR"]),
+          contactoEmergencia:cv(row["NOMBRE Y APELLIDO  DE CONTACTO DE EMERGENCIA"]),
+          telEmergencia:cv(row["Nº CONTACTOS DE EMERGENCIAS"]),
+          domicilio:cv(row["DOMICILIO"]),cabaPba:cv(row["CABA/PBA"]),
+          barrio:cv(row["BARRIO/LOCALIDAD"]),comuna:cv(row["COMUNA"]),
+          chaleco:cv(row["Entrega chaleco"]),talle:cv(row["TALLE"]),
+          agentes_calle:cv(row["AGENTES EN CALLE "]),celularFlota:cv(row["CELULAR FLOTA"]),imei:cv(row["IMEI"]),
+          estado:"Activo",
+        };
+        if(existMap[dni])actualizados++;else nuevos++;
+        recs.push(rec);
+      });
+      pfill.style.width="40%";
+      rowsB.forEach((row,i)=>{
+        const ap=cv(row["APELLIDO"]);const nm=cv(row["NOMBRE"]);
+        const nombre=(ap+(nm?" "+nm:"")).trim().toUpperCase();if(!nombre)return;
+        const dni=cvNum(row["DNI"]);if(dni&&existMap[dni])return;
+        recs.push({id:(Date.now()+50000+i).toString(),nombre,rol:"Inspector",turno:normTurno(row["TURNO"]),cuil:cvNum(row["CUIL"]),dni,jefatura:cv(row["PUESTO"]),modalidad:cv(row["MODALIDAD"]),genero:cv(row["GENERO"]),fechaIngreso:fmtF(row["FECHA DE INGRESO"]),celular:cv(row["CELULAR PARTICULAR"]),domicilio:cv(row["DOMICILIO"]),barrio:cv(row["BARRIO/LOCALIDAD"]),estado:"Baja",coordinador:"",mailPersonal:"",agentes_calle:""});
+        nuevos++;
+      });
+      pfill.style.width="55%";
+
+      // Conservar personas existentes que no aparecen en este Excel (upsert por DNI, no reemplazo)
+      const dnisExcel=new Set(recs.filter(r=>r.dni).map(r=>r.dni));
+      const noEncontrados=window.nomina.filter(p=>!p.dni||!dnisExcel.has(p.dni));
+      recs.push(...noEncontrados);
+
+      toastEl.textContent="Subiendo "+recs.length+" registros a Firestore…";toastEl.style.display="block";
+      window.nomina=recs;
+      await window._guardarNominaCompleta(recs);
+      pfill.style.width="100%";
+      sessionStorage.removeItem("dgf_personal_nomina");sessionStorage.removeItem("dgf_personal_nomina_ts");
+      const ac=recs.filter(r=>r.estado==="Activo").length;
+      const ba=recs.filter(r=>r.estado==="Baja").length;
+      toastEl.textContent="✅ "+recs.length+" registros ("+nuevos+" nuevos, "+actualizados+" actualizados). Activos: "+ac+" | Bajas: "+ba;
+      toastEl.style.background="#dcfce7";toastEl.style.color="#15803d";
+      renderAll();
+    }catch(err){toastEl.textContent="❌ Error: "+err.message;toastEl.style.background="#fee2e2";toastEl.style.color="#b91c1c";console.error(err);}
+    finally{btn.disabled=false;btn.textContent="Subir a Firestore";setTimeout(()=>{pwrap.style.display="none";pfill.style.width="0%";},3000);}
+  };
+  reader.readAsArrayBuffer(_nominaFile);
+}
+
+// ============================================================
+//  MODAL VER
+// ============================================================
+function abrirModalVer(id){
+  const p=window.nomina.find(x=>x.id===id);if(!p)return;
+  const hoy=getFecha();const est=getEstadoPersona(p,hoy);
+  document.getElementById("mv-title").textContent=p.nombre+" · "+(p.rol||"Inspector");
+  document.getElementById("mv-ficha").innerHTML=[
+    ["Turno",badgeTurno(p.turno)],["Rol",esc(p.rol||"Inspector")],["Estado",badgeEstado(est)],
+    ["DNI",p.dni||"—"],["Celular",p.celular||"—"],["Ingreso",fmtDate(p.fechaIngreso)||"—"],
+  ].map(([k,v])=>"<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>").join("");
+  const novP=[...window.novedades].filter(n=>n.personaId===id).reverse().slice(0,10);
+  document.getElementById("mv-novs").innerHTML=novP.length?
+    novP.map(n=>"<div class=\"hist-row\">"+badgeNov(n.tipo)+" <strong>"+fmtDate(n.fecha)+"</strong>"+(n.licIni?" ("+fmtDate(n.licIni)+"→"+fmtDate(n.licFin)+")":"")+(n.detalle?" · "+esc(n.detalle):"")+"</div>").join("")
+    :"<div style=\"color:#aaa;font-size:12px\">Sin novedades.</div>";
+  document.getElementById("modal-ver-overlay").classList.add("open");
+}
+
+// ============================================================
+//  CERRAR MODALES
+// ============================================================
+function cerrarModal(id){document.getElementById(id).classList.remove("open");}
+document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{if(e.target===o&&o.id!=="loginOverlay")o.classList.remove("open");}));
+document.addEventListener("click",e=>{const l=document.getElementById("mn-persona-list");if(l&&!l.parentElement.contains(e.target))l.classList.remove("open");});
+</script>
+</body>
+</html>
