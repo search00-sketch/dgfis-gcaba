@@ -8,14 +8,19 @@ service cloud.firestore {
     match /usuarios/{doc}          { allow read, write: if true; }
     match /personal_config/{doc}   { allow read, write: if true; }
 
-    // Antes: personal_chunks / personal_meta (chunks de 500 registros)
-    match /nomina/{doc}            { allow read, write: if true; }
+    // Antes: un documento por persona (mucho consumo de lecturas). Ahora,
+    // chunks de hasta 500 registros con un mapa {personaId: {...datos}}
+    // adentro, y un doc de índice con la cantidad de chunks.
+    match /nomina_chunks/{doc}     { allow read, write: if true; }
+    match /nomina_meta/{doc}       { allow read, write: if true; }
 
-    // Antes: novedades_chunks / novedades_meta
-    match /novedades/{doc}         { allow read, write: if true; }
+    // Antes: un documento por novedad. Mismo esquema de chunks que nomina.
+    match /novedades_chunks/{doc}  { allow read, write: if true; }
+    match /novedades_meta/{doc}    { allow read, write: if true; }
 
-    // Antes: distribuciones/{fecha} con todo el mapa adentro.
-    // Ahora es una subcolección: un documento por persona y por día.
+    // Antes: distribuciones/{fecha}/asignaciones/{personaId}, un documento
+    // por persona y por día. Ahora es un solo documento por fecha con un
+    // mapa {personaId: zona} adentro (mismo motivo: menos lecturas).
     match /distribuciones/{fecha} {
       allow read, write: if true;
       match /asignaciones/{personaId} {

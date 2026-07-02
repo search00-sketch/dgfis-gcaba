@@ -427,27 +427,91 @@ function clearCache(cfg, suffix='') {
   sessionStorage.removeItem(cfg.ts  + suffix);
 }
 
-// -- LECTURA/ESCRITURA: UN DOCUMENTO POR REGISTRO --------------------------
-async function leerColeccion(nombreCol, cacheConf) {
+// -- LECTURA/ESCRITURA "CHUNKED": varios registros por documento -----------
+// Antes: un documento por registro (mucho consumo de lecturas: 570 lecturas
+// para traer toda la nómina). Ahora: chunks de hasta 500 registros con un
+// mapa {id: {...datos}} adentro, más un doc de índice con la cantidad de
+// chunks. Leer la colección entera cuesta ~(1 + cantidad de chunks) lecturas.
+// Cada alta/edición/baja de UN registro sigue tocando sólo su propia clave
+// del mapa (updateDoc con notación de punto), así dos personas editando
+// registros distintos no se pisan entre sí.
+const CHUNK_SIZE = 500;
+
+async function leerColeccionChunked(nombreCol, cacheConf) {
   const cached = getCache(cacheConf);
   if (cached) return cached;
-  const snap = await getDocs(collection(db, nombreCol));
+  const metaSnap = await getDoc(doc(db, nombreCol+'_meta', 'index')).catch(()=>null);
+  const numChunks = (metaSnap && metaSnap.exists()) ? (metaSnap.data().numChunks||0) : 0;
+  const chunkSnaps = await Promise.all(
+    Array.from({length: numChunks}, (_,i) => getDoc(doc(db, nombreCol+'_chunks', 'chunk_'+i)))
+  );
   const recs = [];
-  snap.forEach(d => recs.push({ id: d.id, ...d.data() }));
+  chunkSnaps.forEach((snap,i) => {
+    if (!snap || !snap.exists()) return;
+    const registros = snap.data().registros || {};
+    Object.entries(registros).forEach(([id, datos]) => recs.push({ id, _chunk: i, ...datos }));
+  });
   setCache(cacheConf, recs);
   return recs;
 }
 
-// Carga masiva (alta inicial): un batch cada 500 registros
-async function escribirColeccionBatch(nombreCol, recs) {
-  for (let i = 0; i < recs.length; i += 500) {
-    const batch = writeBatch(db);
-    recs.slice(i, i+500).forEach(r => {
-      const { id, ...datos } = r;
-      batch.set(doc(db, nombreCol, id), datos);
-    });
-    await batch.commit();
+// Alta o edición de UN registro. Si ya tiene "_chunk" (venía de una lectura
+// previa) actualiza sólo esa clave del chunk; si es nuevo, lo agrega al
+// último chunk (o crea uno nuevo si el último está lleno).
+async function guardarRegistroChunked(nombreCol, cacheConf, registro, coleccionActual) {
+  const { id, _chunk, ...datos } = registro;
+  let chunkIdx = _chunk;
+  if (chunkIdx === undefined) {
+    const metaSnap = await getDoc(doc(db, nombreCol+'_meta', 'index')).catch(()=>null);
+    const numChunks = (metaSnap && metaSnap.exists()) ? (metaSnap.data().numChunks||0) : 0;
+    chunkIdx = Math.min(Math.floor(coleccionActual.length / CHUNK_SIZE), numChunks);
+    if (chunkIdx >= numChunks) {
+      await setDoc(doc(db, nombreCol+'_meta','index'), { numChunks: chunkIdx+1 }, { merge:true });
+    }
   }
+  await window._fUpdateOrCrear(doc(db, nombreCol+'_chunks', 'chunk_'+chunkIdx), { ['registros.'+id]: datos });
+  registro._chunk = chunkIdx;
+  clearCache(cacheConf);
+}
+
+// Baja de UN registro (necesita saber en qué chunk está).
+async function eliminarRegistroChunked(nombreCol, cacheConf, registro) {
+  if (!registro || registro._chunk === undefined) { clearCache(cacheConf); return; }
+  await window._fUpdateOrCrear(doc(db, nombreCol+'_chunks', 'chunk_'+registro._chunk), { ['registros.'+registro.id]: deleteField() });
+  clearCache(cacheConf);
+}
+
+// Alta/edición masiva (import de Excel, o alta inicial). Agrupa los
+// registros por chunk de destino y hace UNA escritura por chunk afectado
+// en vez de una por registro.
+async function guardarRegistrosBulkChunked(nombreCol, cacheConf, lista, coleccionActual) {
+  const chunkExistente = {};
+  coleccionActual.forEach(r => { if (r._chunk !== undefined) chunkExistente[r.id] = r._chunk; });
+
+  const metaSnap = await getDoc(doc(db, nombreCol+'_meta', 'index')).catch(()=>null);
+  let numChunks = (metaSnap && metaSnap.exists()) ? (metaSnap.data().numChunks||0) : 0;
+  let totalActual = coleccionActual.length;
+
+  const porChunk = {};
+  lista.forEach(registro => {
+    const { id, _chunk, ...datos } = registro;
+    let chunkIdx = chunkExistente[id];
+    if (chunkIdx === undefined) {
+      chunkIdx = Math.min(Math.floor(totalActual / CHUNK_SIZE), numChunks);
+      if (chunkIdx >= numChunks) numChunks = chunkIdx + 1;
+      chunkExistente[id] = chunkIdx;
+      totalActual++;
+    }
+    if (!porChunk[chunkIdx]) porChunk[chunkIdx] = {};
+    porChunk[chunkIdx]['registros.'+id] = datos;
+    registro._chunk = chunkIdx;
+  });
+
+  await setDoc(doc(db, nombreCol+'_meta','index'), { numChunks }, { merge:true });
+  await Promise.all(Object.entries(porChunk).map(([idx, campos]) =>
+    window._fUpdateOrCrear(doc(db, nombreCol+'_chunks', 'chunk_'+idx), campos)
+  ));
+  clearCache(cacheConf);
 }
 
 // -- CARGA INICIAL --------------------------------------------------------
@@ -460,8 +524,8 @@ async function cargarTodo() {
     // paralelo (antes iban una detrás de otra, sumando varios segundos).
     const zonasCache = getCache(CACHE.zonas);
     const [nominaArr, novedadesArr, zSnap, tiposSnap, feriadosSnap] = await Promise.all([
-      leerColeccion('nomina', CACHE.nomina),
-      leerColeccion('novedades', CACHE.novedades),
+      leerColeccionChunked('nomina', CACHE.nomina),
+      leerColeccionChunked('novedades', CACHE.novedades),
       zonasCache ? Promise.resolve(null) : getDoc(doc(db,'personal_config','zonas')).catch(()=>null),
       getDoc(doc(db,'personal_config','tipos_novedad')).catch(()=>null),
       getDoc(doc(db,'personal_config','feriados')).catch(()=>null),
@@ -472,7 +536,7 @@ async function cargarTodo() {
     window.nomina = nominaArr;
     // Si Firestore está vacío, subir la nómina inicial
     if (!window.nomina.length) {
-      await escribirColeccionBatch('nomina', NOMINA_INICIAL);
+      await guardarRegistrosBulkChunked('nomina', CACHE.nomina, NOMINA_INICIAL, []);
       window.nomina = [...NOMINA_INICIAL];
       setCache(CACHE.nomina, window.nomina);
     }
@@ -522,15 +586,12 @@ window.cargarDistFecha = async function(fecha) {
   setCache(CACHE.dist, data, fecha);
 };
 
-// -- GUARDADO A FIREBASE (un documento por registro) -----------------------
+// -- GUARDADO A FIREBASE (chunks de hasta 500 registros) -------------------
 window._guardarPersona = async function(persona) {
-  const { id, ...datos } = persona;
-  await setDoc(doc(db, 'nomina', id), datos);
-  clearCache(CACHE.nomina);
+  await guardarRegistroChunked('nomina', CACHE.nomina, persona, window.nomina);
 };
 window._guardarNominaCompleta = async function(lista) {
-  await escribirColeccionBatch('nomina', lista);
-  clearCache(CACHE.nomina);
+  await guardarRegistrosBulkChunked('nomina', CACHE.nomina, lista, window.nomina);
 };
 
 window._guardarZonas = async function() {
