@@ -198,7 +198,7 @@ label.fl{font-size:11px;color:#666;font-weight:600}
     </div>
     <div>
       <div class="header-title">📋 Novedades de Personal</div>
-      <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+      <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a> &nbsp;|&nbsp; <a href="asignacion_zonas.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">📍 Asignación →</a></div>
     </div>
   </div>
   <div class="header-right">
@@ -219,6 +219,7 @@ label.fl{font-size:11px;color:#666;font-weight:600}
   <button class="tab" onclick="window.cambiarTab('nomina',this)">👥 Nómina</button>
   <button class="tab" onclick="window.cambiarTab('historial',this)">📅 Historial</button>
   <button class="tab" id="tabCargaNomina" style="display:none" onclick="window.cambiarTab('carga',this)">📥 Cargar Nómina</button>
+  <button class="tab" id="tabImportAsistencia" style="display:none" onclick="window.cambiarTab('asistencia',this)">📊 Importar Asistencia</button>
 </div>
 
 <div class="content">
@@ -294,6 +295,58 @@ label.fl{font-size:11px;color:#666;font-weight:600}
       <div id="nominaPfill" style="height:100%;background:linear-gradient(90deg,#2563a8,#38bdf8);border-radius:4px;width:0%;transition:width .3s"></div>
     </div>
     <div id="nominaToast" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:.82rem;font-weight:500"></div>
+  </div>
+</div>
+
+<!-- PANEL IMPORTAR ASISTENCIA -->
+<div class="panel" id="panel-asistencia">
+  <div class="gestion-zonas">
+    <div class="gz-title">📊 Importar novedades desde Excel de Asistencia</div>
+    <p style="font-size:.82rem;color:#777;margin-bottom:6px">
+      Seleccioná el archivo <strong>Asistencia.xlsx</strong>. Se leerán todas las hojas (meses) y se importarán
+      las novedades de cada persona. Días consecutivos del mismo tipo se agrupan como rango (licencias, enfermedades, etc).
+      Las novedades ya existentes no se duplican.
+    </p>
+    <div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;padding:10px 14px;font-size:.8rem;margin-bottom:14px">
+      ⚠️ Solo se importan personas que ya existen en la nómina. Las que no coincidan se listan al terminar.
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end">
+      <div class="form-field">
+        <label class="fl">Filtrar por hoja (mes)</label>
+        <select class="form-input" id="asist-hoja" style="width:160px">
+          <option value="">Todas las hojas</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="fl">Filtrar por tipo</label>
+        <select class="form-input" id="asist-filtro-tipo" style="width:200px">
+          <option value="">Todos los tipos</option>
+          <option value="Licencia">Solo Licencias</option>
+          <option value="Ausencia">Solo Ausencias</option>
+          <option value="Llegada tarde">Solo Llegadas tarde</option>
+          <option value="Retiro anticipado">Solo Retiros anticipados</option>
+        </select>
+      </div>
+    </div>
+    <div style="border:2px dashed #ddd;border-radius:10px;padding:28px;text-align:center;background:#f9f9f9;position:relative;cursor:pointer">
+      <input type="file" accept=".xlsx,.xls" id="asistFileInput" onchange="onAsistFile(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+      <div style="font-size:2rem;margin-bottom:8px">📊</div>
+      <div style="font-weight:600;color:#1a3a5c">Arrastrá o hacé clic para seleccionar el Excel de Asistencia</div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span id="asistFileChosen" style="display:none;font-size:.82rem;color:#2563a8;font-weight:600;background:#dbeafe;padding:4px 10px;border-radius:5px"></span>
+      <button id="asistPreviewBtn" onclick="previsualizarAsistencia()" disabled style="padding:9px 18px;border:none;border-radius:10px;background:#1a3a5c;color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;opacity:.45">🔍 Previsualizar</button>
+      <button id="asistImportBtn" onclick="importarAsistencia()" disabled style="padding:9px 18px;border:none;border-radius:10px;background:#27ae60;color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;opacity:.45">✅ Importar</button>
+    </div>
+    <div style="height:8px;background:#e0e0e0;border-radius:4px;margin-top:14px;display:none" id="asistPwrap">
+      <div id="asistPfill" style="height:100%;background:linear-gradient(90deg,#27ae60,#2ecc71);border-radius:4px;width:0%;transition:width .3s"></div>
+    </div>
+    <div id="asist-preview" style="margin-top:16px;display:none">
+      <div style="font-weight:700;font-size:13px;color:var(--azul);margin-bottom:8px" id="asist-preview-title"></div>
+      <div style="max-height:400px;overflow-y:auto;border:1px solid var(--bor);border-radius:8px" id="asist-preview-body"></div>
+      <div style="margin-top:8px;font-size:.78rem;color:#e67e22" id="asist-no-encontrados"></div>
+    </div>
+    <div id="asistToast" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:.82rem;font-weight:500"></div>
   </div>
 </div>
 
@@ -627,6 +680,11 @@ window._guardarNovedad = async function(nov) {
 window._eliminarNovedad = async function(registro) {
   await eliminarRegistroChunked('novedades', CACHE.novedades, registro);
 };
+// Alta masiva (import de asistencia desde Excel): agrupa por chunk y hace
+// una escritura por chunk en vez de una por novedad.
+window._guardarNovedadesBulk = async function(lista) {
+  await guardarRegistrosBulkChunked('novedades', CACHE.novedades, lista, window.novedades);
+};
 
 window._guardarZonas = async function() {
   await setDoc(doc(db,'personal_config','zonas'), { lista: window.zonas, ts: new Date().toISOString() });
@@ -741,6 +799,7 @@ async function restaurarSesion(){
     document.getElementById("userBadge").style.display = "inline";
     document.getElementById("userBadge").textContent = loggedUser.nombre;
     if (loggedUser.role === "admin") document.getElementById("tabCargaNomina").style.display = "";
+      document.getElementById("tabImportAsistencia").style.display = "";
     actualizarPermisoUI();
   } catch(e) {
     console.error("restaurarSesion() falló:", e);
@@ -819,6 +878,7 @@ function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filte
 // ============================================================
 window._cambiarTabExtra = function(id) {
   if(id==="historial") renderHistorial();
+  else if(id==="asistencia") cargarSelectHojasAsistencia();
   else if(id!=="carga") renderNovedades();
 };
 
@@ -1320,6 +1380,266 @@ document.addEventListener("click",function(e){
   const menu=document.getElementById("navMenu");
   if(menu&&dd&&!dd.contains(e.target))menu.style.display="none";
 });
+
+// ============================================================
+//  IMPORTAR ASISTENCIA DESDE EXCEL
+// ============================================================
+const ASIST_TIPO_MAP = {
+  "Ausente":"Ausencia","Ausente ":"Ausencia","Injustificado":"Ausencia","Injustificado ":"Ausencia",
+  "Enfermedad":"Enfermedad","Licencia Ordinaria":"Licencia","Licencia":"Licencia",
+  "Llegada Tarde":"Llegada tarde","Llegada tarde":"Llegada tarde","Entrada Demorada":"Llegada tarde",
+  "Retiro Anticipado":"Retiro anticipado","Retiro anticipado":"Retiro anticipado",
+  "Compesatorio":"Compensatorio","Compensatorio":"Compensatorio",
+  "Artículo":"Artículo","Capacitación":"Capacitación","Art. Deportivo":"Art. Deportivo",
+  "Operativo":"Operativo","Lic. Largo Tratamiento":"Lic. Largo Tratamiento",
+  "Día de estudio":"Día de estudio","Justificado":"Justificado","Paro":"Paro",
+  "Baja":"Baja","Maternidad":"Maternidad","Paternidad":"Paternidad","ART":"ART","Mudanza":"Otro",
+};
+// Tipos que se agrupan en rango cuando son días consecutivos
+const ASIST_RANGO = new Set(["Licencia","Lic. Largo Tratamiento","Maternidad","Paternidad","ART","Enfermedad"]);
+// Tipos que NO son novedades (estado normal)
+const ASIST_IGNORAR = new Set(["Presente","","Libre (trabaja 3 de 4 días)"]);
+
+let _asistFile = null;
+let _asistWB   = null;  // workbook en memoria
+let _asistNovedadesParsed = [];
+
+function onAsistFile(input) {
+  _asistFile = input.files[0];
+  _asistWB = null;
+  _asistNovedadesParsed = [];
+  const fc  = document.getElementById("asistFileChosen");
+  const pb  = document.getElementById("asistPreviewBtn");
+  const ib  = document.getElementById("asistImportBtn");
+  document.getElementById("asist-preview").style.display = "none";
+  document.getElementById("asistToast").style.display = "none";
+  if(_asistFile) {
+    fc.textContent = "📊 "+_asistFile.name; fc.style.display = "inline-block";
+    pb.disabled = false; pb.style.opacity = "1";
+    ib.disabled = true;  ib.style.opacity = ".45";
+    // Leer el workbook y poblar el select de hojas
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      _asistWB = XLSX.read(e.target.result, {type:"array", cellDates:false});
+      const sel = document.getElementById("asist-hoja");
+      sel.innerHTML = "<option value=\"\">Todas las hojas</option>" +
+        _asistWB.SheetNames.map(s => "<option value=\""+esc(s)+"\">"+esc(s)+"</option>").join("");
+    };
+    reader.readAsArrayBuffer(_asistFile);
+  }
+}
+
+function cargarSelectHojasAsistencia() {
+  // Llamado al abrir el tab: si ya hay workbook, poblar el select
+  if(!_asistWB) return;
+  const sel = document.getElementById("asist-hoja");
+  if(sel && sel.options.length <= 1) {
+    sel.innerHTML = "<option value=\"\">Todas las hojas</option>" +
+      _asistWB.SheetNames.map(s => "<option value=\""+esc(s)+"\">"+esc(s)+"</option>").join("");
+  }
+}
+
+function parsearAsistenciaExcel(wb, soloHoja, soloTipo) {
+  const hojas = soloHoja ? [soloHoja] : wb.SheetNames;
+  const resultados = [];
+  const noEncontrados = new Set();
+
+  hojas.forEach(hoja => {
+    const ws = wb.Sheets[hoja];
+    if(!ws) return;
+    const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+
+    // Fila índice 1 = fechas
+    const fechaRow = aoa[1] || [];
+    const colFechas = {};
+    fechaRow.forEach((val, ci) => {
+      if(!val) return;
+      const str = String(val).trim();
+      // Puede venir como "2026-01-02 00:00:00", "1/2/2026", "2026-01-02"
+      const d = new Date(str);
+      if(!isNaN(d) && d.getFullYear() > 2000) {
+        colFechas[ci] = d.toISOString().slice(0,10);
+      }
+    });
+
+    if(!Object.keys(colFechas).length) return; // hoja sin fechas, saltar
+
+    // Recorrer de a 3 filas
+    let ri = 3;
+    while(ri < aoa.length) {
+      const fila = aoa[ri];
+      const nombreExcel = fila ? fila[0] : null;
+      if(!nombreExcel || typeof nombreExcel !== "string") { ri++; continue; }
+      const nombreTrim = nombreExcel.trim();
+      if(!nombreTrim.includes(",") && !nombreTrim.includes(" ")) { ri++; continue; }
+
+      // Normalizar: "Apellido, Nombre" o "APELLIDO NOMBRE"
+      const nombreNorm = nombreTrim.replace(",","").replace(/\s+/g," ").trim().toUpperCase();
+      const partes = nombreNorm.split(" ").filter(Boolean);
+
+      // Buscar en nómina: todos los apellidos del Excel deben aparecer en el nombre
+      const persona = window.nomina.find(p => {
+        const pn = (p.nombre||"").toUpperCase();
+        // Coincidencia exacta primero
+        if(pn === nombreNorm) return true;
+        // Coincidencia parcial: al menos los 2 primeros tokens coinciden
+        return partes.slice(0,2).every(pt => pn.includes(pt));
+      });
+
+      const filaObs = aoa[ri+2] || [];
+      const obs = filaObs.filter(v => v && String(v).trim()).join(" | ").slice(0,200);
+
+      // Recopilar novedades del día
+      const diasNovedad = {};
+      Object.entries(colFechas).forEach(([ci, fecha]) => {
+        const val = fila[parseInt(ci)];
+        if(!val) return;
+        const valStr = String(val).trim();
+        if(ASIST_IGNORAR.has(valStr) || !valStr) return;
+        const tipo = ASIST_TIPO_MAP[valStr] || valStr;
+        if(soloTipo && tipo !== soloTipo) return;
+        diasNovedad[fecha] = tipo;
+      });
+
+      if(Object.keys(diasNovedad).length > 0) {
+        if(!persona) {
+          noEncontrados.add(nombreExcel.trim());
+        } else {
+          // Agrupar días consecutivos del mismo tipo en rangos
+          const fechasSorted = Object.keys(diasNovedad).sort();
+          const grupos = [];
+          fechasSorted.forEach(f => {
+            const tipo = diasNovedad[f];
+            const last = grupos[grupos.length-1];
+            if(last && last.tipo === tipo && ASIST_RANGO.has(tipo)) {
+              const lastD = new Date(last.fechas[last.fechas.length-1]+"T12:00:00");
+              const thisD = new Date(f+"T12:00:00");
+              const diff  = Math.round((thisD - lastD) / 86400000);
+              if(diff <= 3) { last.fechas.push(f); return; }
+            }
+            grupos.push({tipo, fechas:[f]});
+          });
+
+          grupos.forEach(g => {
+            const base = {nombreExcel:nombreTrim, personaId:persona.id, tipo:g.tipo, detalle:obs};
+            if(ASIST_RANGO.has(g.tipo) && g.fechas.length > 1) {
+              resultados.push({...base, fecha:g.fechas[0], licIni:g.fechas[0], licFin:g.fechas[g.fechas.length-1]});
+            } else {
+              g.fechas.forEach(f => resultados.push({...base, fecha:f}));
+            }
+          });
+        }
+      }
+      ri += 3;
+    }
+  });
+
+  return { novedades:resultados, noEncontrados:[...noEncontrados] };
+}
+
+async function previsualizarAsistencia() {
+  if(!_asistWB) { showAsistToast("Primero seleccioná el archivo.","warn"); return; }
+  const pb = document.getElementById("asistPreviewBtn");
+  pb.textContent = "Leyendo…"; pb.disabled = true;
+  try {
+    const soloHoja = document.getElementById("asist-hoja").value;
+    const soloTipo = document.getElementById("asist-filtro-tipo").value;
+    const {novedades, noEncontrados} = parsearAsistenciaExcel(_asistWB, soloHoja, soloTipo);
+
+    // Detectar duplicados contra las novedades ya cargadas
+    const yaExisten = new Set(window.novedades.map(n => n.personaId+"|"+n.fecha+"|"+n.tipo));
+    const nuevas    = novedades.filter(n => !yaExisten.has(n.personaId+"|"+n.fecha+"|"+n.tipo));
+    const dupCount  = novedades.length - nuevas.length;
+
+    // Agrupar por persona para la preview
+    const porPersona = {};
+    nuevas.forEach(n => {
+      const p = window.nomina.find(x => x.id === n.personaId) || {nombre:n.nombreExcel};
+      if(!porPersona[p.nombre]) porPersona[p.nombre] = [];
+      porPersona[p.nombre].push(n);
+    });
+
+    document.getElementById("asist-preview-title").textContent =
+      nuevas.length + " novedades nuevas a importar" +
+      (dupCount > 0 ? " (" + dupCount + " ya existentes, se omiten)" : "") +
+      " — " + Object.keys(porPersona).length + " personas";
+
+    document.getElementById("asist-preview-body").innerHTML =
+      Object.entries(porPersona).map(([nombre, novs]) =>
+        "<div style=\"padding:8px 12px;border-bottom:1px solid #f0f0f0;\">" +
+        "<div style=\"font-weight:700;font-size:13px;color:var(--azul);margin-bottom:4px\">" + esc(nombre) + "</div>" +
+        "<div style=\"display:flex;flex-wrap:wrap;gap:4px\">" +
+        novs.map(n =>
+          "<span style=\"font-size:11px;background:#f0f4f8;border-radius:4px;padding:2px 7px\">" +
+          badgeNov(n.tipo) + " " + (n.licIni ? fmtDate(n.licIni)+" → "+fmtDate(n.licFin) : fmtDate(n.fecha)) +
+          "</span>"
+        ).join("") + "</div></div>"
+      ).join("") || "<div style=\"padding:16px;color:#aaa;text-align:center\">Sin novedades nuevas.</div>";
+
+    document.getElementById("asist-no-encontrados").innerHTML = noEncontrados.length
+      ? "⚠️ No encontrados en nómina (" + noEncontrados.length + "): " +
+        noEncontrados.map(n => "<span style=\"background:#fee2e2;border-radius:3px;padding:1px 5px;font-size:.75rem\">" + esc(n) + "</span>").join(" ")
+      : "";
+
+    document.getElementById("asist-preview").style.display = "block";
+    _asistNovedadesParsed = nuevas;
+
+    const ib = document.getElementById("asistImportBtn");
+    if(nuevas.length > 0) { ib.disabled = false; ib.style.opacity = "1"; }
+    else                  { ib.disabled = true;  ib.style.opacity = ".45"; }
+
+  } catch(err) {
+    showAsistToast("❌ Error: "+err.message, "err");
+    console.error(err);
+  } finally {
+    pb.textContent = "🔍 Previsualizar"; pb.disabled = false;
+  }
+}
+
+async function importarAsistencia() {
+  if(!_asistNovedadesParsed.length) { toast("Sin novedades para importar."); return; }
+  if(!puedeEditar()) { toast("🔒 Sin permiso para editar."); return; }
+  const ib    = document.getElementById("asistImportBtn");
+  const pwrap = document.getElementById("asistPwrap");
+  const pfill = document.getElementById("asistPfill");
+  ib.disabled = true; ib.textContent = "Importando…";
+  pwrap.style.display = "block"; pfill.style.width = "10%";
+  try {
+    const ahora = Date.now();
+    const nuevas = _asistNovedadesParsed.map((n, i) => ({
+      id: (ahora + i).toString(),
+      personaId: n.personaId,
+      fecha: n.fecha,
+      tipo: n.tipo,
+      detalle: n.detalle || "",
+      ...(n.licIni ? {licIni:n.licIni, licFin:n.licFin} : {}),
+    }));
+    pfill.style.width = "40%";
+    // Una escritura por chunk afectado en vez de una por novedad.
+    await window._guardarNovedadesBulk(nuevas);
+    window.novedades.push(...nuevas);
+    pfill.style.width = "100%";
+    showAsistToast("✅ " + nuevas.length + " novedades importadas correctamente.", "ok");
+    _asistNovedadesParsed = [];
+    document.getElementById("asistImportBtn").disabled = true;
+    document.getElementById("asistImportBtn").style.opacity = ".45";
+    renderAll();
+  } catch(err) {
+    showAsistToast("❌ Error: "+err.message, "err");
+    console.error(err);
+  } finally {
+    ib.textContent = "✅ Importar"; ib.disabled = false;
+    setTimeout(() => { pwrap.style.display = "none"; pfill.style.width = "0%"; }, 3000);
+  }
+}
+
+function showAsistToast(msg, type) {
+  const t = document.getElementById("asistToast");
+  t.textContent = msg; t.style.display = "block";
+  t.style.background = type==="ok" ? "#dcfce7" : type==="err" ? "#fee2e2" : "#f0f8ff";
+  t.style.color      = type==="ok" ? "#15803d" : type==="err" ? "#b91c1c" : "#1a3a5c";
+}
+
 </script>
 </body>
 </html>
