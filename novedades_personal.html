@@ -1400,6 +1400,30 @@ const ASIST_RANGO = new Set(["Licencia","Lic. Largo Tratamiento","Maternidad","P
 // Tipos que NO son novedades (estado normal)
 const ASIST_IGNORAR = new Set(["Presente","","Libre (trabaja 3 de 4 días)"]);
 
+// Las fechas de la fila de encabezado vienen como "Thursday 1 de January"
+// (nombre del día en inglés + "de" + mes en inglés, SIN año) — new Date() no
+// puede parsear ese formato. Se arma la fecha a mano y se valida contra qué
+// año hace que el día de la semana declarado sea correcto.
+const ASIST_DIA_EN = {sunday:0,monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6};
+const ASIST_MES_EN = {january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11};
+function parsearFechaAsistencia(str, anioHint) {
+  const m = String(str).trim().match(/^(\w+)\s+(\d{1,2})\s+de\s+(\w+)$/i);
+  if (!m) return null;
+  const diaSemana = ASIST_DIA_EN[m[1].toLowerCase()];
+  const dia = parseInt(m[2], 10);
+  const mes = ASIST_MES_EN[m[3].toLowerCase()];
+  if (diaSemana === undefined || mes === undefined || !dia) return null;
+  for (let anio = anioHint - 1; anio <= anioHint + 2; anio++) {
+    const d = new Date(anio, mes, dia);
+    if (d.getMonth() === mes && d.getDay() === diaSemana) {
+      return anio + '-' + String(mes+1).padStart(2,'0') + '-' + String(dia).padStart(2,'0');
+    }
+  }
+  return null;
+}
+// Saca tildes para poder comparar "Víctor" (Excel) contra "VICTOR" (nómina).
+function sinAcentos(s) { return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,''); }
+
 let _asistFile = null;
 let _asistWB   = null;  // workbook en memoria
 let _asistNovedadesParsed = [];
@@ -1449,17 +1473,14 @@ function parsearAsistenciaExcel(wb, soloHoja, soloTipo) {
     if(!ws) return;
     const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
 
-    // Fila índice 1 = fechas
+    // Fila índice 1 = fechas ("Thursday 1 de January", sin año)
     const fechaRow = aoa[1] || [];
     const colFechas = {};
+    const anioHint = new Date().getFullYear();
     fechaRow.forEach((val, ci) => {
       if(!val) return;
-      const str = String(val).trim();
-      // Puede venir como "2026-01-02 00:00:00", "1/2/2026", "2026-01-02"
-      const d = new Date(str);
-      if(!isNaN(d) && d.getFullYear() > 2000) {
-        colFechas[ci] = d.toISOString().slice(0,10);
-      }
+      const f = parsearFechaAsistencia(val, anioHint);
+      if(f) colFechas[ci] = f;
     });
 
     if(!Object.keys(colFechas).length) return; // hoja sin fechas, saltar
@@ -1473,13 +1494,14 @@ function parsearAsistenciaExcel(wb, soloHoja, soloTipo) {
       const nombreTrim = nombreExcel.trim();
       if(!nombreTrim.includes(",") && !nombreTrim.includes(" ")) { ri++; continue; }
 
-      // Normalizar: "Apellido, Nombre" o "APELLIDO NOMBRE"
-      const nombreNorm = nombreTrim.replace(",","").replace(/\s+/g," ").trim().toUpperCase();
+      // Normalizar: "Apellido, Nombre" o "APELLIDO NOMBRE" (sin tildes, para
+      // que "Víctor" del Excel matchee contra "VICTOR" de la nómina)
+      const nombreNorm = sinAcentos(nombreTrim.replace(",","").replace(/\s+/g," ").trim().toUpperCase());
       const partes = nombreNorm.split(" ").filter(Boolean);
 
       // Buscar en nómina: todos los apellidos del Excel deben aparecer en el nombre
       const persona = window.nomina.find(p => {
-        const pn = (p.nombre||"").toUpperCase();
+        const pn = sinAcentos((p.nombre||"").toUpperCase());
         // Coincidencia exacta primero
         if(pn === nombreNorm) return true;
         // Coincidencia parcial: al menos los 2 primeros tokens coinciden

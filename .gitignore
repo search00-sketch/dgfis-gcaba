@@ -73,3 +73,7 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Archivos de datos temporales para pruebas (datos reales de personal, no subir)
+Asistencia.xlsx
+*.xlsx
