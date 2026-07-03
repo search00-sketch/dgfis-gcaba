@@ -228,12 +228,21 @@ label.fl{font-size:11px;color:#666;font-weight:600}
 <!-- PANEL NOVEDADES -->
 <div class="panel active" id="panel-novedades">
 
+  <div class="toolbar">
+    <button class="btn btn-azul" onclick="abrirModalNovedad(null)">+ Cargar novedad</button>
+    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar nombre…" oninput="renderNovedades()">
+    <select class="ctrl" id="nov-tipo" onchange="renderNovedades()"><option value="">Todos los tipos</option></select>
+  </div>
+  <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--azul)" id="nov-hoy-title"></div>
+  <div id="nov-hoy-list" style="margin-bottom:20px"></div>
+
   <!-- CARGA DIARIA -->
   <div class="gestion-zonas">
     <div class="gz-title">✅ Carga diaria — <span id="carga-fecha-label"></span></div>
     <p style="font-size:.8rem;color:#777;margin-bottom:10px">
-      Por defecto todos figuran <strong>Presente</strong>. Cambiá el selector de quien tenga una excepción del día
-      (ausencia, llegada tarde, etc.) y guardá. Para licencias de varios días seguís usando "+ Cargar novedad".
+      Sólo aparece quien le toca trabajar ese día (según turno, respetando findes y feriados). Por defecto figuran
+      <strong>Presente</strong>: cambiá el selector de quien tenga una excepción del día (ausencia, llegada tarde,
+      etc.) y guardá. Para licencias de varios días seguís usando "+ Cargar novedad".
     </p>
     <div class="toolbar" style="margin-bottom:10px">
       <input class="search-input" id="carga-buscar" placeholder="🔍 Buscar nombre…" oninput="renderCargaDiaria()">
@@ -248,14 +257,6 @@ label.fl{font-size:11px;color:#666;font-weight:600}
       <div class="table-body" id="carga-body" style="max-height:420px"></div>
     </div>
   </div>
-
-  <div class="toolbar">
-    <button class="btn btn-azul" onclick="abrirModalNovedad(null)">+ Cargar novedad</button>
-    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar nombre…" oninput="renderNovedades()">
-    <select class="ctrl" id="nov-tipo" onchange="renderNovedades()"><option value="">Todos los tipos</option></select>
-  </div>
-  <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--azul)" id="nov-hoy-title"></div>
-  <div id="nov-hoy-list" style="margin-bottom:20px"></div>
 </div>
 
 <!-- PANEL NÓMINA -->
@@ -889,6 +890,32 @@ function getEstadoPersona(p,hoy){
   if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin))return "Licencia";
   return "Activo";
 }
+function esFeriado(fecha){return (window.feriados||[]).includes(fecha);}
+// Turnos que trabajan según día de semana + feriado (misma regla que
+// asignación de zonas: findes/feriados los cubre SADOFE).
+function turnosQueTrabajan(diaSemana,fecha){
+  const esFinde=diaSemana===0||diaSemana===6;
+  const esViernes=diaSemana===5;
+  const esFer=fecha?esFeriado(fecha):false;
+  const esNoLaboral=esFinde||esFer;
+  const r=new Set();
+  if(esNoLaboral){r.add("SADOFE Diurno");r.add("SADOFE Noche");}
+  else{r.add("Turno Mañana");r.add("Turno Tarde");if(diaSemana>=1&&diaSemana<=4)r.add("Turno Noche");}
+  if(esViernes&&!esFer)r.add("SADOFE Noche");
+  return r;
+}
+// A diferencia de puedeAsignarse() (asignación de zonas, que además filtra
+// por rol), esto es sólo "¿le toca trabajar hoy según su turno?" para saber
+// a quién mostrar en la carga diaria de asistencia.
+function trabajaHoy(persona,fecha){
+  const turno=persona.turno;
+  if(turno==="Administrativo"||turno==="Gerencia"){
+    const dia=new Date(fecha+"T12:00:00").getDay();
+    return dia>=1&&dia<=5&&!esFeriado(fecha);
+  }
+  const dia=new Date(fecha+"T12:00:00").getDay();
+  return turnosQueTrabajan(dia,fecha).has(turno);
+}
 function novedadesHoy(){const h=getFecha();return window.novedades.filter(n=>n.fecha===h||(n.tipo==="Licencia"&&n.licIni&&n.licFin&&h>=n.licIni&&h<=n.licFin));}
 function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
 // A diferencia de novedadesHoy() (sólo mira licencias), esto sirve para
@@ -984,6 +1011,7 @@ function renderCargaDiaria(){
 
   const activos=window.nomina.filter(p=>{
     if(getEstadoPersona(p,fecha)==="Baja") return false;
+    if(!trabajaHoy(p,fecha)) return false;
     if(filtTurno && p.turno!==filtTurno) return false;
     if(busq && !(p.nombre||"").toLowerCase().includes(busq)) return false;
     return true;
