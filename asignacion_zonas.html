@@ -677,7 +677,7 @@ const TURNOS = ["Turno Mañana","Turno Tarde","Turno Noche","SADOFE Diurno","SAD
 const TURNOS_BADGE = {"Turno Mañana":"bdg-turno-man","Turno Tarde":"bdg-turno-tar","Turno Noche":"bdg-turno-noc","SADOFE Diurno":"bdg-sadofe-d","SADOFE Noche":"bdg-sadofe-n","Administrativo":"bdg-admin","Gerencia":"bdg-ger"};
 const NOV_CLASS = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro"};
 const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bdg-baja"};
-const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCION","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVINO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
+const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
 // Roles que SE asignan a zona
 const ROLES_ASIGNABLES = ["Inspector","Coordinador Zonal","Chofer"];
 // Roles que NO se asignan a zona
@@ -805,15 +805,22 @@ function turnosQueTrabajan(diaSemana,fecha){
   return r;
 }
 
+// Administrativo/Gerencia no entran en turnosQueTrabajan() (esa función sólo
+// cubre los turnos de patrulla) — trabajan de lunes a viernes no feriado.
+function trabajaHoy(persona,fecha){
+  const dia=new Date(fecha+"T12:00:00").getDay();
+  if(persona.turno==="Administrativo"||persona.turno==="Gerencia"){
+    return dia>=1&&dia<=5&&!esFeriado(fecha);
+  }
+  return turnosQueTrabajan(dia,fecha).has(persona.turno);
+}
 // Un inspector puede ser asignado si:
 // 1. Su rol es asignable (Inspector, Coordinador Zonal, Chofer)
 // 2. Su turno corresponde al día de la fecha de asignación
 function puedeAsignarse(persona,fechaAsig){
   const rol=persona.rol||"Inspector";
   if(!ROLES_ASIGNABLES.includes(rol))return false;
-  const dia=new Date(fechaAsig+"T12:00:00").getDay();
-  const turnosHabil=turnosQueTrabajan(dia,fechaAsig);
-  return turnosHabil.has(persona.turno);
+  return trabajaHoy(persona,fechaAsig);
 }
 
 // ============================================================

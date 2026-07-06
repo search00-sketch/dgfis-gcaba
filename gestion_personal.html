@@ -62,7 +62,7 @@ select.ctrl{border:1.5px solid var(--bor);border-radius:8px;padding:8px 10px;fon
 .table-row:nth-child(even):hover{background:#f0f4f8}
 
 .grid-dist{grid-template-columns:2fr .9fr 1.4fr 1.2fr 50px}
-.grid-nom{grid-template-columns:2fr .9fr .9fr .8fr 120px}
+.grid-nom{grid-template-columns:2fr .9fr .8fr .8fr .8fr 120px}
 .grid-hist{grid-template-columns:90px 2fr 1fr 2fr 40px}
 
 .nombre-cell{font-weight:600;font-size:13px}
@@ -266,7 +266,7 @@ label.fl{font-size:11px;color:#666;font-weight:600}
   </div>
   <div class="table-info" id="nom-info"></div>
   <div class="table-wrap">
-    <div class="table-head grid-nom"><span>Nombre</span><span>Turno</span><span>DNI</span><span>Estado</span><span>Acciones</span></div>
+    <div class="table-head grid-nom"><span>Nombre</span><span>Turno</span><span>Rol</span><span>DNI</span><span>Estado</span><span>Acciones</span></div>
     <div class="table-body" id="nom-body"></div>
   </div>
 </div>
@@ -879,6 +879,7 @@ else cargarTodo();
 //  CONSTANTES
 // ============================================================
 const TURNOS   = ["Turno Mañana","Turno Tarde","Turno Noche","SADOFE Diurno","SADOFE Noche","Administrativo","Gerencia"];
+const ROLES    = ["Inspector","Coordinador Zonal","Coordinador General","Chofer","Administrativo"];
 const HORARIOS = {"Turno Mañana":"Lun–Vie 07:00–14:00","Turno Tarde":"Lun–Vie 13:00–20:00","Turno Noche":"Lun–Jue 19:00–01:00","SADOFE Diurno":"Sáb–Dom–Feriados 07:00–19:00","SADOFE Noche":"Vie–Sáb–Dom 19:00–01:00","Administrativo":"Administrativo","Gerencia":"Gerencia"};
 const TURNO_BADGE = {"Turno Mañana":"bdg-turno-man","Turno Tarde":"bdg-turno-tar","Turno Noche":"bdg-turno-noc","SADOFE Diurno":"bdg-sadofe-d","SADOFE Noche":"bdg-sadofe-n","Administrativo":"bdg-admin","Gerencia":"bdg-ger"};
 const NOV_CLASS   = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro"};
@@ -1185,7 +1186,13 @@ function turnosQueTrabajan(diaSemana, fecha) {
   return result;
 }
 
+// Administrativo/Gerencia no entran en turnosQueTrabajan() (esa función sólo
+// cubre los turnos de patrulla) — trabajan de lunes a viernes no feriado.
 function trabajaEseDia(persona, fecha) {
+  if (persona.turno === 'Administrativo' || persona.turno === 'Gerencia') {
+    const diaSemana = new Date(fecha+'T12:00:00').getDay();
+    return diaSemana >= 1 && diaSemana <= 5 && !esFeriado(fecha);
+  }
   const diaSemana = new Date(fecha+'T12:00:00').getDay();
   const trabajan = turnosQueTrabajan(diaSemana, fecha);
   return trabajan.has(persona.turno);
@@ -1203,8 +1210,7 @@ function renderDist(){
   // Personas que trabajan en la fecha de asignación
   const diaAsig = new Date(fechaAsig+'T12:00:00').getDay();
   const esFeriadoAsig = esFeriado(fechaAsig);
-  const turnosDeEseDia = turnosQueTrabajan(diaAsig, fechaAsig);
-  const trabajanEseDia = activos.filter(p=>turnosDeEseDia.has(p.turno));
+  const trabajanEseDia = activos.filter(p=>trabajaEseDia(p,fechaAsig));
 
   // Mostrar indicador de fecha de asignación
   const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -1344,6 +1350,7 @@ function renderNomina(){
         <div class="sub-cell">${esc(p.jefatura||'—')} · ${esc(p.coordinador||'—')}</div>
       </div>
       <div>${badgeTurno(p.turno)}</div>
+      <div style="font-size:12px;color:#555">${esc(p.rol||'Inspector')}</div>
       <div style="font-size:12px;color:#555">${esc(p.dni||'—')}</div>
       <div>${badgeEstado(est)}</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
@@ -1364,12 +1371,18 @@ function renderNomina(){
 let _editPersonaId=null;
 function abrirModalPersona(id){
   _editPersonaId=id;
-  const p=id?window.nomina.find(x=>x.id===id):{id:'',nombre:'',turno:'',cuil:'',dni:'',coordinador:'',jefatura:'',modalidad:'',genero:'',celular:'',agentes_calle:'',estado:'Activo'};
+  const p=id?window.nomina.find(x=>x.id===id):{id:'',nombre:'',turno:'',rol:'Inspector',cuil:'',dni:'',coordinador:'',jefatura:'',modalidad:'',genero:'',celular:'',agentes_calle:'',estado:'Activo'};
   document.getElementById('mp-title').textContent=id?'Editar persona':'Nueva persona';
+  const rol=p.rol||'Inspector';
   document.getElementById('mp-form').innerHTML=`
     <div class="form-field full"><label class="fl">Apellido y Nombre *</label><input class="form-input" id="fp-nombre" value="${esc(p.nombre||'')}"></div>
     <div class="form-field"><label class="fl">DNI</label><input class="form-input" id="fp-dni" value="${esc(p.dni||'')}"></div>
     <div class="form-field"><label class="fl">CUIL</label><input class="form-input" id="fp-cuil" value="${esc(p.cuil||'')}"></div>
+    <div class="form-field"><label class="fl">Rol</label>
+      <select class="form-input" id="fp-rol">
+        ${ROLES.map(r=>`<option value="${r}" ${rol===r?'selected':''}>${r}</option>`).join('')}
+      </select>
+    </div>
     <div class="form-field"><label class="fl">Turno</label>
       <select class="form-input" id="fp-turno" onchange="actualizarHorario()">
         <option value="">—</option>${TURNOS.map(t=>`<option value="${t}" ${p.turno===t?'selected':''}>${t}</option>`).join('')}
@@ -1415,6 +1428,7 @@ async function guardarPersona(){
   if(!nombre){alert('El nombre es obligatorio.');return;}
   const datos={
     nombre:nombre.toUpperCase(),
+    rol:document.getElementById('fp-rol').value||'Inspector',
     dni:document.getElementById('fp-dni').value.trim(),
     cuil:document.getElementById('fp-cuil').value.trim(),
     turno:document.getElementById('fp-turno').value,
