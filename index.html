@@ -5,174 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DGFIS-GCABA</title>
 <script src="config.js"></script>
+<link rel="stylesheet" href="estilo-comun.css">
 <style>
-:root{
-  --bg:#f0f4f8;--sur:#fff;--pri:#1a3a5c;--pli:#2563a8;
-  --acc:#e85d04;--txt:#1e293b;--mut:#64748b;--bor:#dde3ec;
-  --ok:#15803d;--da:#b91c1c;--r:10px;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;display:flex;flex-direction:column;}
-
-header{
-  background:var(--pri);color:#fff;
-  padding:18px 32px;
-  display:flex;align-items:center;justify-content:space-between;
-  box-shadow:0 2px 14px rgba(0,0,0,.22);
-  flex-wrap:wrap;gap:10px;
-}
-.htitle h1{font-size:1.18rem;font-weight:700;}
-.htitle p{font-size:.74rem;opacity:.5;margin-top:2px;}
-.huser{display:flex;align-items:center;gap:12px;}
-#userBadge{
-  display:none;align-items:center;gap:8px;
-  background:rgba(255,255,255,.12);border-radius:20px;
-  padding:5px 14px;font-size:.82rem;
-}
-#userBadge .dot{width:8px;height:8px;border-radius:50%;background:#4ade80;}
-#logoutBtn{
-  font-size:.78rem;opacity:.7;cursor:pointer;
-  background:none;border:none;color:#fff;text-decoration:underline;display:none;
-}
-#logoutBtn:hover{opacity:1;}
-
-/* LOGIN */
-#loginOverlay{
-  display:flex;position:fixed;inset:0;
-  background:rgba(15,23,42,.72);backdrop-filter:blur(5px);
-  z-index:1000;align-items:center;justify-content:center;
-}
-.lbox{
-  background:#fff;border-radius:16px;padding:40px 36px;
-  width:100%;max-width:380px;
-  box-shadow:0 24px 70px rgba(0,0,0,.3);text-align:center;
-}
-.lbox .lic{font-size:2.4rem;margin-bottom:8px;}
-.lbox h2{font-size:1.1rem;color:var(--pri);font-weight:700;margin-bottom:4px;}
-.lbox p{font-size:.79rem;color:var(--mut);margin-bottom:22px;}
-.lfield{text-align:left;margin-bottom:14px;}
-.lfield label{display:block;font-size:.72rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-bottom:5px;}
-.lfield input{
-  width:100%;padding:11px 13px;
-  border:1.5px solid var(--bor);border-radius:var(--r);
-  font-size:.93rem;outline:none;
-  transition:border-color .2s,box-shadow .2s;
-}
-.lfield input:focus{border-color:var(--pli);box-shadow:0 0 0 3px rgba(37,99,168,.12);}
-.lerr{
-  font-size:.78rem;color:var(--da);background:#fee2e2;
-  border-radius:6px;padding:8px 12px;margin-bottom:12px;display:none;
-}
-.lbtn{
-  width:100%;padding:12px;background:var(--pri);color:#fff;
-  border:none;border-radius:var(--r);font-size:.93rem;font-weight:700;
-  cursor:pointer;transition:background .18s;display:flex;align-items:center;justify-content:center;gap:8px;
-}
-.lbtn:hover{background:var(--pli);}
-.lbtn:disabled{opacity:.5;cursor:not-allowed;}
+body{min-height:100vh;display:flex;flex-direction:column}
+.lbox .lic{font-size:2.4rem;margin-bottom:8px}
+.lfield{text-align:left;margin-bottom:14px}
+.lfield label{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--c-ink-mut);margin-bottom:5px}
 .spinner{
   width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
   border-top-color:#fff;border-radius:50%;
   animation:spin .7s linear infinite;display:none;
 }
 @keyframes spin{to{transform:rotate(360deg);}}
-
-/* MAIN */
-main{flex:1;max-width:1100px;margin:0 auto;padding:32px 20px;width:100%;}
-.welcome{margin-bottom:28px;}
-.welcome h2{font-size:1.32rem;font-weight:700;color:var(--pri);}
-.welcome p{font-size:.87rem;color:var(--mut);margin-top:4px;}
-
-/* MÓDULOS */
-.mgrid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-  gap:18px;margin-bottom:28px;
-}
-.mcard{
-  background:var(--sur);border-radius:var(--r);
-  padding:22px 20px 18px;
-  box-shadow:0 1px 8px rgba(0,0,0,.09);
-  border:2px solid transparent;
-  transition:all .2s;display:flex;flex-direction:column;gap:10px;
-  text-decoration:none;color:inherit;
-}
-.mcard:hover,.mcard:focus{border-color:var(--pli);box-shadow:0 4px 20px rgba(37,99,168,.15);outline:none;}
-.mcard.locked{opacity:.42;cursor:not-allowed;pointer-events:none;}
-.mcard .micon{font-size:2rem;}
-.mcard .mtitle{font-size:1rem;font-weight:700;color:var(--pri);}
-.mcard .mdesc{font-size:.8rem;color:var(--mut);line-height:1.5;}
-.mtag{
-  display:inline-block;padding:2px 9px;border-radius:12px;
-  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
-  background:#dbeafe;color:var(--pli);align-self:flex-start;margin-top:4px;
-}
-.mtag.lock{background:#f1f5f9;color:var(--mut);}
-
-/* PANEL ADMIN */
-#adminPanel{
-  background:var(--sur);border-radius:var(--r);
-  padding:22px 24px;box-shadow:0 1px 8px rgba(0,0,0,.09);
-  margin-bottom:26px;display:none;
-}
-#adminPanel h3{
-  font-size:.82rem;font-weight:700;color:var(--pri);
-  text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;
-}
-#adminPanel .subtitle{font-size:.79rem;color:var(--mut);margin-bottom:18px;}
-
-/* Tabla de usuarios */
-.utbl{width:100%;border-collapse:collapse;font-size:.83rem;}
-.utbl thead{background:#f1f5f9;}
-.utbl th{text-align:left;padding:8px 12px;font-size:.71rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:.05em;color:var(--mut);}
-.utbl td{padding:9px 12px;border-bottom:1px solid var(--bor);vertical-align:middle;}
-.utbl tr:last-child td{border-bottom:none;}
-.role-badge{
-  display:inline-block;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:700;
-}
-.role-badge.admin{background:#fef9c3;color:#854d0e;}
-.role-badge.viewer{background:#dbeafe;color:var(--pli);}
-.pinput{
-  padding:6px 10px;border:1.5px solid var(--bor);border-radius:6px;
-  font-size:.82rem;outline:none;width:160px;
-  transition:border-color .15s;
-}
-.pinput:focus{border-color:var(--pli);}
-.abtn{
-  padding:6px 12px;border:none;border-radius:6px;font-size:.78rem;
-  font-weight:600;cursor:pointer;background:var(--pri);color:#fff;
-  transition:background .15s;white-space:nowrap;
-}
-.abtn:hover{background:var(--pli);}
-.abtn:disabled{opacity:.45;cursor:not-allowed;}
-.abtn.danger{background:#dc2626;}
-.abtn.danger:hover{background:#b91c1c;}
-.abtn.success{background:var(--ok);}
-
-/* Agregar usuario */
-.add-user-form{
-  display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;
-  margin-top:16px;padding-top:16px;border-top:1px solid var(--bor);
-}
-.add-user-form .afield{display:flex;flex-direction:column;gap:4px;}
-.add-user-form label{font-size:.7rem;font-weight:700;text-transform:uppercase;
-  letter-spacing:.05em;color:var(--mut);}
-.add-user-form input, .add-user-form select{
-  padding:7px 10px;border:1.5px solid var(--bor);border-radius:6px;
-  font-size:.82rem;outline:none;
-}
-.add-user-form input:focus,.add-user-form select:focus{border-color:var(--pli);}
-
-.toast-msg{
-  display:none;font-size:.79rem;padding:8px 14px;border-radius:6px;
-  margin-top:12px;font-weight:500;
-}
-.toast-msg.ok{background:#dcfce7;color:var(--ok);}
-.toast-msg.err{background:#fee2e2;color:var(--da);}
-
-footer{padding:14px;background:#e2e8f0;font-size:.72rem;color:var(--mut);text-align:center;}
 </style>
 </head>
 <body>
@@ -229,7 +73,7 @@ footer{padding:14px;background:#e2e8f0;font-size:.72rem;color:var(--mut);text-al
         </tr>
       </thead>
       <tbody id="userTableBody">
-        <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--mut)">Cargando usuarios…</td></tr>
+        <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--c-ink-mut)">Cargando usuarios…</td></tr>
       </tbody>
     </table>
 
@@ -479,7 +323,7 @@ function renderModules() {
 // -- TABLA DE USUARIOS (admin) ----------------------------------
 async function loadUserTable() {
   const tbody = document.getElementById('userTableBody');
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--mut)">Cargando…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Cargando…</td></tr>';
   try {
     const snap = await getDocs(collection(db, 'usuarios'));
     tbody.innerHTML = '';
@@ -525,10 +369,10 @@ async function loadUserTable() {
       tbody.appendChild(tr);
     });
     if (snap.empty) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--mut)">Sin usuarios.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Sin usuarios.</td></tr>';
     }
   } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--da);padding:12px">Error al cargar usuarios.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--c-danger);padding:12px">Error al cargar usuarios.</td></tr>';
   }
 }
 
