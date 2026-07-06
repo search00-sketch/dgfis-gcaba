@@ -1135,7 +1135,7 @@ function renderNomina(){
     const est=getEstadoPersona(p,hoy);
     if(filtEst&&est!==filtEst)return false;
     return true;
-  });
+  }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
   document.getElementById("nom-info").textContent=lista.length+" personas";
   document.getElementById("nom-body").innerHTML=lista.map(p=>{
     const est=getEstadoPersona(p,hoy);

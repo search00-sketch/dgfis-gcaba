@@ -913,7 +913,7 @@ function renderDist(){
     if(filtZona==="__sin__"&&dist[p.id])return false;
     if(filtZona&&filtZona!=="__sin__"&&dist[p.id]!==filtZona)return false;
     return true;
-  });
+  }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
 
   const estAsig=fechaAsig!==hoy?" · Asignando para "+DIAS[diaAsig]+" "+fmtDate(fechaAsig):"";
   document.getElementById("dist-info").textContent="Mostrando "+lista.length+" de "+trabajanAsignables.length+" personas que trabajan ese día"+estAsig;
@@ -1009,7 +1009,8 @@ function renderZonas(fecha){
   const dist=window.distribuciones[fecha]||{};
   const filtTurno=document.getElementById("resumen-turno")?.value||"";
   // Filtrar: solo activos que PUEDEN ser asignados en esa fecha (rol + turno del día)
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja"&&puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno));
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja"&&puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno))
+    .sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
   const novHoy=novedadesHoy();
   const idc={};novHoy.forEach(n=>{if(!idc[n.personaId])idc[n.personaId]=[];idc[n.personaId].push(n);});
   // Contar solo los que corresponden a ese día
@@ -1173,7 +1174,7 @@ function renderMasivoLista(){
     if(!puedeAsignarse(p,fechaAsig))return false;
     if(filtT&&p.turno!==filtT)return false;
     return true;
-  });
+  }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
   const dist=getDistAsig();
   document.getElementById("mas-lista").innerHTML=personas.map(p=>{
     const rol=p.rol||"Inspector";

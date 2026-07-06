@@ -1234,7 +1234,7 @@ function renderDist(){
     if(filtZona==='__sin__'&&dist[p.id]) return false;
     if(filtZona&&filtZona!=='__sin__'&&dist[p.id]!==filtZona) return false;
     return true;
-  });
+  }).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
 
   const estAsig = fechaAsig !== hoy ? ` · Asignando para ${DIAS[diaAsig]} ${fmtDate(fechaAsig)}` : '';
   document.getElementById('dist-info').textContent=`Mostrando ${lista.length} de ${trabajanEseDia.length} personas que trabajan ese día${estAsig}`;
@@ -1333,7 +1333,7 @@ function renderNomina(){
     const est=getEstadoPersona(p,hoy);
     if(filtEst&&est!==filtEst) return false;
     return true;
-  });
+  }).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
 
   document.getElementById('nom-info').textContent=`${lista.length} personas encontradas`;
   document.getElementById('nom-body').innerHTML=lista.map((p,i)=>{
@@ -1628,7 +1628,8 @@ async function borrarNovedad(id){
 function renderZonas(){
   const hoy=getFecha();
   const dist=getDistHoy();
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja');
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja')
+    .sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
   const novHoy=novedadesHoy();
   const idc={};
   novHoy.forEach(n=>{if(!idc[n.personaId])idc[n.personaId]=[];idc[n.personaId].push(n);});
@@ -1698,7 +1699,7 @@ function renderMasivoLista(){
     if(getEstadoPersona(p,hoy)==='Baja') return false;
     if(filtTurno && p.turno!==filtTurno) return false;
     return true;
-  });
+  }).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
   const lista=document.getElementById('mas-lista');
   lista.innerHTML=personas.map(p=>`
     <label style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px">
