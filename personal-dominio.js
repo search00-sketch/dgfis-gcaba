@@ -12,6 +12,18 @@ const NOV_CLASS    = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Re
 const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bdg-baja"};
 const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
 
+// Fecha de HOY en el huso horario LOCAL del navegador (no UTC): usar
+// new Date().toISOString() acá corre la fecha un día para adelante entre
+// las 21:00 y la medianoche en Argentina (UTC-3), justo cuando
+// toISOString() ya reporta el día siguiente en UTC. Antes de unificar
+// esta función, gestion_personal.html y asignacion_zonas.html usaban la
+// versión con toISOString() (con ese bug) mientras que novedades_personal
+// ya usaba esta versión correcta — quedó una sola, la correcta.
+function todayISO(){
+  const d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+
 function getEstadoPersona(p, hoy) {
   if(p.estado==='Baja') return 'Baja';
   const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==='Licencia'&&n.licIni&&n.licFin);
