@@ -227,7 +227,7 @@
       <label class="fl">Tipo</label>
       <select class="form-input" id="ev-tipo">
         <option value="EVENTO ESPECIAL">Evento especial</option>
-        <option value="PARTIDO FUTBOL">Partido de fútbol</option>
+        <option value="PARTIDO FÚTBOL">Partido de fútbol</option>
       </select>
     </div>
     <div class="modal-actions" style="margin-top:10px">
@@ -239,6 +239,7 @@
 
 <script>window.MODULO_ID='asignacion';</script>
 <script src="personal-auth.js"></script>
+<script src="personal-dominio.js"></script>
 
 <script type="module">
 
@@ -554,11 +555,6 @@ else cargarTodo();
 // ============================================================
 //  CONSTANTES
 // ============================================================
-const TURNOS = ["Turno Mañana","Turno Tarde","Turno Noche","SADOFE Diurno","SADOFE Noche","Administrativo","Gerencia"];
-const TURNOS_BADGE = {"Turno Mañana":"bdg-turno-man","Turno Tarde":"bdg-turno-tar","Turno Noche":"bdg-turno-noc","SADOFE Diurno":"bdg-sadofe-d","SADOFE Noche":"bdg-sadofe-n","Administrativo":"bdg-admin","Gerencia":"bdg-ger"};
-const NOV_CLASS = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro"};
-const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bdg-baja"};
-const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
 // Roles que SE asignan a zona
 const ROLES_ASIGNABLES = ["Inspector","Coordinador Zonal","Chofer"];
 // Roles que NO se asignan a zona
@@ -590,42 +586,8 @@ function getFecha(){return document.getElementById("fecha-global").value||todayI
 function getFechaAsig(){return document.getElementById("dist-fecha-asig")?.value||todayISO();}
 function getDistAsig(){return window.distribuciones[getFechaAsig()]||{};}
 function toast(msg,ms=2400){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),ms);}
-function getEstadoPersona(p,hoy){
-  if(p.estado==="Baja")return "Baja";
-  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==="Licencia"&&n.licIni&&n.licFin);
-  if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin))return "Licencia";
-  return "Activo";
-}
-function novedadesHoy(){const h=getFecha();return window.novedades.filter(n=>n.fecha===h||(n.tipo==="Licencia"&&n.licIni&&n.licFin&&h>=n.licIni&&h<=n.licFin));}
-function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
-function badgeTurno(t){return "<span class=\"badge "+(TURNOS_BADGE[t]||"bdg-admin")+"\">"+(t||"—")+"</span>";}
-function badgeNov(tipo){return "<span class=\"badge "+(NOV_CLASS[tipo]||"bdg-nov-otro")+"\">"+esc(tipo)+"</span>";}
 function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filter(p=>getEstadoPersona(p,h)!=="Baja").length;document.getElementById("badge-activos").textContent=a+" activos";}
-function allZonas(){return[...(window.zonas||[]),"EVENTO ESPECIAL","PARTIDO FUTBOL"];}
-function esFeriado(fecha){return(window.feriados||[]).includes(fecha);}
 
-// Turnos que trabajan según día de semana + feriado
-function turnosQueTrabajan(diaSemana,fecha){
-  const esFinde=diaSemana===0||diaSemana===6;
-  const esViernes=diaSemana===5;
-  const esFer=fecha?esFeriado(fecha):false;
-  const esNoLaboral=esFinde||esFer;
-  const r=new Set();
-  if(esNoLaboral){r.add("SADOFE Diurno");r.add("SADOFE Noche");}
-  else{r.add("Turno Mañana");r.add("Turno Tarde");if(diaSemana>=1&&diaSemana<=4)r.add("Turno Noche");}
-  if(esViernes&&!esFer)r.add("SADOFE Noche");
-  return r;
-}
-
-// Administrativo/Gerencia no entran en turnosQueTrabajan() (esa función sólo
-// cubre los turnos de patrulla) — trabajan de lunes a viernes no feriado.
-function trabajaHoy(persona,fecha){
-  const dia=new Date(fecha+"T12:00:00").getDay();
-  if(persona.turno==="Administrativo"||persona.turno==="Gerencia"){
-    return dia>=1&&dia<=5&&!esFeriado(fecha);
-  }
-  return turnosQueTrabajan(dia,fecha).has(persona.turno);
-}
 // Un inspector puede ser asignado si:
 // 1. Su rol es asignable (Inspector, Coordinador Zonal, Chofer)
 // 2. Su turno corresponde al día de la fecha de asignación

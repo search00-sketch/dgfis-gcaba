@@ -426,6 +426,7 @@
 
 <script>window.MODULO_ID='personal';</script>
 <script src="personal-auth.js"></script>
+<script src="personal-dominio.js"></script>
 
 <!-- Firebase module -->
 <script type="module">
@@ -758,18 +759,6 @@ else cargarTodo();
 
 <script>
 // ============================================================
-//  CONSTANTES
-// ============================================================
-const TURNOS   = ["Turno Mañana","Turno Tarde","Turno Noche","SADOFE Diurno","SADOFE Noche","Administrativo","Gerencia"];
-const ROLES    = ["Inspector","Coordinador Zonal","Coordinador General","Chofer","Administrativo"];
-const HORARIOS = {"Turno Mañana":"Lun–Vie 07:00–14:00","Turno Tarde":"Lun–Vie 13:00–20:00","Turno Noche":"Lun–Jue 19:00–01:00","SADOFE Diurno":"Sáb–Dom–Feriados 07:00–19:00","SADOFE Noche":"Vie–Sáb–Dom 19:00–01:00","Administrativo":"Administrativo","Gerencia":"Gerencia"};
-const TURNO_BADGE = {"Turno Mañana":"bdg-turno-man","Turno Tarde":"bdg-turno-tar","Turno Noche":"bdg-turno-noc","SADOFE Diurno":"bdg-sadofe-d","SADOFE Noche":"bdg-sadofe-n","Administrativo":"bdg-admin","Gerencia":"bdg-ger"};
-const NOV_CLASS   = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro"};
-// badgeNov ya usa 'bdg-nov-otro' como fallback para tipos personalizados
-const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bdg-baja"};
-const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
-
-// ============================================================
 //  ESTADO GLOBAL
 // ============================================================
 window.nomina         = [];
@@ -806,25 +795,6 @@ function toast(msg,ms=2400) {
 
 function getFecha(){return document.getElementById('fecha-global').value||todayISO();}
 function getDistHoy(){return window.distribuciones[getFecha()]||{};}
-
-function getEstadoPersona(p, hoy) {
-  if(p.estado==='Baja') return 'Baja';
-  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==='Licencia'&&n.licIni&&n.licFin);
-  if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin)) return 'Licencia';
-  return 'Activo';
-}
-
-function novedadesHoy() {
-  const hoy=getFecha();
-  return window.novedades.filter(n=>n.fecha===hoy||(n.tipo==='Licencia'&&n.licIni&&n.licFin&&hoy>=n.licIni&&hoy<=n.licFin));
-}
-function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
-
-function allZonas(){return [...(window.zonas||[]),'EVENTO ESPECIAL','PARTIDO FÚTBOL'];}
-
-function badgeTurno(t){return `<span class="badge ${TURNO_BADGE[t]||'bdg-admin'}">${esc(t||'—')}</span>`;}
-function badgeEstado(e){return `<span class="badge ${ESTADO_CLASS[e]||'bdg-activo'}">${esc(e)}</span>`;}
-function badgeNov(tipo){return `<span class="badge ${NOV_CLASS[tipo]||'bdg-nov-otro'}">${esc(tipo)}</span>`;}
 
 function exportCSV(rows,fn){
   if(!rows.length) return;
@@ -934,49 +904,6 @@ function actualizarBadgeActivos(){
 // ============================================================
 //  PANEL DISTRIBUCIÓN
 // ============================================================
-// Verifica si una fecha es feriado (configurado en el panel)
-function esFeriado(fecha) {
-  return (window.feriados||[]).includes(fecha);
-}
-
-// Qué turnos trabajan según el día de la semana y si es feriado
-// Feriados = mismo tratamiento que sábado/domingo (SADOFE)
-function turnosQueTrabajan(diaSemana, fecha) {
-  // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
-  const esFinde    = diaSemana === 0 || diaSemana === 6;
-  const esViernes  = diaSemana === 5;
-  const esFeriadoD = fecha ? esFeriado(fecha) : false;
-  const esNoLaboral = esFinde || esFeriadoD;
-
-  const result = new Set();
-  if (esNoLaboral) {
-    // Sábado, domingo o feriado → SADOFE
-    result.add('SADOFE Diurno');
-    result.add('SADOFE Noche');
-  } else {
-    // Día hábil
-    result.add('Turno Mañana');
-    result.add('Turno Tarde');
-    if (diaSemana >= 1 && diaSemana <= 4) result.add('Turno Noche'); // Lun-Jue
-  }
-  // SADOFE Noche también trabaja el viernes hábil (no feriado) por la noche
-  if (esViernes && !esFeriadoD) result.add('SADOFE Noche');
-  // Y siempre en finde/feriado ya está incluido arriba
-  return result;
-}
-
-// Administrativo/Gerencia no entran en turnosQueTrabajan() (esa función sólo
-// cubre los turnos de patrulla) — trabajan de lunes a viernes no feriado.
-function trabajaEseDia(persona, fecha) {
-  if (persona.turno === 'Administrativo' || persona.turno === 'Gerencia') {
-    const diaSemana = new Date(fecha+'T12:00:00').getDay();
-    return diaSemana >= 1 && diaSemana <= 5 && !esFeriado(fecha);
-  }
-  const diaSemana = new Date(fecha+'T12:00:00').getDay();
-  const trabajan = turnosQueTrabajan(diaSemana, fecha);
-  return trabajan.has(persona.turno);
-}
-
 function renderDist(){
   const hoy=getFecha();
   const fechaAsig=getFechaAsig();
@@ -989,7 +916,7 @@ function renderDist(){
   // Personas que trabajan en la fecha de asignación
   const diaAsig = new Date(fechaAsig+'T12:00:00').getDay();
   const esFeriadoAsig = esFeriado(fechaAsig);
-  const trabajanEseDia = activos.filter(p=>trabajaEseDia(p,fechaAsig));
+  const trabajanEseDia = activos.filter(p=>trabajaHoy(p,fechaAsig));
 
   // Mostrar indicador de fecha de asignación
   const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -1498,7 +1425,7 @@ function renderMasivoLista(){
     <label style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px">
       <input type="checkbox" class="mas-check" value="${p.id}" checked style="width:15px;height:15px;cursor:pointer">
       <span style="flex:1;font-weight:600">${esc(p.nombre)}</span>
-      <span class="badge ${TURNO_BADGE[p.turno]||'bdg-admin'}" style="font-size:10px">${esc(p.turno||'—')}</span>
+      <span class="badge ${TURNOS_BADGE[p.turno]||'bdg-admin'}" style="font-size:10px">${esc(p.turno||'—')}</span>
       ${dist[p.id]?`<span style="font-size:11px;color:#888">${esc(dist[p.id])}</span>`:''}
     </label>
   `).join('');

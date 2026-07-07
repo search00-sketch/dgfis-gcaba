@@ -339,6 +339,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js"></script>
+<script src="personal-dominio.js"></script>
 
 <script type="module">
 
@@ -656,14 +657,7 @@ else cargarTodo();
 // ============================================================
 //  CONSTANTES
 // ============================================================
-const TURNOS   = ["Turno Mañana","Turno Tarde","Turno Noche","SADOFE Diurno","SADOFE Noche","Administrativo","Gerencia"];
-const HORARIOS = {"Turno Mañana":"Lun-Vie 07-14h","Turno Tarde":"Lun-Vie 13-20h","Turno Noche":"Lun-Jue 19-01h","SADOFE Diurno":"Sab-Dom-Fer 07-19h","SADOFE Noche":"Vie-Sab-Dom 19-01h","Administrativo":"Administrativo","Gerencia":"Gerencia"};
-const TURNOS_BADGE = {"Turno Mañana":"bdg-turno-man","Turno Tarde":"bdg-turno-tar","Turno Noche":"bdg-turno-noc","SADOFE Diurno":"bdg-sadofe-d","SADOFE Noche":"bdg-sadofe-n","Administrativo":"bdg-admin","Gerencia":"bdg-ger"};
-const NOV_CLASS  = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro","Presente":"bdg-nov-presente"};
-const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bdg-baja"};
-const ROLES = ["Inspector","Coordinador Zonal","Coordinador General","Chofer","Administrativo"];
 const NOMINA_INICIAL = [{"id":"1","nombre":"ACOSTA LORENA","turno":"Turno Tarde","cuil":"27246686152","dni":"24668615","coordinador":"ROTONDO/CARRIZO/PASCAL/ESCOBAR","jefatura":"COORDINADOR/A","modalidad":"CLS","genero":"F","celular":"1161250764","agentes_calle":"SI","estado":"Activo"},{"id":"2","nombre":"ACUÑA JULIO CESAR","turno":"SADOFE Noche","cuil":"20279368941","dni":"27936894","coordinador":"MAZZOCHI","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"M","celular":"1133357001","agentes_calle":"","estado":"Activo"},{"id":"3","nombre":"AGUILAR TOMAS","turno":"SADOFE Noche","cuil":"","dni":"","coordinador":"","jefatura":"","modalidad":"","genero":"","celular":"11 54193654","agentes_calle":"","estado":"Activo"},{"id":"4","nombre":"AGUIRRE MARINA ISABEL","turno":"Turno Noche","cuil":"27353766436","dni":"35376643","coordinador":"MURACA","jefatura":"INSPECTOR/A","modalidad":"CLS","genero":"F","celular":"1125848356","agentes_calle":"","estado":"Activo"},{"id":"5","nombre":"ALADRO JULIA","turno":"Turno Mañana","cuil":"27264292315","dni":"26429231","coordinador":"GAMARRA / ROCHA/VILLANUEVA","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"F","celular":"1123660284","agentes_calle":"","estado":"Activo"}];
-const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
 
 // ============================================================
 //  ESTADO GLOBAL
@@ -698,47 +692,10 @@ const esc=s=>(s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").repla
 const escJsAttr=s=>(s||"").toString().replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 function getFecha(){return document.getElementById("fecha-global").value||todayISO();}
 function toast(msg,ms=2400){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),ms);}
-function getEstadoPersona(p,hoy){
-  if(p.estado==="Baja")return "Baja";
-  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==="Licencia"&&n.licIni&&n.licFin);
-  if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin))return "Licencia";
-  return "Activo";
-}
-function esFeriado(fecha){return (window.feriados||[]).includes(fecha);}
-// Turnos que trabajan según día de semana + feriado (misma regla que
-// asignación de zonas: findes/feriados los cubre SADOFE).
-function turnosQueTrabajan(diaSemana,fecha){
-  const esFinde=diaSemana===0||diaSemana===6;
-  const esViernes=diaSemana===5;
-  const esFer=fecha?esFeriado(fecha):false;
-  const esNoLaboral=esFinde||esFer;
-  const r=new Set();
-  if(esNoLaboral){r.add("SADOFE Diurno");r.add("SADOFE Noche");}
-  else{r.add("Turno Mañana");r.add("Turno Tarde");if(diaSemana>=1&&diaSemana<=4)r.add("Turno Noche");}
-  if(esViernes&&!esFer)r.add("SADOFE Noche");
-  return r;
-}
-// A diferencia de puedeAsignarse() (asignación de zonas, que además filtra
-// por rol), esto es sólo "¿le toca trabajar hoy según su turno?" para saber
-// a quién mostrar en la carga diaria de asistencia.
-function trabajaHoy(persona,fecha){
-  const turno=persona.turno;
-  if(turno==="Administrativo"||turno==="Gerencia"){
-    const dia=new Date(fecha+"T12:00:00").getDay();
-    return dia>=1&&dia<=5&&!esFeriado(fecha);
-  }
-  const dia=new Date(fecha+"T12:00:00").getDay();
-  return turnosQueTrabajan(dia,fecha).has(turno);
-}
-function novedadesHoy(){const h=getFecha();return window.novedades.filter(n=>n.fecha===h||(n.tipo==="Licencia"&&n.licIni&&n.licFin&&h>=n.licIni&&h<=n.licFin));}
-function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
 // A diferencia de novedadesHoy() (sólo mira licencias), esto sirve para
 // cualquier tipo con rango (enfermedad, maternidad, etc, ver ASIST_RANGO).
 function novedadCubreFecha(n,fecha){return n.fecha===fecha||(n.licIni&&n.licFin&&fecha>=n.licIni&&fecha<=n.licFin);}
 function novedadDePersonaEnFecha(pid,fecha){return window.novedades.find(n=>n.personaId===pid&&novedadCubreFecha(n,fecha));}
-function badgeTurno(t){return "<span class=\"badge "+(TURNOS_BADGE[t]||"bdg-admin")+"\">"+(t||"—")+"</span>";}
-function badgeEstado(e){return "<span class=\"badge "+(ESTADO_CLASS[e]||"bdg-activo")+"\">"+e+"</span>";}
-function badgeNov(tipo){return "<span class=\"badge "+(NOV_CLASS[tipo]||"bdg-nov-otro")+"\">"+esc(tipo)+"</span>";}
 function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filter(p=>getEstadoPersona(p,h)!=="Baja").length;document.getElementById("badge-activos").textContent=a+" activos";}
 
 // ============================================================
