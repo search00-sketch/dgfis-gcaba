@@ -67,6 +67,24 @@ body{font-family:var(--font);background:var(--c-bg);color:var(--c-ink);font-size
 main{max-width:1100px;margin:0 auto;padding:var(--sp-6) var(--sp-4);width:100%}
 .panel{display:none}.panel.active{display:block}
 
+/* ---------- Layout lateral: pestañas en columna angosta + contenido a lo ancho ---------- */
+/* Solo se activa cuando .tabs/.content están dentro de .layout-row (páginas de personal); */
+/* estadisticas_actas.html usa .tabs suelto (pestañas arriba) y no se ve afectado. */
+.layout-row{display:flex;align-items:stretch;gap:0}
+.layout-row .tabs{
+  flex:0 0 170px;width:170px;flex-direction:column;align-items:stretch;gap:0;
+  padding:var(--sp-2) 0;overflow-x:visible;
+  border-bottom:none;border-right:var(--border-w-strong) solid var(--c-line);
+  position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto;
+}
+.layout-row .tab{
+  border-bottom:none;border-left:3px solid transparent;text-align:left;
+  width:100%;padding:10px var(--sp-3);white-space:normal;line-height:1.25;
+}
+.layout-row .tab.active{border-left-color:var(--c-accent);background:var(--c-bg)}
+.layout-row .tab:hover:not(.active){background:var(--c-bg)}
+.layout-row .content{flex:1;min-width:0;max-width:none;margin:0}
+
 /* ---------- Barra de estado de sincronización ---------- */
 .sync-bar{background:var(--c-surface);border-bottom:var(--border-w) solid var(--c-line-soft);padding:4px var(--sp-4);font-size:var(--fs-sm);color:var(--c-ink-mut);display:flex;gap:var(--sp-3);align-items:center}
 .sync-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:3px}
@@ -103,21 +121,21 @@ select.ctrl,.pinput{border:var(--border-w) solid var(--c-line-soft);padding:var(
 
 /* ---------- Tabla-div compartida por las páginas de personal ---------- */
 .table-wrap{background:var(--c-surface);border:var(--border-w-strong) solid var(--c-line);overflow:hidden}
-.table-head{display:grid;background:var(--c-brand);color:#fff;padding:var(--sp-2) var(--sp-3);font-size:var(--fs-sm);font-weight:700;gap:6px}
-.table-body{max-height:520px;overflow-y:auto}
-.table-row{display:grid;padding:var(--sp-2) var(--sp-3);gap:6px;align-items:center;border-bottom:var(--border-w) solid var(--c-line-soft)}
+.table-head{display:grid;background:var(--c-brand);color:#fff;padding:6px var(--sp-3);font-size:var(--fs-sm);font-weight:700;gap:6px}
+.table-body{max-height:640px;overflow-y:auto}
+.table-row{display:grid;padding:3px var(--sp-3);gap:6px;align-items:center;border-bottom:var(--border-w) solid var(--c-line-soft);min-height:30px}
 .table-row:hover{background:var(--c-bg)}
 .table-row:nth-child(even){background:#fafaf8}
 .table-row:nth-child(even):hover{background:var(--c-bg)}
-.nombre-cell{font-weight:600;font-size:var(--fs-base)}
-.sub-cell{font-size:var(--fs-sm);color:var(--c-ink-mut);margin-top:1px}
+.nombre-cell{font-weight:600;font-size:var(--fs-base);line-height:1.2}
+.sub-cell{font-size:var(--fs-sm);color:var(--c-ink-mut);margin-top:0;line-height:1.2}
 .table-info{font-size:var(--fs-sm);color:var(--c-ink-mut);margin-bottom:6px}
 
 /* ---------- Tabla real (portal: index/buscador/estadísticas) ---------- */
 table.utbl,table.rtbl{width:100%;border-collapse:collapse;font-size:var(--fs-base)}
 table.utbl thead,table.rtbl thead{background:var(--c-brand);color:#fff}
-table.utbl th,table.rtbl th{text-align:left;padding:var(--sp-2) var(--sp-3);font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-table.utbl td,table.rtbl td{padding:var(--sp-2) var(--sp-3);border-bottom:var(--border-w) solid var(--c-line-soft);vertical-align:middle}
+table.utbl th,table.rtbl th{text-align:left;padding:6px var(--sp-3);font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+table.utbl td,table.rtbl td{padding:3px var(--sp-3);border-bottom:var(--border-w) solid var(--c-line-soft);vertical-align:middle}
 table.utbl tr:last-child td,table.rtbl tr:last-child td{border-bottom:none}
 
 /* ---------- Badges ---------- */

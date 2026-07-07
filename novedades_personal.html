@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Novedades de Personal</title>
 <script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="estilo-comun.css?v=2">
+<link rel="stylesheet" href="estilo-comun.css?v=3">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
 
@@ -92,6 +92,7 @@
   <button onclick="forzarRecarga()" style="background:none;border:none;color:#2c6fad;cursor:pointer;font-size:11px;font-weight:600">⟳ Actualizar</button>
 </div>
 
+<div class="layout-row">
 <div class="tabs">
   <button class="tab active" onclick="window.cambiarTab('novedades',this)">📋 Novedades del día</button>
   <button class="tab" onclick="window.cambiarTab('nomina',this)">👥 Nómina</button>
@@ -252,6 +253,7 @@
 </div>
 
 </div>
+</div><!-- /layout-row -->
 
 <!-- MODAL NOVEDAD -->
 <div class="overlay" id="modal-novedad-overlay">
