@@ -112,7 +112,7 @@
     <select class="ctrl" id="nov-tipo" onchange="renderNovedades()"><option value="">Todos los tipos</option></select>
   </div>
   <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--azul)" id="nov-hoy-title"></div>
-  <div id="nov-hoy-list" style="margin-bottom:20px"></div>
+  <div id="nov-hoy-list" style="margin-bottom:20px;max-height:440px;overflow-y:auto"></div>
 
   <!-- CARGA DIARIA -->
   <div class="gestion-zonas">
@@ -125,6 +125,9 @@
     <div class="toolbar" style="margin-bottom:10px">
       <input class="search-input" id="carga-buscar" placeholder="🔍 Buscar nombre…" oninput="renderCargaDiaria()">
       <select class="ctrl" id="carga-turno" onchange="renderCargaDiaria()"><option value="">Todos los turnos</option></select>
+      <select class="ctrl" id="carga-zona" onchange="renderCargaDiaria()">
+        <option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>
+      </select>
       <button class="btn btn-verde" onclick="guardarCargaDiaria()">💾 Guardar carga diaria</button>
       <span id="carga-info" style="font-size:.78rem;color:#888;align-self:center"></span>
     </div>
@@ -169,10 +172,12 @@
   <div class="toolbar">
     <button class="btn btn-verde" onclick="exportarHistorialNovedades()">⬇ Exportar historial Excel</button>
     <input class="search-input" id="hist-buscar" placeholder="🔍 Buscar…" oninput="renderHistorial()">
-    <select class="ctrl" id="hist-tipo" onchange="renderHistorial()">
-      <option value="">Todos los tipos</option>
-    </select>
+    <select class="ctrl" id="hist-tipo" multiple size="4" title="Ctrl/Cmd+clic para elegir varios tipos" onchange="renderHistorial()" style="min-width:160px"></select>
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Desde<input type="date" class="pinput" id="hist-desde" onchange="renderHistorial()"></label>
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Hasta<input type="date" class="pinput" id="hist-hasta" onchange="renderHistorial()"></label>
+    <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosHistorial()">✕ Limpiar filtros</button>
   </div>
+  <div class="table-info" id="hist-info"></div>
   <div class="table-wrap">
     <div class="table-head grid-hist"><span>Fecha</span><span>Persona</span><span>Tipo</span><span>Detalle</span><span></span></div>
     <div class="table-body" id="hist-body"></div>
@@ -341,7 +346,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=2"></script>
-<script src="personal-dominio.js?v=2"></script>
+<script src="personal-dominio.js?v=3"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <script type="module">
@@ -440,10 +445,7 @@ const esc=s=>(s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").repla
 const escJsAttr=s=>(s||"").toString().replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 function getFecha(){return document.getElementById("fecha-global").value||todayISO();}
 function toast(msg,ms=2400){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),ms);}
-// A diferencia de novedadesHoy() (sólo mira licencias), esto sirve para
-// cualquier tipo con rango (enfermedad, maternidad, etc, ver ASIST_RANGO).
-function novedadCubreFecha(n,fecha){return n.fecha===fecha||(n.licIni&&n.licFin&&fecha>=n.licIni&&fecha<=n.licFin);}
-function novedadDePersonaEnFecha(pid,fecha){return window.novedades.find(n=>n.personaId===pid&&novedadCubreFecha(n,fecha));}
+// novedadCubreFecha/novedadDePersonaEnFecha ahora viven en personal-dominio.js
 function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filter(p=>getEstadoPersona(p,h)!=="Baja").length;document.getElementById("badge-activos").textContent=a+" activos";}
 
 // ============================================================
@@ -465,7 +467,7 @@ async function init(){
   await restaurarSesion();
   const f=document.getElementById("fecha-global");
   f.value=todayISO();
-  f.addEventListener("change",()=>{renderNovedades();renderCargaDiaria();actualizarBadgeActivos();});
+  f.addEventListener("change",async()=>{await window.cargarDistFecha(f.value);renderNovedades();renderCargaDiaria();actualizarBadgeActivos();});
   poblarSelects();
   renderAll();
 }
@@ -476,6 +478,9 @@ function poblarSelects(){
   if(tn) tn.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   const ct=document.getElementById("carga-turno");
   if(ct) ct.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
+  const cz=document.getElementById("carga-zona");
+  if(cz) cz.innerHTML="<option value=\"\">Todas las zonas</option><option value=\"__sin__\">Sin asignar</option>"
+    +allZonas().map(z=>"<option value=\""+esc(z)+"\">"+esc(z)+"</option>").join("");
 }
 
 function renderAll(){
@@ -527,11 +532,15 @@ function renderCargaDiaria(){
   document.getElementById("carga-fecha-label").textContent=fmtDate(fecha);
   const busq=(document.getElementById("carga-buscar").value||"").toLowerCase();
   const filtTurno=document.getElementById("carga-turno").value;
+  const filtZona=document.getElementById("carga-zona")?.value||"";
+  const dist=window.distribuciones[fecha]||{};
 
   const activos=window.nomina.filter(p=>{
     if(getEstadoPersona(p,fecha)==="Baja") return false;
     if(!trabajaHoy(p,fecha)) return false;
     if(filtTurno && p.turno!==filtTurno) return false;
+    if(filtZona==="__sin__" && dist[p.id]) return false;
+    if(filtZona && filtZona!=="__sin__" && dist[p.id]!==filtZona) return false;
     if(busq && !(p.nombre||"").toLowerCase().includes(busq)) return false;
     return true;
   }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
@@ -599,19 +608,38 @@ async function guardarCargaDiaria(){
 // ============================================================
 //  HISTORIAL
 // ============================================================
-function renderHistorial(){
+// Filtro compartido entre la vista de historial y la exportación a Excel
+function historialFiltrado(){
   const busq=(document.getElementById("hist-buscar").value||"").toLowerCase();
   const selTipoEl=document.getElementById("hist-tipo");
-  const curVal=selTipoEl.value;
-  selTipoEl.innerHTML="<option value=\"\">Todos los tipos</option>"+(window.tiposNovedad||[]).map(t=>"<option value=\""+esc(t)+"\""+( curVal===t?" selected":"")+">"+esc(t)+"</option>").join("");
-  const filtTipo=selTipoEl.value;
+  const tiposSel=[...selTipoEl.selectedOptions].map(o=>o.value);
+  const desde=document.getElementById("hist-desde")?.value||"";
+  const hasta=document.getElementById("hist-hasta")?.value||"";
 
-  const hist=[...window.novedades].reverse().filter(n=>{
+  return [...window.novedades].reverse().filter(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
     if(busq&&!(p.nombre||"").toLowerCase().includes(busq))return false;
-    if(filtTipo&&n.tipo!==filtTipo)return false;
+    if(tiposSel.length&&!tiposSel.includes(n.tipo))return false;
+    if(desde&&n.fecha<desde)return false;
+    if(hasta&&n.fecha>hasta)return false;
     return true;
-  }).slice(0,200);
+  });
+}
+function limpiarFiltrosHistorial(){
+  document.getElementById("hist-buscar").value="";
+  document.getElementById("hist-tipo").querySelectorAll("option").forEach(o=>o.selected=false);
+  document.getElementById("hist-desde").value="";
+  document.getElementById("hist-hasta").value="";
+  renderHistorial();
+}
+function renderHistorial(){
+  const selTipoEl=document.getElementById("hist-tipo");
+  const seleccionadosPrevios=[...selTipoEl.selectedOptions].map(o=>o.value);
+  selTipoEl.innerHTML=(window.tiposNovedad||[]).map(t=>"<option value=\""+esc(t)+"\""+(seleccionadosPrevios.includes(t)?" selected":"")+">"+esc(t)+"</option>").join("");
+
+  const filtrado=historialFiltrado();
+  const hist=filtrado.slice(0,200);
+  document.getElementById("hist-info").textContent="Mostrando "+hist.length+" de "+filtrado.length+" registros"+(filtrado.length>200?" (afiná los filtros o exportá a Excel para ver todos)":"");
 
   document.getElementById("hist-body").innerHTML=hist.map((n,i)=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:"—"};
@@ -837,16 +865,18 @@ function exportarActivos(){
 }
 function exportarNominaCompleta(){exportNominaExcel(window.nomina,"nomina_completa_"+getFecha()+".xlsx","NOMINA COMPLETA");}
 function exportarHistorialNovedades(){
-  const rows=[...window.novedades].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
+  // Exporta respetando los mismos filtros que se ven en pantalla (búsqueda,
+  // varios tipos a la vez, rango de fechas) — no sólo los primeros 200 mostrados
+  const rows=historialFiltrado().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
     return{"Fecha":n.fecha,"Nombre":p.nombre||n.personaId,"Turno":p.turno||"","Rol":p.rol||"","DNI":p.dni||"","Tipo":n.tipo,"Inicio Licencia":n.licIni||"","Fin Licencia":n.licFin||"","Detalle":n.detalle||""};
   });
-  if(!rows.length){toast("Sin novedades.");return;}
+  if(!rows.length){toast("Sin novedades para los filtros seleccionados.");return;}
   const ws=XLSX.utils.json_to_sheet(rows);
   ws["!cols"]=[{wch:12},{wch:35},{wch:18},{wch:18},{wch:12},{wch:20},{wch:14},{wch:14},{wch:40}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"NOVEDADES");
   XLSX.writeFile(wb,"historial_novedades_"+todayISO()+".xlsx");
-  toast("✅ Historial exportado");
+  toast("✅ Historial exportado ("+rows.length+" registros)");
 }
 
 const TURNO_DESC={"Turno Mañana":"Lun-Vie 07-14h","Turno Tarde":"Lun-Vie 13-20h","Turno Noche":"Lun-Jue 19-01h","SADOFE Diurno":"Sab-Dom-Fer 07-19h","SADOFE Noche":"Vie-Sab-Dom 19-01h","Administrativo":"Administrativo","Gerencia":"Gerencia"};

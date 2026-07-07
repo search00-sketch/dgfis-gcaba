@@ -25,7 +25,12 @@ function todayISO(){
 }
 
 function getEstadoPersona(p, hoy) {
-  if(p.estado==='Baja') return 'Baja';
+  if(p.estado==='Baja'){
+    // Si la baja tiene fecha, sigue "Activo" para consultas de fechas anteriores
+    // a esa baja (ej: ver/asignar zonas de un día previo a que se diera de baja).
+    if(p.fechaBaja && hoy<p.fechaBaja) return 'Activo';
+    return 'Baja';
+  }
   const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==='Licencia'&&n.licIni&&n.licFin);
   if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin)) return 'Licencia';
   return 'Activo';
@@ -36,6 +41,21 @@ function novedadesHoy() {
 }
 function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
 function allZonas(){return [...(window.zonas||[]),'EVENTO ESPECIAL','PARTIDO FÚTBOL'];}
+
+// Novedad "puntual" (mismo día) o de rango (licencia con licIni/licFin) que cubre `fecha`
+function novedadCubreFecha(n,fecha){return n.fecha===fecha||(n.licIni&&n.licFin&&fecha>=n.licIni&&fecha<=n.licFin);}
+function novedadDePersonaEnFecha(pid,fecha){return (window.novedades||[]).find(n=>n.personaId===pid&&novedadCubreFecha(n,fecha));}
+
+// Tipos de novedad que implican que la persona no está disponible ese día
+// (licencia, ausencia, compensatorio, artículo, etc. — por nombre, ya que
+// los tipos de novedad son configurables por el admin)
+function esNovedadAusencia(tipo){
+  const t=(tipo||'').toLowerCase();
+  return t.includes('licencia')||t.includes('ausencia')||t.includes('compensatorio')||t.includes('articulo')||t.includes('artículo');
+}
+function personaAusenteEnFecha(pid,fecha){
+  return (window.novedades||[]).some(n=>n.personaId===pid&&esNovedadAusencia(n.tipo)&&novedadCubreFecha(n,fecha));
+}
 
 function badgeTurno(t){return `<span class="badge ${TURNOS_BADGE[t]||'bdg-admin'}">${esc(t||'—')}</span>`;}
 function badgeEstado(e){return `<span class="badge ${ESTADO_CLASS[e]||'bdg-activo'}">${esc(e)}</span>`;}

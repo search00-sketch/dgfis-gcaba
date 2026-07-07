@@ -241,7 +241,7 @@
 
 <script>window.MODULO_ID='asignacion';</script>
 <script src="personal-auth.js?v=2"></script>
-<script src="personal-dominio.js?v=2"></script>
+<script src="personal-dominio.js?v=3"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <script type="module">
@@ -341,10 +341,16 @@ function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filte
 
 // Un inspector puede ser asignado si:
 // 1. Su rol es asignable (Inspector, Coordinador Zonal, Chofer)
-// 2. Su turno corresponde al día de la fecha de asignación
+// 2. Su turno no es Administrativo/Gerencia (personal de oficina, nunca va a zona)
+// 3. No está de baja a esa fecha (fechaBaja <= fechaAsig)
+// 4. No tiene una novedad de ausencia (licencia/ausencia/compensatorio/artículo) esa fecha
+// 5. Su turno corresponde al día de la fecha de asignación
 function puedeAsignarse(persona,fechaAsig){
   const rol=persona.rol||"Inspector";
   if(!ROLES_ASIGNABLES.includes(rol))return false;
+  if(persona.turno==="Administrativo"||persona.turno==="Gerencia")return false;
+  if(getEstadoPersona(persona,fechaAsig)==="Baja")return false;
+  if(personaAusenteEnFecha(persona.id,fechaAsig))return false;
   return trabajaHoy(persona,fechaAsig);
 }
 
@@ -410,21 +416,26 @@ function renderDist(){
   const busq=(document.getElementById("dist-buscar").value||"").toLowerCase();
   const filtTurno=document.getElementById("dist-turno").value;
   const filtZona=document.getElementById("dist-zona-filtro").value;
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja");
+  // El estado (baja/licencia) se evalúa a la fecha que se está asignando, no "hoy"
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,fechaAsig)!=="Baja");
   const diaAsig=new Date(fechaAsig+"T12:00:00").getDay();
   const esFeriadoAsig=esFeriado(fechaAsig);
   const turnosDeEseDia=turnosQueTrabajan(diaAsig,fechaAsig);
   const DIAS=["Domingo","Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"];
-  // Solo los que trabajan ese día Y su rol es asignable
+  // Solo los que trabajan ese día Y su rol es asignable (puedeAsignarse ya excluye
+  // rol/turno de oficina, licencia/ausencia y baja a esa fecha)
   const trabajanAsignables=activos.filter(p=>puedeAsignarse(p,fechaAsig));
-  // Los que no trabajan ese día (para mostrarlos como no-asignables)
-  const noTrabajan=activos.filter(p=>{const r=p.rol||"Inspector";if(ROLES_NO_ASIGNABLES.includes(r))return false;return!turnosDeEseDia.has(p.turno);});
+  // No disponibles ese día: rol/turno de oficina (nunca se muestran) quedan afuera;
+  // el resto (no trabaja ese turno ese día, o está en licencia/ausencia) se muestra
+  // colapsado más abajo para que no parezca que faltan de la nómina.
+  const rolOTurnoDeOficina=p=>{const r=p.rol||"Inspector";return ROLES_NO_ASIGNABLES.includes(r)||p.turno==="Administrativo"||p.turno==="Gerencia";};
+  const noDisponibles=activos.filter(p=>!rolOTurnoDeOficina(p)&&!puedeAsignarse(p,fechaAsig));
 
   const conZona=trabajanAsignables.filter(p=>dist[p.id]).length;
-  const sinAsignar=trabajanAsignables.filter(p=>!dist[p.id]&&getEstadoPersona(p,hoy)!=="Licencia").length;
+  const sinAsignar=trabajanAsignables.filter(p=>!dist[p.id]).length;
   const novHoy=novedadesHoy();
   const ausentes=novHoy.filter(n=>n.tipo==="Ausencia").length;
-  const licencias=activos.filter(p=>getEstadoPersona(p,hoy)==="Licencia").length;
+  const licencias=activos.filter(p=>getEstadoPersona(p,fechaAsig)==="Licencia").length;
 
   document.getElementById("dist-stats").innerHTML=
     "<div class=\"stat-card\"><div class=\"stat-num\">"+trabajanAsignables.length+"</div><div class=\"stat-label\">Trabajan "+DIAS[diaAsig]+(esFeriadoAsig?" 🔴":"")+"</div></div>"
@@ -432,7 +443,7 @@ function renderDist(){
     +"<div class=\"stat-card\"><div class=\"stat-num\" style=\"color:var(--rojo)\">"+sinAsignar+"</div><div class=\"stat-label\">Sin asignar</div></div>"
     +"<div class=\"stat-card\"><div class=\"stat-num\">"+ausentes+"</div><div class=\"stat-label\">Ausentes hoy</div></div>"
     +"<div class=\"stat-card\"><div class=\"stat-num\">"+licencias+"</div><div class=\"stat-label\">En licencia</div></div>"
-    +"<div class=\"stat-card\"><div class=\"stat-num\" style=\"color:#aaa\">"+noTrabajan.length+"</div><div class=\"stat-label\">No trabajan ese día</div></div>";
+    +"<div class=\"stat-card\"><div class=\"stat-num\" style=\"color:#aaa\">"+noDisponibles.length+"</div><div class=\"stat-label\">No disponibles ese día</div></div>";
 
   const evHoy=(window.eventos||[]).filter(e=>e.fecha===fechaAsig);
   document.getElementById("eventos-banner").innerHTML=evHoy.length?
@@ -455,7 +466,7 @@ function renderDist(){
   document.getElementById("dist-body").innerHTML=lista.map(p=>{
     const zona=dist[p.id]||"";
     const novs=novsDePersonaHoy(p.id);
-    const est=getEstadoPersona(p,hoy);
+    const est=getEstadoPersona(p,fechaAsig);
     const rol=p.rol||"Inspector";
     const rolTag=rol==="Chofer"?"<span class=\"rol-chofer\">🚗 Chofer</span>":rol==="Coordinador Zonal"?"<span class=\"rol-coord\">Coord. Zonal</span>":"";
     const zonaOpts=opts.replace("value=\""+esc(zona)+"\"","value=\""+esc(zona)+"\" selected");
@@ -469,10 +480,11 @@ function renderDist(){
       +"</div>";
   }).join("");
 
-  // Mostrar los que no trabajan ese día al final (colapsado)
-  if(noTrabajan.length&&!busq&&!filtTurno&&!filtZona){
+  // Mostrar los no disponibles ese día al final (colapsado): no trabajan ese turno,
+  // o están de licencia/ausencia/compensatorio/artículo
+  if(noDisponibles.length&&!busq&&!filtTurno&&!filtZona){
     document.getElementById("dist-body").insertAdjacentHTML("beforeend",
-      "<div style=\"padding:8px 14px;background:#f8f8f8;color:#aaa;font-size:12px;font-style:italic;border-top:1px solid #eee\">"+noTrabajan.length+" personas no trabajan el "+DIAS[diaAsig]+(esFeriadoAsig?" (feriado)":"")+": "+noTrabajan.slice(0,5).map(p=>p.nombre.split(" ")[0]).join(", ")+(noTrabajan.length>5?"…":"")+"</div>"
+      "<div style=\"padding:8px 14px;background:#f8f8f8;color:#aaa;font-size:12px;font-style:italic;border-top:1px solid #eee\">"+noDisponibles.length+" personas no disponibles el "+DIAS[diaAsig]+(esFeriadoAsig?" (feriado)":"")+": "+noDisponibles.slice(0,5).map(p=>p.nombre.split(" ")[0]).join(", ")+(noDisponibles.length>5?"…":"")+"</div>"
     );
   }
 }
@@ -513,8 +525,7 @@ async function copiarAsignacionAnterior(){
   Object.entries(prevDist).forEach(([pid,zona])=>{
     const persona=window.nomina.find(p=>p.id===pid);
     if(!persona)return;
-    // No asignar si tiene licencia en la fecha destino (no en "hoy")
-    if(getEstadoPersona(persona,fechaAsig)==="Licencia"){saltados++;return;}
+    // puedeAsignarse ya excluye baja/licencia/ausencia a la fecha destino
     if(!puedeAsignarse(persona,fechaAsig)){saltados++;return;}
     window.distribuciones[fechaAsig][pid]=zona;
     campos["asignaciones."+pid]=zona;
@@ -537,11 +548,10 @@ async function cargarResumen(){
 
 function renderZonas(fecha){
   fecha=fecha||document.getElementById("resumen-fecha")?.value||todayISO();
-  const hoy=getFecha();
   const dist=window.distribuciones[fecha]||{};
   const filtTurno=document.getElementById("resumen-turno")?.value||"";
-  // Filtrar: solo activos que PUEDEN ser asignados en esa fecha (rol + turno del día)
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja"&&puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno))
+  // Filtrar: solo activos que PUEDEN ser asignados en esa fecha (rol/turno/baja/ausencia)
+  const activos=window.nomina.filter(p=>puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno))
     .sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
   const novHoy=novedadesHoy();
   const idc={};novHoy.forEach(n=>{if(!idc[n.personaId])idc[n.personaId]=[];idc[n.personaId].push(n);});
@@ -587,8 +597,7 @@ function renderZonas(fecha){
 function exportarDia(){
   const fechaAsig=getFechaAsig();
   const dist=window.distribuciones[fechaAsig]||{};
-  const hoy=getFecha();
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja");
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,fechaAsig)!=="Baja");
   const rows=activos.filter(p=>dist[p.id]).map(p=>({
     "Nombre":p.nombre,"Turno":p.turno,"Zona":dist[p.id]||"",
     "Jefatura":p.jefatura||"","Coordinador":p.coordinador||"",
@@ -606,9 +615,8 @@ function exportarDia(){
 function exportarResumenZonas(){
   const fecha=document.getElementById("resumen-fecha")?.value||todayISO();
   const dist=window.distribuciones[fecha]||{};
-  const hoy=getFecha();
   const filtTurno=document.getElementById("resumen-turno")?.value||"";
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=="Baja"&&puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno));
+  const activos=window.nomina.filter(p=>puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno));
   const fechaObj=new Date(fecha+"T12:00:00");
   const DIAS=["DOMINGO","LUNES","MARTES","MIERCOLES","JUEVES","VIERNES","SABADO"];
   const MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
@@ -699,10 +707,9 @@ function abrirModalMasivo(){
   document.getElementById("modal-masivo-overlay").classList.add("open");
 }
 function renderMasivoLista(){
-  const hoy=getFecha();const filtT=document.getElementById("mas-turno").value;
+  const filtT=document.getElementById("mas-turno").value;
   const fechaAsig=getFechaAsig();
   const personas=window.nomina.filter(p=>{
-    if(getEstadoPersona(p,hoy)==="Baja")return false;
     if(!puedeAsignarse(p,fechaAsig))return false;
     if(filtT&&p.turno!==filtT)return false;
     return true;

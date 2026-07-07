@@ -428,7 +428,7 @@
 
 <script>window.MODULO_ID='personal';</script>
 <script src="personal-auth.js?v=2"></script>
-<script src="personal-dominio.js?v=2"></script>
+<script src="personal-dominio.js?v=3"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <!-- Firebase module -->
@@ -777,7 +777,13 @@ function renderNomina(){
     const est=getEstadoPersona(p,hoy);
     if(filtEst&&est!==filtEst) return false;
     return true;
-  }).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  }).sort((a,b)=>{
+    // Los dados de baja van al final; el resto (activos/licencia), alfabético
+    const ba=getEstadoPersona(a,hoy)==='Baja'?1:0;
+    const bb=getEstadoPersona(b,hoy)==='Baja'?1:0;
+    if(ba!==bb) return ba-bb;
+    return (a.nombre||'').localeCompare(b.nombre||'');
+  });
 
   document.getElementById('nom-info').textContent=`${lista.length} personas encontradas`;
   document.getElementById('nom-body').innerHTML=lista.map((p,i)=>{
