@@ -132,8 +132,8 @@
       <span id="carga-info" style="font-size:.78rem;color:#888;align-self:center"></span>
     </div>
     <div class="table-wrap">
-      <div class="table-head" style="grid-template-columns:2fr .9fr 1.2fr">
-        <span>Nombre</span><span>Turno</span><span>Estado del día</span>
+      <div class="table-head" style="grid-template-columns:2fr .9fr 1.1fr 1.2fr">
+        <span>Nombre</span><span>Turno</span><span>Zona asignada</span><span>Estado del día</span>
       </div>
       <div class="table-body" id="carga-body" style="max-height:420px"></div>
     </div>
@@ -171,8 +171,11 @@
 <div class="panel" id="panel-historial">
   <div class="toolbar">
     <button class="btn btn-verde" onclick="exportarHistorialNovedades()">⬇ Exportar historial Excel</button>
-    <input class="search-input" id="hist-buscar" placeholder="🔍 Buscar…" oninput="renderHistorial()">
-    <select class="ctrl" id="hist-tipo" multiple size="4" title="Ctrl/Cmd+clic para elegir varios tipos" onchange="renderHistorial()" style="min-width:160px"></select>
+    <input class="search-input" id="hist-buscar" placeholder="🔍 Buscar…" oninput="renderHistorial()" style="flex:0 1 200px">
+    <div class="autocomplete-wrap" id="hist-tipo-wrap" style="min-width:150px">
+      <button type="button" class="btn btn-gris btn-sm" style="width:100%;text-align:left" onclick="toggleHistTipoDropdown(event)" id="hist-tipo-btn">Todos los tipos ▾</button>
+      <div class="autocomplete-list" id="hist-tipo-list"></div>
+    </div>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Desde<input type="date" class="pinput" id="hist-desde" onchange="renderHistorial()"></label>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Hasta<input type="date" class="pinput" id="hist-hasta" onchange="renderHistorial()"></label>
     <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosHistorial()">✕ Limpiar filtros</button>
@@ -345,7 +348,7 @@
 </div>
 
 <script>window.MODULO_ID='novedades';</script>
-<script src="personal-auth.js?v=2"></script>
+<script src="personal-auth.js?v=3"></script>
 <script src="personal-dominio.js?v=3"></script>
 <script src="personal-datos.js?v=2"></script>
 
@@ -565,9 +568,11 @@ function renderCargaDiaria(){
         +"<span style=\"font-size:10px;color:#aaa;margin-left:6px\" title=\"Ya tiene un registro para este día — editalo desde Historial o abajo en Novedades activas\">🔒</span>";
     }
 
-    return "<div class=\"table-row\" style=\"grid-template-columns:2fr .9fr 1.2fr\">"
+    const zona=dist[p.id]||"";
+    return "<div class=\"table-row\" style=\"grid-template-columns:2fr .9fr 1.1fr 1.2fr\">"
       +"<span style=\"font-weight:600\">"+esc(p.nombre)+"</span>"
       +badgeTurno(p.turno)
+      +"<span style=\"font-size:12px;color:"+(zona?"#333":"#aaa")+"\">"+esc(zona||"Sin asignar")+"</span>"
       +"<span>"+estadoHtml+"</span>"
       +"</div>";
   }).join("") || "<div style=\"padding:16px;color:#aaa;text-align:center\">Sin personas activas para este filtro.</div>";
@@ -609,10 +614,12 @@ async function guardarCargaDiaria(){
 //  HISTORIAL
 // ============================================================
 // Filtro compartido entre la vista de historial y la exportación a Excel
+function tiposHistSeleccionados(){
+  return [...document.querySelectorAll("#hist-tipo-list input:checked")].map(i=>i.value);
+}
 function historialFiltrado(){
   const busq=(document.getElementById("hist-buscar").value||"").toLowerCase();
-  const selTipoEl=document.getElementById("hist-tipo");
-  const tiposSel=[...selTipoEl.selectedOptions].map(o=>o.value);
+  const tiposSel=tiposHistSeleccionados();
   const desde=document.getElementById("hist-desde")?.value||"";
   const hasta=document.getElementById("hist-hasta")?.value||"";
 
@@ -625,17 +632,36 @@ function historialFiltrado(){
     return true;
   });
 }
+function toggleHistTipoDropdown(e){
+  e.stopPropagation();
+  document.getElementById("hist-tipo-list").classList.toggle("open");
+}
+document.addEventListener("click",(e)=>{
+  const wrap=document.getElementById("hist-tipo-wrap");
+  if(wrap&&!wrap.contains(e.target)) document.getElementById("hist-tipo-list")?.classList.remove("open");
+});
+function actualizarHistTipoBtn(){
+  const n=tiposHistSeleccionados().length;
+  document.getElementById("hist-tipo-btn").textContent=(n?n+" tipo"+(n>1?"s":"")+" ▾":"Todos los tipos ▾");
+}
 function limpiarFiltrosHistorial(){
   document.getElementById("hist-buscar").value="";
-  document.getElementById("hist-tipo").querySelectorAll("option").forEach(o=>o.selected=false);
+  document.getElementById("hist-tipo-list").querySelectorAll("input").forEach(i=>i.checked=false);
   document.getElementById("hist-desde").value="";
   document.getElementById("hist-hasta").value="";
   renderHistorial();
 }
 function renderHistorial(){
-  const selTipoEl=document.getElementById("hist-tipo");
-  const seleccionadosPrevios=[...selTipoEl.selectedOptions].map(o=>o.value);
-  selTipoEl.innerHTML=(window.tiposNovedad||[]).map(t=>"<option value=\""+esc(t)+"\""+(seleccionadosPrevios.includes(t)?" selected":"")+">"+esc(t)+"</option>").join("");
+  const listEl=document.getElementById("hist-tipo-list");
+  if(!listEl.dataset.built){
+    listEl.innerHTML=(window.tiposNovedad||[]).map(t=>
+      "<label class=\"autocomplete-item\" style=\"display:flex;gap:8px;align-items:center\">"
+      +"<input type=\"checkbox\" value=\""+esc(t)+"\" onchange=\"actualizarHistTipoBtn();renderHistorial()\"> "+esc(t)
+      +"</label>"
+    ).join("");
+    listEl.dataset.built="1";
+  }
+  actualizarHistTipoBtn();
 
   const filtrado=historialFiltrado();
   const hist=filtrado.slice(0,200);

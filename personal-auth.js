@@ -16,26 +16,50 @@ window._soloLectura = false;
 // localStorage (podría haber sido editado desde la consola del navegador).
 // Se llama desde init(), que ya corre después de que el script módulo dejó
 // listos window._fGetDoc/_fDoc/_db.
+//
+// Como estas 3 páginas son documentos separados (no una SPA), cada cambio de
+// pantalla vuelve a mostrar el overlay de login por defecto (vía CSS) hasta
+// que este chequeo termina. Si se espera el viaje a Firestore antes de
+// ocultarlo, el usuario ve el popup de usuario/contraseña "parpadear" cada
+// vez que navega. Por eso acá se confía primero en lo guardado en
+// localStorage para ocultar el overlay al instante, y la revalidación contra
+// Firestore corre después, en segundo plano — sólo se vuelve a mostrar el
+// login si esa revalidación falla (sesión editada, usuario borrado, etc.).
 async function restaurarSesion(){
-  try {
-    const saved = localStorage.getItem("dgf_session");
-    if(!saved) return;
-    const parsed = JSON.parse(saved);
+  const saved = localStorage.getItem("dgf_session");
+  if(!saved) return;
+  let parsed;
+  try{
+    parsed = JSON.parse(saved);
     if(!parsed||!parsed.username) throw new Error("sesión inválida");
+  }catch(e){
+    localStorage.removeItem("dgf_session");
+    return;
+  }
+
+  loggedUser=parsed;
+  document.getElementById("loginOverlay").style.display="none";
+  document.getElementById("userBadge").style.display="inline";
+  document.getElementById("userBadge").textContent=loggedUser.nombre;
+  actualizarPermisoUI();
+  if (typeof window._onLogin === "function") window._onLogin(loggedUser);
+
+  try {
     const snap = await window._fGetDoc(window._fDoc(window._db,"usuarios",parsed.username));
     if(!snap.exists()) throw new Error("usuario \""+parsed.username+"\" ya no existe en Firestore");
     const data = snap.data();
     if(data.role!=="admin" && !(data.modulos&&data.modulos.includes(MODULO_ID))) throw new Error("el usuario no tiene el módulo \""+MODULO_ID+"\" habilitado");
     loggedUser={username:parsed.username,nombre:data.nombre,role:data.role,modulos:data.modulos||[],permisos:data.permisos||{}};
     localStorage.setItem("dgf_session",JSON.stringify(loggedUser));
-    document.getElementById("loginOverlay").style.display="none";
-    document.getElementById("userBadge").style.display="inline";
     document.getElementById("userBadge").textContent=loggedUser.nombre;
     actualizarPermisoUI();
     if (typeof window._onLogin === "function") window._onLogin(loggedUser);
   } catch(e) {
-    console.error("restaurarSesion() falló:", e);
+    console.error("restaurarSesion() falló la revalidación:", e);
+    loggedUser=null;
     localStorage.removeItem("dgf_session");
+    document.getElementById("loginOverlay").style.display="flex";
+    document.getElementById("userBadge").style.display="none";
     const err=document.getElementById("loginErr");
     if(err){err.textContent="⚠️ Se cerró tu sesión: "+e.message;err.style.display="block";}
   }
