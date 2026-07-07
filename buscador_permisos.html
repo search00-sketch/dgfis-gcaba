@@ -77,7 +77,7 @@ header{border-bottom:var(--border-w-strong) solid var(--c-line);padding:0 28px;d
 .htitle{padding:14px 0;display:flex;flex-direction:column;justify-content:center;}
 .htitle h1{font-size:1.1rem;font-weight:700;}
 .htitle p{font-size:.74rem;opacity:.6;margin-top:2px;}
-.tabs{display:flex;align-items:stretch;}
+.htabs{display:flex;align-items:stretch;}
 .tbtn{padding:0 22px;background:transparent;color:rgba(255,255,255,.6);border:none;border-bottom:3px solid transparent;font-size:.84rem;font-weight:600;cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
 .tbtn:hover{color:#fff;background:rgba(255,255,255,.07);}
 .tbtn.active{color:#fff;border-bottom-color:#f97316;background:rgba(255,255,255,.06);}
@@ -194,7 +194,7 @@ mark{background:#fef9c3;color:inherit;border-radius:0;padding:0 2px;}
       </p>
     </div>
   </div>
-  <nav class="tabs">
+  <nav class="htabs">
     <button class="tbtn active" onclick="switchTab('search',this)">&#128269; Buscador</button>
     <button class="tbtn" id="tabUpload" onclick="switchTab('upload',this)" style="display:none">&#128194; Carga de datos</button>
   </nav>
