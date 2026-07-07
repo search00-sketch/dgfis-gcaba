@@ -424,6 +424,9 @@
   </div>
 </div>
 
+<script>window.MODULO_ID='personal';</script>
+<script src="personal-auth.js"></script>
+
 <!-- Firebase module -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -781,109 +784,6 @@ window.feriados       = []; // Array de strings 'YYYY-MM-DD'
 const NOMINA_INICIAL = [{"id":"1","nombre":"ACOSTA LORENA","turno":"Turno Tarde","cuil":"27246686152","dni":"24668615","coordinador":"ROTONDO/CARRIZO/PASCAL/ESCOBAR","jefatura":"COORDINADOR/A","modalidad":"CLS","genero":"F","celular":"1161250764","agentes_calle":"SI","estado":"Activo"},{"id":"2","nombre":"ACUÑA JULIO CESAR","turno":"SADOFE Noche","cuil":"20279368941","dni":"27936894","coordinador":"MAZZOCHI","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"M","celular":"1133357001","agentes_calle":"","estado":"Activo"},{"id":"3","nombre":"AGUILAR TOMAS","turno":"SADOFE Noche","cuil":"","dni":"","coordinador":"","jefatura":"","modalidad":"","genero":"","celular":"11 54193654","agentes_calle":"","estado":"Activo"},{"id":"4","nombre":"AGUIRRE MARINA ISABEL","turno":"Turno Noche","cuil":"27353766436","dni":"35376643","coordinador":"MURACA","jefatura":"INSPECTOR/A","modalidad":"CLS","genero":"F","celular":"1125848356","agentes_calle":"","estado":"Activo"},{"id":"5","nombre":"ALADRO JULIA","turno":"Turno Mañana","cuil":"27264292315","dni":"26429231","coordinador":"GAMARRA / ROCHA/VILLANUEVA","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"F","celular":"1123660284","agentes_calle":"","estado":"Activo"}];
 // NOTA: La nómina completa de 343 personas se sube desde el backup (ver instrucciones)
 
-// ============================================================
-//  AUTH
-// ============================================================
-const MODULO_ID = 'personal';
-let loggedUser = null;
-window._soloLectura = false;
-
-// Revalida la sesión guardada contra Firestore en vez de confiar a ciegas en
-// localStorage (podría haber sido editado desde la consola del navegador).
-// Se llama desde init(), que ya corre después de que el script módulo dejó
-// listos window._fGetDoc/_fDoc/_db.
-async function restaurarSesion() {
-  try {
-    const saved = localStorage.getItem('dgf_session');
-    if (!saved) return;
-    const parsed = JSON.parse(saved);
-    if (!parsed || !parsed.username) throw new Error('sesión inválida');
-    const snap = await window._fGetDoc(window._fDoc(window._db, 'usuarios', parsed.username));
-    if (!snap.exists()) throw new Error('usuario "' + parsed.username + '" ya no existe en Firestore');
-    const data = snap.data();
-    if (data.role !== 'admin' && !(data.modulos && data.modulos.includes(MODULO_ID))) throw new Error('el usuario no tiene el módulo "' + MODULO_ID + '" habilitado');
-    loggedUser = { username: parsed.username, nombre: data.nombre, role: data.role, modulos: data.modulos||[], permisos: data.permisos||{} };
-    localStorage.setItem('dgf_session', JSON.stringify(loggedUser));
-    document.getElementById('loginOverlay').style.display = 'none';
-    document.getElementById('userBadge').style.display = 'inline';
-    document.getElementById('userBadge').textContent = loggedUser.nombre;
-    actualizarPermisoUI();
-  } catch(e) {
-    console.error('restaurarSesion() falló:', e);
-    localStorage.removeItem('dgf_session');
-    const err = document.getElementById('loginErr');
-    if (err) { err.textContent = '⚠️ Se cerró tu sesión: ' + e.message; err.style.display = 'block'; }
-  }
-}
-
-function puedeEditar() {
-  return !!loggedUser && (loggedUser.role === 'admin' || !(loggedUser.permisos && loggedUser.permisos[MODULO_ID] === 'viewer'));
-}
-function actualizarPermisoUI() {
-  window._soloLectura = !puedeEditar();
-  const badge = document.getElementById('userBadge');
-  if (badge && window._soloLectura && !/sólo lectura/.test(badge.textContent)) badge.textContent += ' (🔒 sólo lectura)';
-}
-
-function togglePass() {
-  const inp = document.getElementById('lPass');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-}
-
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-async function doLogin() {
-  const u = document.getElementById('lUser').value.trim().toLowerCase();
-  const p = document.getElementById('lPass').value;
-  const errEl = document.getElementById('loginErr');
-  errEl.style.display = 'none';
-  if (!u || !p) { errEl.textContent='Completá usuario y contraseña.'; errEl.style.display='block'; return; }
-
-  const btn = document.getElementById('loginBtn');
-  btn.disabled = true; btn.textContent = 'Verificando…';
-
-  try {
-    const snap = await window._fGetDoc(window._fDoc(window._db, 'usuarios', u));
-    if (!snap.exists()) { showLoginErr('Usuario o contraseña incorrectos.'); return; }
-    const data = snap.data();
-    const hash = await sha256(p);
-    if (data.passHash !== hash) { showLoginErr('Usuario o contraseña incorrectos.'); return; }
-
-    // Verificar permiso de módulo
-    if (data.role !== 'admin' && !(data.modulos && data.modulos.includes(MODULO_ID))) {
-      showLoginErr('No tenés permiso para acceder a este módulo.'); return;
-    }
-
-    loggedUser = { username: u, nombre: data.nombre, role: data.role, modulos: data.modulos||[], permisos: data.permisos||{} };
-    localStorage.setItem('dgf_session', JSON.stringify(loggedUser));
-    document.getElementById('loginOverlay').style.display = 'none';
-    document.getElementById('userBadge').style.display = 'inline';
-    document.getElementById('userBadge').textContent = loggedUser.nombre;
-    actualizarPermisoUI();
-  } catch(e) {
-    showLoginErr('Error de conexión: ' + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Ingresar';
-  }
-}
-
-function showLoginErr(msg) {
-  const el = document.getElementById('loginErr');
-  el.textContent = msg; el.style.display = 'block';
-  document.getElementById('lPass').value = '';
-  document.getElementById('lPass').focus();
-  document.getElementById('loginBtn').disabled = false;
-  document.getElementById('loginBtn').textContent = 'Ingresar';
-}
-
-function doLogout() {
-  loggedUser = null;
-  localStorage.removeItem('dgf_session');
-  location.reload();
-}
 
 // ============================================================
 //  UTILIDADES
