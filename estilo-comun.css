@@ -122,6 +122,8 @@ select.ctrl,.pinput{border:var(--border-w) solid var(--c-line-soft);padding:var(
 /* ---------- Tabla-div compartida por las páginas de personal ---------- */
 .table-wrap{background:var(--c-surface);border:var(--border-w-strong) solid var(--c-line);overflow:hidden}
 .table-head{display:grid;background:var(--c-brand);color:#fff;padding:6px var(--sp-3);font-size:var(--fs-sm);font-weight:700;gap:6px}
+.th-sort{cursor:pointer;user-select:none}
+.th-sort:hover{text-decoration:underline}
 .table-body{max-height:640px;overflow-y:auto}
 .table-row{display:grid;padding:3px var(--sp-3);gap:6px;align-items:center;border-bottom:var(--border-w) solid var(--c-line-soft);min-height:30px}
 .table-row:hover{background:var(--c-bg)}

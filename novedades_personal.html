@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Novedades de Personal</title>
 <script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="estilo-comun.css?v=3">
+<link rel="stylesheet" href="estilo-comun.css?v=4">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
 
@@ -99,6 +99,7 @@
   <button class="tab" onclick="window.cambiarTab('historial',this)">📅 Historial</button>
   <button class="tab" id="tabCargaNomina" style="display:none" onclick="window.cambiarTab('carga',this)">📥 Cargar Nómina</button>
   <button class="tab" id="tabImportAsistencia" style="display:none" onclick="window.cambiarTab('asistencia',this)">📊 Importar Asistencia</button>
+  <button class="tab" id="tabTiposNovedad" style="display:none" onclick="window.cambiarTab('tiposnovedad',this)">⚙ Tipos de novedad</button>
 </div>
 
 <div class="content">
@@ -132,9 +133,7 @@
       <span id="carga-info" style="font-size:.78rem;color:#888;align-self:center"></span>
     </div>
     <div class="table-wrap">
-      <div class="table-head" style="grid-template-columns:2fr .9fr 1.1fr 1.2fr">
-        <span>Nombre</span><span>Turno</span><span>Zona asignada</span><span>Estado del día</span>
-      </div>
+      <div class="table-head" id="carga-head" style="grid-template-columns:2fr .9fr 1.1fr 1.2fr"></div>
       <div class="table-body" id="carga-body" style="max-height:420px"></div>
     </div>
   </div>
@@ -160,9 +159,7 @@
   </div>
   <div class="table-info" id="nom-info"></div>
   <div class="table-wrap">
-    <div class="table-head" style="grid-template-columns:2fr .9fr .8fr .8fr .8fr 120px">
-      <span>Nombre</span><span>Turno</span><span>Rol</span><span>DNI</span><span>Estado</span><span>Acciones</span>
-    </div>
+    <div class="table-head" id="nom-head" style="grid-template-columns:2fr .9fr .8fr .8fr .8fr 120px"></div>
     <div class="table-body" id="nom-body"></div>
   </div>
 </div>
@@ -182,7 +179,7 @@
   </div>
   <div class="table-info" id="hist-info"></div>
   <div class="table-wrap">
-    <div class="table-head grid-hist"><span>Fecha</span><span>Persona</span><span>Tipo</span><span>Detalle</span><span></span></div>
+    <div class="table-head grid-hist" id="hist-head"></div>
     <div class="table-body" id="hist-body"></div>
   </div>
 </div>
@@ -257,6 +254,20 @@
       <div style="margin-top:8px;font-size:.78rem;color:#e67e22" id="asist-no-encontrados"></div>
     </div>
     <div id="asistToast" style="display:none;margin-top:12px;padding:10px 14px;border-radius:0;font-size:.82rem;font-weight:500"></div>
+  </div>
+</div>
+
+<!-- PANEL TIPOS DE NOVEDAD -->
+<div class="panel" id="panel-tiposnovedad">
+  <div class="gestion-zonas">
+    <div class="gz-title">📋 Tipos de novedad</div>
+    <p style="font-size:.8rem;color:#777;margin-bottom:12px">Agregá, editá o eliminá los tipos disponibles al cargar una novedad.</p>
+    <div class="zonas-lista" id="tipos-nov-lista"></div>
+    <div class="gz-add">
+      <input id="nuevo-tipo-input" placeholder="Ej: Capacitación, Comisión..." onkeydown="if(event.key==='Enter')agregarTipoNov()">
+      <button class="btn btn-azul" onclick="agregarTipoNov()">+ Agregar tipo</button>
+    </div>
+    <div id="tipos-nov-toast" style="display:none;margin-top:8px;font-size:.78rem;font-weight:600;color:#15803d"></div>
   </div>
 </div>
 
@@ -349,7 +360,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=3"></script>
-<script src="personal-dominio.js?v=3"></script>
+<script src="personal-dominio.js?v=4"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <script type="module">
@@ -434,6 +445,7 @@ window._onLogin = function(lu){
   if(lu.role==="admin"){
     document.getElementById("tabCargaNomina").style.display="";
     document.getElementById("tabImportAsistencia").style.display="";
+    document.getElementById("tabTiposNovedad").style.display="";
   }
 };
 
@@ -457,6 +469,7 @@ function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filte
 window._cambiarTabExtra = function(id) {
   if(id==="historial") renderHistorial();
   else if(id==="asistencia") cargarSelectHojasAsistencia();
+  else if(id==="tiposnovedad") renderTiposNovedad();
   else if(id!=="carga") { renderNovedades(); renderCargaDiaria(); }
 };
 
@@ -538,7 +551,7 @@ function renderCargaDiaria(){
   const filtZona=document.getElementById("carga-zona")?.value||"";
   const dist=window.distribuciones[fecha]||{};
 
-  const activos=window.nomina.filter(p=>{
+  let activos=window.nomina.filter(p=>{
     if(getEstadoPersona(p,fecha)==="Baja") return false;
     if(!trabajaHoy(p,fecha)) return false;
     if(filtTurno && p.turno!==filtTurno) return false;
@@ -547,6 +560,13 @@ function renderCargaDiaria(){
     if(busq && !(p.nombre||"").toLowerCase().includes(busq)) return false;
     return true;
   }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
+  activos=ordenarLista(activos,"carga",(p,campo)=>campo==="zona"?(dist[p.id]||""):p[campo]);
+
+  document.getElementById("carga-head").innerHTML=
+    thOrden("carga","nombre","Nombre","renderCargaDiaria")
+    +thOrden("carga","turno","Turno","renderCargaDiaria")
+    +thOrden("carga","zona","Zona asignada","renderCargaDiaria")
+    +"<span>Estado del día</span>";
 
   const tipos=["Presente",...(window.tiposNovedad||[]).filter(t=>t!=="Presente")];
   let editables=0, conExcepcion=0;
@@ -663,9 +683,18 @@ function renderHistorial(){
   }
   actualizarHistTipoBtn();
 
-  const filtrado=historialFiltrado();
+  const filtrado=ordenarLista(historialFiltrado(),"hist",(n,campo)=>{
+    if(campo==="persona") return (window.nomina.find(x=>x.id===n.personaId)||{}).nombre||"";
+    return n[campo];
+  });
   const hist=filtrado.slice(0,200);
   document.getElementById("hist-info").textContent="Mostrando "+hist.length+" de "+filtrado.length+" registros"+(filtrado.length>200?" (afiná los filtros o exportá a Excel para ver todos)":"");
+
+  document.getElementById("hist-head").innerHTML=
+    thOrden("hist","fecha","Fecha","renderHistorial")
+    +thOrden("hist","persona","Persona","renderHistorial")
+    +thOrden("hist","tipo","Tipo","renderHistorial")
+    +"<span>Detalle</span><span></span>";
 
   document.getElementById("hist-body").innerHTML=hist.map((n,i)=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:"—"};
@@ -701,7 +730,7 @@ function renderNomina(){
   const filtTurno=document.getElementById("nom-turno").value;
   const filtRol=document.getElementById("nom-rol").value;
   const filtEst=document.getElementById("nom-estado").value;
-  const lista=window.nomina.filter(p=>{
+  let lista=window.nomina.filter(p=>{
     if(busq&&!p.nombre.toLowerCase().includes(busq)&&!(p.dni||"").includes(busq))return false;
     if(filtTurno&&p.turno!==filtTurno)return false;
     if(filtRol&&(p.rol||"Inspector")!==filtRol)return false;
@@ -709,6 +738,16 @@ function renderNomina(){
     if(filtEst&&est!==filtEst)return false;
     return true;
   }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
+  lista=ordenarLista(lista,"nom",(p,campo)=>campo==="estado"?getEstadoPersona(p,hoy):(campo==="rol"?(p.rol||"Inspector"):p[campo]));
+
+  document.getElementById("nom-head").innerHTML=
+    thOrden("nom","nombre","Nombre","renderNomina")
+    +thOrden("nom","turno","Turno","renderNomina")
+    +thOrden("nom","rol","Rol","renderNomina")
+    +thOrden("nom","dni","DNI","renderNomina")
+    +thOrden("nom","estado","Estado","renderNomina")
+    +"<span>Acciones</span>";
+
   document.getElementById("nom-info").textContent=lista.length+" personas";
   document.getElementById("nom-body").innerHTML=lista.map(p=>{
     const est=getEstadoPersona(p,hoy);
@@ -1332,6 +1371,59 @@ function showAsistToast(msg, type) {
   t.textContent = msg; t.style.display = "block";
   t.style.background = type==="ok" ? "#dcfce7" : type==="err" ? "#fee2e2" : "#f0f8ff";
   t.style.color      = type==="ok" ? "#15803d" : type==="err" ? "#b91c1c" : "#1a3a5c";
+}
+
+// ============================================================
+//  TIPOS DE NOVEDAD (antes sólo en gestion_personal.html — movido acá
+//  para que la gestión de novedades viva en un único lugar)
+// ============================================================
+function renderTiposNovedad() {
+  const lista = document.getElementById("tipos-nov-lista");
+  if (!lista) return;
+  const FIJOS = ["Licencia","Llegada tarde","Retiro anticipado","Ausencia","Otro"];
+  lista.innerHTML = (window.tiposNovedad||[]).map((t,i) => {
+    const esFijo = FIJOS.includes(t);
+    return "<div class=\"zona-tag\">"
+      +"<span contenteditable=\""+(!esFijo)+"\" onblur=\"renombrarTipoNov("+i+",this.textContent)\" title=\""+(esFijo?"Tipo predeterminado":"Clic para editar")+"\">"+esc(t)+"</span>"
+      +(!esFijo ? "<button class=\"del-zona\" onclick=\"eliminarTipoNov("+i+")\" title=\"Eliminar\">×</button>" : "")
+      +"</div>";
+  }).join("");
+}
+async function agregarTipoNov() {
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const inp = document.getElementById("nuevo-tipo-input");
+  const val = (inp.value||"").trim();
+  if (!val) { alert("Ingresá un nombre para el tipo."); return; }
+  if (window.tiposNovedad.map(t=>t.toLowerCase()).includes(val.toLowerCase())) {
+    alert("Ese tipo ya existe."); return;
+  }
+  window.tiposNovedad.push(val);
+  inp.value = "";
+  renderTiposNovedad();
+  await window._guardarTiposNovedad();
+  const t = document.getElementById("tipos-nov-toast");
+  t.textContent = "✅ Tipo \""+val+"\" agregado.";
+  t.style.display = "block";
+  setTimeout(()=>t.style.display="none", 2500);
+}
+async function eliminarTipoNov(idx) {
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const t = window.tiposNovedad[idx];
+  if (!confirm("¿Eliminar el tipo \""+t+"\"?")) return;
+  window.tiposNovedad.splice(idx,1);
+  renderTiposNovedad();
+  await window._guardarTiposNovedad();
+}
+async function renombrarTipoNov(idx, nuevoNombre) {
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");renderTiposNovedad();return;}
+  const n = (nuevoNombre||"").trim();
+  if (!n || n === window.tiposNovedad[idx]) return;
+  if (window.tiposNovedad.some((t,i)=>i!==idx&&t.toLowerCase()===n.toLowerCase())) {
+    alert("Ya existe ese tipo."); return;
+  }
+  window.tiposNovedad[idx] = n;
+  await window._guardarTiposNovedad();
+  renderTiposNovedad();
 }
 
 </script>

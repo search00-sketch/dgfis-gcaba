@@ -100,3 +100,43 @@ function trabajaHoy(persona, fecha) {
   }
   return turnosQueTrabajan(dia, fecha).has(persona.turno);
 }
+
+// ============================================================
+//  ORDEN DE COLUMNAS (encabezados clicables con flecha ▲▼)
+//  Compartido por las tablas-div de las 3 páginas de personal. Cada tabla
+//  se identifica con un tablaId propio (ej: "nom", "dist", "hist") — el
+//  estado de orden vive en memoria (se pierde al cambiar de pantalla, lo
+//  cual está bien, no hace falta persistirlo).
+// ============================================================
+const _ordenTablas = {};
+function ordenClick(tablaId, campo, renderFn){
+  const st = _ordenTablas[tablaId] || (_ordenTablas[tablaId] = {campo:null, dir:'asc'});
+  if (st.campo === campo) st.dir = (st.dir === 'asc' ? 'desc' : 'asc');
+  else { st.campo = campo; st.dir = 'asc'; }
+  if (typeof window[renderFn] === 'function') window[renderFn]();
+}
+function ordenEstado(tablaId){ return _ordenTablas[tablaId] || {campo:null, dir:'asc'}; }
+// Encabezado clicable: label + flecha si es la columna activa
+function thOrden(tablaId, campo, label, renderFn){
+  const st = ordenEstado(tablaId);
+  const flecha = st.campo === campo ? (st.dir === 'asc' ? ' ▲' : ' ▼') : '';
+  return '<span class="th-sort" onclick="ordenClick(\''+tablaId+'\',\''+campo+'\',\''+renderFn+'\')">'+esc(label)+flecha+'</span>';
+}
+// Ordena `lista` según el estado de orden de `tablaId`. Si no se clickeó
+// ninguna columna todavía, usa el orden ya presente en `lista` tal cual
+// (para no pisar un orden por defecto con lógica propia, ej: bajas al final).
+// `getter(item, campo)` devuelve el valor comparable de esa fila para esa columna.
+function ordenarLista(lista, tablaId, getter){
+  const st = ordenEstado(tablaId);
+  if (!st.campo) return lista;
+  const factor = st.dir === 'desc' ? -1 : 1;
+  return [...lista].sort((a,b)=>{
+    let va = getter(a, st.campo), vb = getter(b, st.campo);
+    va = (va===null||va===undefined) ? '' : va;
+    vb = (vb===null||vb===undefined) ? '' : vb;
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return factor * String(va).localeCompare(String(vb), 'es', {sensitivity:'base'});
+    }
+    return factor * (va > vb ? 1 : va < vb ? -1 : 0);
+  });
+}

@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Asignación de Zonas</title>
 <script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="estilo-comun.css?v=3">
+<link rel="stylesheet" href="estilo-comun.css?v=4">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
 
@@ -132,7 +132,7 @@
   <div class="stats-grid" id="dist-stats"></div>
   <div class="table-info" id="dist-info"></div>
   <div class="table-wrap">
-    <div class="table-head grid-dist"><span>Nombre / Rol</span><span>Turno</span><span>Zona asignada</span><span>Novedades</span><span></span></div>
+    <div class="table-head grid-dist" id="dist-head"></div>
     <div class="table-body" id="dist-body"></div>
   </div>
 </div>
@@ -180,6 +180,7 @@
   <div class="gestion-zonas">
     <div class="gz-title">🔄 Acciones</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-gris" onclick="exportarBackup()">💾 Backup completo (JSON)</button>
       <button class="btn btn-rojo" onclick="if(confirm('Limpiar distribuciones locales?'))limpiarDistribuciones()">🗑 Limpiar distribuciones</button>
     </div>
   </div>
@@ -241,7 +242,7 @@
 
 <script>window.MODULO_ID='asignacion';</script>
 <script src="personal-auth.js?v=3"></script>
-<script src="personal-dominio.js?v=3"></script>
+<script src="personal-dominio.js?v=4"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <script type="module">
@@ -450,13 +451,20 @@ function renderDist(){
     "<div class=\"eventos-banner\"><span style=\"font-weight:700;font-size:13px\">Eventos:</span>"
     +evHoy.map(e=>"<span class=\"ev-pill\">"+esc(e.nombre)+" — "+esc(e.tipo)+"</span>").join("")+"</div>":"";
 
-  const lista=trabajanAsignables.filter(p=>{
+  let lista=trabajanAsignables.filter(p=>{
     if(busq&&!p.nombre.toLowerCase().includes(busq)&&!(p.dni||"").includes(busq))return false;
     if(filtTurno&&p.turno!==filtTurno)return false;
     if(filtZona==="__sin__"&&dist[p.id])return false;
     if(filtZona&&filtZona!=="__sin__"&&dist[p.id]!==filtZona)return false;
     return true;
   }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
+  lista=ordenarLista(lista,"dist",(p,campo)=>campo==="zona"?(dist[p.id]||""):p[campo]);
+
+  document.getElementById("dist-head").innerHTML=
+    thOrden("dist","nombre","Nombre / Rol","renderDist")
+    +thOrden("dist","turno","Turno","renderDist")
+    +thOrden("dist","zona","Zona asignada","renderDist")
+    +"<span>Novedades</span><span></span>";
 
   const estAsig=fechaAsig!==hoy?" · Asignando para "+DIAS[diaAsig]+" "+fmtDate(fechaAsig):"";
   document.getElementById("dist-info").textContent="Mostrando "+lista.length+" de "+trabajanAsignables.length+" personas que trabajan ese día"+estAsig;
@@ -856,6 +864,14 @@ async function precargarFeriados(){
   renderFeriados();renderDist();
   await window._guardarFeriados(window.feriados,window.feriadosDesc);
   toast("✅ "+agregados+" feriados precargados");
+}
+
+function exportarBackup(){
+  const data={nomina:window.nomina,novedades:window.novedades,zonas:window.zonas,eventos:window.eventos,fecha:new Date().toISOString()};
+  const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(b);
+  a.download="backup_personal_"+todayISO()+".json";a.click();
+  toast("✅ Backup exportado");
 }
 
 async function limpiarDistribuciones(){
