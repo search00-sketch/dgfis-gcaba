@@ -175,6 +175,13 @@
       <button type="button" class="btn btn-gris btn-sm" style="width:100%;text-align:left" onclick="toggleHistTipoDropdown(event)" id="hist-tipo-btn">Todos los tipos ▾</button>
       <div class="autocomplete-list" id="hist-tipo-list"></div>
     </div>
+    <select class="ctrl" id="hist-estado" onchange="renderHistorial()" style="min-width:170px">
+      <option value="">Todos los estados</option>
+      <option value="Pendiente">Pendiente</option>
+      <option value="Aprobada">Aprobada</option>
+      <option value="A la espera de más información">A la espera de más información</option>
+      <option value="Rechazada">Rechazada</option>
+    </select>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Desde<input type="date" class="pinput" id="hist-desde" onchange="renderHistorial()"></label>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Hasta<input type="date" class="pinput" id="hist-hasta" onchange="renderHistorial()"></label>
     <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosHistorial()">✕ Limpiar filtros</button>
@@ -551,9 +558,13 @@ function renderNovedades(){
         +badgeTurno(p.turno)
         +(p.rol?"<span style=\"font-size:11px;color:#666\">"+esc(p.rol)+"</span>":"")
         +badgeNov(n.tipo)
+        +(n.estadoLic?badgeEstadoLic(n.estadoLic):"")
         +(extra?"<span style=\"font-size:12px;color:#555\">"+esc(extra)+"</span>":"")
         +(n.detalle?"<span style=\"font-size:12px;color:#555\">"+esc(n.detalle)+"</span>":"")
-        +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"margin-left:auto;background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer\">✕</button>"
+        +"<span style=\"margin-left:auto;display:flex;gap:8px\">"
+        +"<button onclick=\"editarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#2563a8;font-size:14px;cursor:pointer\">✏️</button>"
+        +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer\">✕</button>"
+        +"</span>"
         +"</div>";
     }).join("")
     :"<div style=\"color:#aaa;font-size:13px;padding:8px 0\">Sin novedades activas para hoy.</div>";
@@ -661,6 +672,7 @@ function historialFiltrado(){
   const tiposSel=tiposHistSeleccionados();
   const desde=document.getElementById("hist-desde")?.value||"";
   const hasta=document.getElementById("hist-hasta")?.value||"";
+  const filtEstado=document.getElementById("hist-estado")?.value||"";
 
   return [...window.novedades].reverse().filter(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
@@ -668,6 +680,7 @@ function historialFiltrado(){
     if(tiposSel.length&&!tiposSel.includes(n.tipo))return false;
     if(desde&&n.fecha<desde)return false;
     if(hasta&&n.fecha>hasta)return false;
+    if(filtEstado&&(n.estadoLic||"Pendiente")!==filtEstado)return false;
     return true;
   });
 }
@@ -688,6 +701,7 @@ function limpiarFiltrosHistorial(){
   document.getElementById("hist-tipo-list").querySelectorAll("input").forEach(i=>i.checked=false);
   document.getElementById("hist-desde").value="";
   document.getElementById("hist-hasta").value="";
+  document.getElementById("hist-estado").value="";
   renderHistorial();
 }
 function renderHistorial(){
@@ -718,12 +732,17 @@ function renderHistorial(){
   document.getElementById("hist-body").innerHTML=hist.map((n,i)=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:"—"};
     const extra=n.licIni?fmtDate(n.licIni)+"→"+fmtDate(n.licFin):"";
+    const detalleTxt=[extra,n.detalle].filter(Boolean).map(esc).join(" · ")||"—";
+    const estadoBadge=n.estadoLic?badgeEstadoLic(n.estadoLic):"";
     return "<div class=\"table-row grid-hist\" style=\""+(i%2===0?"":"background:#fafafa")+";\">"
       +"<span style=\"font-size:12px;color:#777\">"+fmtDate(n.fecha)+"</span>"
       +"<span style=\"font-size:13px;font-weight:600\">"+esc(p.nombre)+"</span>"
       +badgeNov(n.tipo)
-      +"<span style=\"font-size:12px;color:#555\">"+esc(n.detalle||extra||"—")+"</span>"
+      +"<span style=\"font-size:12px;color:#555\">"+estadoBadge+" "+detalleTxt+"</span>"
+      +"<span style=\"display:flex;gap:4px\">"
+      +"<button onclick=\"editarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#2563a8;cursor:pointer;font-size:13px\">✏️</button>"
       +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#c0392b;cursor:pointer;font-size:13px\">✕</button>"
+      +"</span>"
       +"</div>";
   }).join("");
 }
@@ -1177,7 +1196,7 @@ function abrirModalVer(id){
   ].map(([k,v])=>"<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>").join("");
   const novP=[...window.novedades].filter(n=>n.personaId===id).reverse().slice(0,10);
   document.getElementById("mv-novs").innerHTML=novP.length?
-    novP.map(n=>"<div class=\"hist-row\">"+badgeNov(n.tipo)+" <strong>"+fmtDate(n.fecha)+"</strong>"+(n.licIni?" ("+fmtDate(n.licIni)+"→"+fmtDate(n.licFin)+")":"")+(n.detalle?" · "+esc(n.detalle):"")+"</div>").join("")
+    novP.map(n=>"<div class=\"hist-row\">"+badgeNov(n.tipo)+(n.estadoLic?" "+badgeEstadoLic(n.estadoLic):"")+" <strong>"+fmtDate(n.fecha)+"</strong>"+(n.licIni?" ("+fmtDate(n.licIni)+"→"+fmtDate(n.licFin)+")":"")+(n.detalle?" · "+esc(n.detalle):"")+"</div>").join("")
     :"<div style=\"color:#aaa;font-size:12px\">Sin novedades.</div>";
   document.getElementById("modal-ver-overlay").classList.add("open");
 }
