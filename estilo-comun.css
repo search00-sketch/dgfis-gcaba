@@ -87,6 +87,8 @@ main{max-width:1100px;margin:0 auto;padding:var(--sp-6) var(--sp-4);width:100%}
 
 /* ---------- Barra de estado de sincronización ---------- */
 .sync-bar{background:var(--c-surface);border-bottom:var(--border-w) solid var(--c-line-soft);padding:4px var(--sp-4);font-size:var(--fs-sm);color:var(--c-ink-mut);display:flex;gap:var(--sp-3);align-items:center}
+.sync-refresh{background:none;border:var(--border-w) solid var(--c-line-soft);color:var(--c-brand-2);cursor:pointer;font-size:var(--fs-sm);font-weight:600;padding:2px 10px}
+.sync-refresh:hover{border-color:var(--c-brand-2);background:var(--c-bg)}
 .sync-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:3px}
 .sync-ok{background:var(--c-ok)}
 .sync-loading{background:var(--c-warn);animation:pulse .8s infinite}
@@ -230,3 +232,57 @@ label.fl{font-size:var(--fs-sm);color:var(--c-ink-mut);font-weight:600}
 .add-user-form label{font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c-ink-mut)}
 
 footer{padding:var(--sp-3);background:var(--c-bg);font-size:var(--fs-sm);color:var(--c-ink-mut);text-align:center;border-top:var(--border-w) solid var(--c-line-soft)}
+
+/* ---------- Accesibilidad: foco de teclado visible ---------- */
+/* :focus-visible sólo aparece navegando con Tab, no al hacer click. */
+:focus-visible{outline:2px solid var(--c-brand-2);outline-offset:1px}
+.tab:focus-visible{outline-offset:-2px}
+
+/* ---------- Responsive (celular / pantallas angostas) ----------
+   Los inspectores consultan asignaciones y novedades desde el teléfono:
+   la sidebar de pestañas pasa a fila horizontal scrolleable, los
+   formularios de 2 columnas se apilan, y las tablas anchas permiten
+   scroll lateral en vez de desbordar la pantalla. */
+@media (max-width:768px){
+  /* Encabezado: título y controles apilados, tipografía un toque menor */
+  .header,header{padding:var(--sp-2) var(--sp-3)}
+  .header-title,.htitle h1{font-size:var(--fs-base)}
+
+  /* La sidebar de pestañas vuelve a ser fila horizontal con scroll */
+  .layout-row{flex-direction:column}
+  .layout-row .tabs{
+    flex:none;width:100%;flex-direction:row;align-items:center;
+    padding:0 var(--sp-2);overflow-x:auto;overflow-y:visible;max-height:none;
+    position:static;border-right:none;
+    border-bottom:var(--border-w-strong) solid var(--c-line);
+  }
+  .layout-row .tab{
+    width:auto;white-space:nowrap;text-align:center;
+    border-left:none;border-bottom:3px solid transparent;padding:var(--sp-2) var(--sp-3);
+  }
+  .layout-row .tab.active{border-left:none;border-bottom-color:var(--c-accent)}
+
+  /* Contenido y formularios */
+  .content{padding:var(--sp-3)}
+  main{padding:var(--sp-4) var(--sp-3)}
+  .form-grid{grid-template-columns:1fr}
+  .modal,.lbox{padding:var(--sp-4);max-height:94vh}
+  .toolbar .search-input{min-width:0;flex:1 1 100%}
+
+  /* Tablas reales: scroll horizontal dentro de su contenedor */
+  .table-wrap{overflow-x:auto}
+  table.utbl,table.rtbl{min-width:640px}
+
+  /* Tarjetas de estadísticas y zonas a 2 y 1 columna */
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .zonas-grid{grid-template-columns:1fr}
+  .mgrid{grid-template-columns:1fr}
+
+  /* Toast que no tape los botones de acción en pantallas chicas */
+  .toast{left:16px;right:16px;bottom:16px}
+}
+
+/* Preferencia del sistema: sin animaciones para quien las desactivó */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}

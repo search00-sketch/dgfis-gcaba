@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DGFIS-GCABA — Permisos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <!-- config.js carga FIREBASE_CONFIG desde variables de entorno (NO hardcodeado) -->
 <script src="config.js"></script>
+<script src="utils.js?v=1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -70,7 +72,7 @@
 
   window.addEventListener('DOMContentLoaded', cargarDatos);
 </script>
-<link rel="stylesheet" href="estilo-comun.css?v=4">
+<link rel="stylesheet" href="estilo-comun.css?v=5">
 <style>
 :root{--bg:var(--c-bg);--sur:var(--c-surface);--pri:var(--c-brand);--pli:var(--c-brand-2);--acc:var(--c-accent);--txt:var(--c-ink);--mut:var(--c-ink-mut);--bor:var(--c-line-soft);--ok:var(--c-ok);--wa:var(--c-warn);--da:var(--c-danger);--inf:var(--c-info);--r:var(--radius);}
 header{border-bottom:var(--border-w-strong) solid var(--c-line);padding:0 28px;display:flex;align-items:stretch;justify-content:space-between;flex-wrap:wrap;}
@@ -468,11 +470,7 @@ function doSearch() {
 function escapeRe(str) {
   return str.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&');
 }
-function esc(text) {
-  return String(text||'').replace(/[&<>"']/g, function(c) {
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-  });
-}
+// esc() ahora vive en utils.js (compartido por todo el portal)
 function hl(text, qs) {
   var s=esc(text);
   for (var i=0;i<qs.length;i++) {

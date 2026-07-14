@@ -141,14 +141,10 @@ async function cargarTodo() {
       window.cargarDistFecha(todayISO()),
     ]);
 
-    // Nómina
+    // Nómina. Ya no hay auto-seed desde el cliente: la carga inicial se hace
+    // por import de Excel desde Gestión de Personal (el seed hardcodeado
+    // exponía datos personales en el HTML público).
     window.nomina = nominaArr;
-    // Si Firestore está vacío, subir la nómina inicial
-    if (!window.nomina.length) {
-      await guardarRegistrosBulkChunked('nomina', CACHE.nomina, NOMINA_INICIAL, []);
-      window.nomina = [...NOMINA_INICIAL];
-      setCache(CACHE.nomina, window.nomina);
-    }
 
     // Novedades
     window.novedades = novedadesArr;

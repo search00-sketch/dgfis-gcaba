@@ -4,9 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DGFIS-GCABA — Gestión de Personal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
+<script src="utils.js?v=1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="estilo-comun.css?v=4">
+<link rel="stylesheet" href="estilo-comun.css?v=5">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
 
@@ -75,7 +77,7 @@
 <!-- Sync status bar -->
 <div class="sync-bar">
   <span><span class="sync-dot sync-loading" id="syncDot"></span><span id="syncTxt">Conectando…</span></span>
-  <button onclick="forzarRecarga()" style="background:none;border:none;color:#2c6fad;cursor:pointer;font-size:11px;font-weight:600">⟳ Actualizar</button>
+  <button class="sync-refresh" onclick="forzarRecarga()">⟳ Actualizar</button>
 </div>
 
 <div class="layout-row">
@@ -258,7 +260,9 @@ window.tiposNovedad   = ['Licencia','Llegada tarde','Retiro anticipado','Ausenci
 window.feriados       = []; // Array de strings 'YYYY-MM-DD'
 
 // ── NÓMINA INICIAL (se sube a Firestore la primera vez) ──────────────────
-const NOMINA_INICIAL = [{"id":"1","nombre":"ACOSTA LORENA","turno":"Turno Tarde","cuil":"27246686152","dni":"24668615","coordinador":"ROTONDO/CARRIZO/PASCAL/ESCOBAR","jefatura":"COORDINADOR/A","modalidad":"CLS","genero":"F","celular":"1161250764","agentes_calle":"SI","estado":"Activo"},{"id":"2","nombre":"ACUÑA JULIO CESAR","turno":"SADOFE Noche","cuil":"20279368941","dni":"27936894","coordinador":"MAZZOCHI","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"M","celular":"1133357001","agentes_calle":"","estado":"Activo"},{"id":"3","nombre":"AGUILAR TOMAS","turno":"SADOFE Noche","cuil":"","dni":"","coordinador":"","jefatura":"","modalidad":"","genero":"","celular":"11 54193654","agentes_calle":"","estado":"Activo"},{"id":"4","nombre":"AGUIRRE MARINA ISABEL","turno":"Turno Noche","cuil":"27353766436","dni":"35376643","coordinador":"MURACA","jefatura":"INSPECTOR/A","modalidad":"CLS","genero":"F","celular":"1125848356","agentes_calle":"","estado":"Activo"},{"id":"5","nombre":"ALADRO JULIA","turno":"Turno Mañana","cuil":"27264292315","dni":"26429231","coordinador":"GAMARRA / ROCHA/VILLANUEVA","jefatura":"INSPECTOR/A","modalidad":"PP","genero":"F","celular":"1123660284","agentes_calle":"","estado":"Activo"}];
+// La nómina real vive SOLO en Firestore (colección nomina_chunks). Antes acá
+// había un seed hardcodeado con datos personales (DNI/CUIL/celulares) que se
+// servía públicamente a cualquier visitante — se eliminó por privacidad.
 // NOTA: La nómina completa de 343 personas se sube desde el backup (ver instrucciones)
 
 
@@ -266,7 +270,7 @@ const NOMINA_INICIAL = [{"id":"1","nombre":"ACOSTA LORENA","turno":"Turno Tarde"
 //  UTILIDADES
 // ============================================================
 const fmtDate  = d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-AR'):'—';
-const esc      = s=>(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// esc()/escJsAttr() ahora viven en utils.js (compartido por todo el portal)
 
 // Fecha de asignación (puede ser distinta al día visualizado)
 function getFechaAsig() {

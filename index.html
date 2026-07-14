@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DGFIS-GCABA</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<link rel="stylesheet" href="estilo-comun.css?v=4">
+<script src="utils.js?v=1"></script>
+<link rel="stylesheet" href="estilo-comun.css?v=5">
 <style>
 body{min-height:100vh;display:flex;flex-direction:column}
 .lbox .lic{font-size:2.4rem;margin-bottom:8px}
@@ -73,7 +75,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
         </tr>
       </thead>
       <tbody id="userTableBody">
-        <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--c-ink-mut)">Cargando usuarios…</td></tr>
+        <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--c-ink-mut)">Cargando usuarios…</td></tr>
       </tbody>
     </table>
 
@@ -193,29 +195,14 @@ async function sha256(text) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// -- ESCAPE HTML (evita XSS al mostrar datos guardados en Firestore) --
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
-}
+// esc() ahora vive en utils.js (compartido por todo el portal)
 
 // -- ESTADO ----------------------------------------------------
 let loggedUser = null; // { username, nombre, role }
 
-// -- SETUP INICIAL: crea el usuario srepetto si la colección está vacía --
-async function ensureAdminExists() {
-  const snap = await getDocs(collection(db, 'usuarios'));
-  if (snap.empty) {
-    const hash = await sha256('Admin2024!');
-    await setDoc(doc(db, 'usuarios', 'srepetto'), {
-      nombre: 'S. Repetto',
-      role: 'admin',
-      passHash: hash,
-    });
-    console.log('Usuario admin creado.');
-  }
-}
+// El alta inicial del usuario admin se hace UNA sola vez desde la consola
+// de Firebase (o un script local), nunca desde acá: dejar la contraseña
+// de bootstrap en el HTML la expone a cualquiera que vea el código fuente.
 
 // -- LOGIN ------------------------------------------------------
 window.doLogin = async function() {
@@ -323,7 +310,7 @@ function renderModules() {
 // -- TABLA DE USUARIOS (admin) ----------------------------------
 async function loadUserTable() {
   const tbody = document.getElementById('userTableBody');
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Cargando…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Cargando…</td></tr>';
   try {
     const snap = await getDocs(collection(db, 'usuarios'));
     tbody.innerHTML = '';
@@ -369,10 +356,10 @@ async function loadUserTable() {
       tbody.appendChild(tr);
     });
     if (snap.empty) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Sin usuarios.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Sin usuarios.</td></tr>';
     }
   } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--c-danger);padding:12px">Error al cargar usuarios.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--c-danger);padding:12px">Error al cargar usuarios.</td></tr>';
   }
 }
 
@@ -486,7 +473,6 @@ function showAdminToast(msg, type) {
 }
 
 // -- ARRANQUE ---------------------------------------------------
-ensureAdminExists();
 
 // Restaurar sesión si el usuario ya estaba logueado en otra página.
 // No confiamos en los datos guardados en localStorage (pueden ser editados

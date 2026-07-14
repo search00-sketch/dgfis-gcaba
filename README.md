@@ -69,14 +69,24 @@ service cloud.firestore {
 
 ### 4. Crear el usuario admin inicial
 
-La primera vez que abrís `index.html` con Firestore vacío, el código
-detecta que no hay usuarios y crea automáticamente:
+El alta del primer admin se hace **a mano, una sola vez**, desde la consola
+de Firebase (Firestore → colección `usuarios`), nunca desde el código del
+sitio: una contraseña de bootstrap hardcodeada en el HTML queda visible
+para cualquiera que vea el código fuente.
 
-| Usuario   | Contraseña | Rol   |
-|-----------|-----------|-------|
-| srepetto  | Admin2024! | admin |
+Crear un documento con ID = nombre de usuario (ej: `srepetto`) y campos:
 
-**Cambiá esa contraseña inmediatamente desde el panel de administración.**
+| Campo      | Valor                                      |
+|------------|--------------------------------------------|
+| `nombre`   | Nombre visible (ej: `S. Repetto`)          |
+| `role`     | `admin`                                    |
+| `passHash` | SHA-256 (hex) de la contraseña elegida     |
+
+Para generar el hash localmente sin pegar la contraseña en ningún sitio web:
+
+```bash
+node -e "crypto.subtle.digest('SHA-256', new TextEncoder().encode('TU_CONTRASEÑA')).then(b => console.log([...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('')))"
+```
 
 ---
 

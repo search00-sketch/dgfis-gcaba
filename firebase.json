@@ -16,7 +16,7 @@
     ],
     "headers": [
       {
-        "source": "/{estilo-comun.css,personal-nav.js,personal-auth.js,personal-dominio.js,personal-datos.js}",
+        "source": "/{estilo-comun.css,utils.js,personal-nav.js,personal-auth.js,personal-dominio.js,personal-datos.js}",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=3600" }
         ]
