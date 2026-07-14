@@ -14,7 +14,7 @@
 
 .grid-dist{grid-template-columns:2fr .9fr 1.4fr 1.2fr 50px}
 .grid-nom{grid-template-columns:2fr .9fr .9fr .8fr 120px}
-.grid-hist{grid-template-columns:90px 2fr 1fr 2fr 40px}
+.grid-hist{grid-template-columns:90px 2fr 1fr 2fr 64px}
 .bdg-nov-presente{color:#2e7d32}
 
 .tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
@@ -281,36 +281,55 @@
   <div class="modal">
     <button class="modal-close" onclick="cerrarModal('modal-novedad-overlay')">✕</button>
     <div class="modal-title" id="mn-title">Cargar novedad</div>
-    <div class="form-field full" style="margin-bottom:12px">
-      <label class="fl">Fecha de la novedad</label>
-      <input type="date" class="form-input" id="mn-fecha">
-    </div>
-    <div class="form-field full" id="mn-persona-wrap" style="margin-bottom:12px">
-      <label class="fl">Persona</label>
-      <div class="autocomplete-wrap">
-        <input class="form-input" id="mn-persona-input" placeholder="Escribir nombre…" oninput="filtrarPersonasAC()" autocomplete="off">
-        <div class="autocomplete-list" id="mn-persona-list"></div>
+    <div id="mn-form-body">
+      <div class="form-field full" style="margin-bottom:12px">
+        <label class="fl">Fecha de la novedad</label>
+        <input type="date" class="form-input" id="mn-fecha">
       </div>
-      <div id="mn-persona-seleccionada" style="display:none;background:#e8f4fd;border-radius:0;padding:8px 10px;font-size:13px;margin-top:4px;font-weight:600"></div>
-    </div>
-    <div style="margin-bottom:12px">
-      <label class="fl">Tipo de novedad</label>
-      <div class="tipo-grid" style="margin-top:6px" id="mn-tipos-grid"></div>
-    </div>
-    <div id="mn-lic-fechas" style="display:none;margin-bottom:12px">
-      <div class="nov-info">📋 Las licencias se aplican a un rango de fechas.</div>
-      <div class="lic-dates">
-        <div class="form-field"><label class="fl">Inicio</label><input type="date" class="form-input" id="mn-lic-inicio"></div>
-        <div class="form-field"><label class="fl">Fin</label><input type="date" class="form-input" id="mn-lic-fin"></div>
+      <div class="form-field full" id="mn-persona-wrap" style="margin-bottom:12px">
+        <label class="fl">Persona</label>
+        <div class="autocomplete-wrap">
+          <input class="form-input" id="mn-persona-input" placeholder="Escribir nombre…" oninput="filtrarPersonasAC()" autocomplete="off">
+          <div class="autocomplete-list" id="mn-persona-list"></div>
+        </div>
+        <div id="mn-persona-seleccionada" style="display:none;background:#e8f4fd;border-radius:0;padding:8px 10px;font-size:13px;margin-top:4px;font-weight:600"></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label class="fl">Tipo de novedad</label>
+        <div class="tipo-grid" style="margin-top:6px" id="mn-tipos-grid"></div>
+      </div>
+      <div id="mn-lic-fechas" style="display:none;margin-bottom:12px">
+        <div class="nov-info">📋 Las licencias se aplican a un rango de fechas.</div>
+        <div class="lic-dates">
+          <div class="form-field"><label class="fl">Inicio</label><input type="date" class="form-input" id="mn-lic-inicio"></div>
+          <div class="form-field"><label class="fl">Fin</label><input type="date" class="form-input" id="mn-lic-fin"></div>
+        </div>
+      </div>
+      <div id="mn-lic-estado" style="display:none;margin-bottom:12px">
+        <label class="fl">Estado de la licencia</label>
+        <select class="form-input" id="mn-lic-estado-sel">
+          <option value="Pendiente">Pendiente</option>
+          <option value="Aprobada">Aprobada</option>
+          <option value="A la espera de más información">A la espera de más información</option>
+          <option value="Rechazada">Rechazada</option>
+        </select>
+      </div>
+      <div class="form-field full" style="margin-bottom:14px">
+        <label class="fl">Detalle (opcional)</label>
+        <textarea class="form-input" id="mn-detalle" rows="3" placeholder="Motivo, observaciones…"></textarea>
       </div>
     </div>
-    <div class="form-field full" style="margin-bottom:14px">
-      <label class="fl">Detalle (opcional)</label>
-      <textarea class="form-input" id="mn-detalle" rows="3" placeholder="Motivo, observaciones…"></textarea>
+    <div id="mn-confirm-box" style="display:none">
+      <div class="confirm-box"><strong>Revisá los datos antes de guardar:</strong></div>
+      <div class="ficha-grid" id="mn-confirm-ficha"></div>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-azul" onclick="guardarNovedad()">Guardar novedad</button>
+    <div class="modal-actions" id="mn-actions-form">
+      <button class="btn btn-azul" onclick="revisarNovedad()">Guardar novedad</button>
       <button class="btn btn-gris" onclick="cerrarModal('modal-novedad-overlay')">Cancelar</button>
+    </div>
+    <div class="modal-actions" id="mn-actions-confirm" style="display:none">
+      <button class="btn btn-verde" onclick="confirmarGuardarNovedad()">✅ Validar y guardar</button>
+      <button class="btn btn-gris" onclick="volverFormNovedad()">← Volver</button>
     </div>
   </div>
 </div>
