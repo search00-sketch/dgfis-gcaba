@@ -680,7 +680,8 @@ function historialFiltrado(){
     if(tiposSel.length&&!tiposSel.includes(n.tipo))return false;
     if(desde&&n.fecha<desde)return false;
     if(hasta&&n.fecha>hasta)return false;
-    if(filtEstado&&(n.estadoLic||"Pendiente")!==filtEstado)return false;
+    const esLic=n.tipo.toLowerCase().includes("licencia");
+    if(filtEstado&&(esLic?(n.estadoLic||"Pendiente"):null)!==filtEstado)return false;
     return true;
   });
 }
