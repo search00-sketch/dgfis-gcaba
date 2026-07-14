@@ -887,24 +887,59 @@ async function reactivarPersona(id){
 // ============================================================
 //  MODAL NOVEDAD
 // ============================================================
-let _novPersonaId=null,_novTipo=null;
+const TIPO_ICONS={"Licencia":"📋","Llegada tarde":"⏰","Retiro anticipado":"🚪","Ausencia":"❌","Otro":"📝"};
+let _novPersonaId=null,_novTipo=null,_editNovId=null,_novPendiente=null;
+
+function renderTiposGrid(tipoSel){
+  document.getElementById("mn-tipos-grid").innerHTML=(window.tiposNovedad||[]).map((t,i)=>{
+    const esLast=i===(window.tiposNovedad.length-1)&&window.tiposNovedad.length%2!==0;
+    const sel=t===tipoSel?" sel":"";
+    return "<button class=\"tipo-btn"+sel+"\" onclick=\"selTipo(this,\'"+escJsAttr(t)+"\')\" style=\""+(esLast?"grid-column:1/-1":"")+"\">"+(TIPO_ICONS[t]||"📌")+" "+esc(t)+"</button>";
+  }).join("");
+}
+function mostrarVistaForm(){
+  document.getElementById("mn-form-body").style.display="";
+  document.getElementById("mn-confirm-box").style.display="none";
+  document.getElementById("mn-actions-form").style.display="flex";
+  document.getElementById("mn-actions-confirm").style.display="none";
+}
 function abrirModalNovedad(pid){
-  _novPersonaId=pid||null;_novTipo=null;
+  _novPersonaId=pid||null;_novTipo=null;_editNovId=null;_novPendiente=null;
   document.getElementById("mn-detalle").value="";
   document.getElementById("mn-fecha").value=getFecha();
   document.getElementById("mn-lic-fechas").style.display="none";
   document.getElementById("mn-lic-inicio").value=getFecha();
   document.getElementById("mn-lic-fin").value=getFecha();
-  const TIPO_ICONS={"Licencia":"📋","Llegada tarde":"⏰","Retiro anticipado":"🚪","Ausencia":"❌","Otro":"📝"};
-  document.getElementById("mn-tipos-grid").innerHTML=(window.tiposNovedad||[]).map((t,i)=>{
-    const esLast=i===(window.tiposNovedad.length-1)&&window.tiposNovedad.length%2!==0;
-    return "<button class=\"tipo-btn\" onclick=\"selTipo(this,\'"+escJsAttr(t)+"\')\" style=\""+(esLast?"grid-column:1/-1":"")+"\">"+(TIPO_ICONS[t]||"📌")+" "+esc(t)+"</button>";
-  }).join("");
+  document.getElementById("mn-lic-estado").style.display="none";
+  document.getElementById("mn-lic-estado-sel").value="Pendiente";
+  renderTiposGrid(null);
   const input=document.getElementById("mn-persona-input");
   const selDiv=document.getElementById("mn-persona-seleccionada");
   if(pid){const p=window.nomina.find(x=>x.id===pid);input.value="";input.style.display="none";selDiv.style.display="";selDiv.textContent=p?p.nombre:"—";}
   else{input.value="";input.style.display="";selDiv.style.display="none";_novPersonaId=null;}
   document.getElementById("mn-title").textContent="Cargar novedad";
+  mostrarVistaForm();
+  document.getElementById("modal-novedad-overlay").classList.add("open");
+}
+function editarNovedad(id){
+  const n=window.novedades.find(x=>x.id===id);
+  if(!n)return;
+  _editNovId=id;_novPersonaId=n.personaId;_novTipo=n.tipo;_novPendiente=null;
+  document.getElementById("mn-detalle").value=n.detalle||"";
+  document.getElementById("mn-fecha").value=n.fecha||getFecha();
+  const esLic=n.tipo.toLowerCase().includes("licencia");
+  document.getElementById("mn-lic-fechas").style.display=esLic?"":"none";
+  document.getElementById("mn-lic-inicio").value=n.licIni||getFecha();
+  document.getElementById("mn-lic-fin").value=n.licFin||getFecha();
+  document.getElementById("mn-lic-estado").style.display=esLic?"":"none";
+  document.getElementById("mn-lic-estado-sel").value=n.estadoLic||"Pendiente";
+  renderTiposGrid(n.tipo);
+  const p=window.nomina.find(x=>x.id===n.personaId);
+  document.getElementById("mn-persona-input").style.display="none";
+  const selDiv=document.getElementById("mn-persona-seleccionada");
+  selDiv.style.display="";selDiv.textContent=p?p.nombre:"—";
+  document.getElementById("mn-title").textContent="Editar novedad";
+  mostrarVistaForm();
   document.getElementById("modal-novedad-overlay").classList.add("open");
 }
 function filtrarPersonasAC(){
@@ -917,27 +952,71 @@ function filtrarPersonasAC(){
   list.classList.add("open");
 }
 function selPersonaAC(id,nombre){_novPersonaId=id;document.getElementById("mn-persona-input").value=nombre;document.getElementById("mn-persona-list").classList.remove("open");}
-function selTipo(btn,tipo){_novTipo=tipo;document.querySelectorAll(".tipo-btn").forEach(b=>b.classList.remove("sel"));btn.classList.add("sel");document.getElementById("mn-lic-fechas").style.display=tipo.toLowerCase().includes("licencia")?"":"none";}
-async function guardarNovedad(){
+function selTipo(btn,tipo){
+  _novTipo=tipo;
+  document.querySelectorAll(".tipo-btn").forEach(b=>b.classList.remove("sel"));
+  btn.classList.add("sel");
+  const esLic=tipo.toLowerCase().includes("licencia");
+  document.getElementById("mn-lic-fechas").style.display=esLic?"":"none";
+  document.getElementById("mn-lic-estado").style.display=esLic?"":"none";
+}
+function revisarNovedad(){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
   if(!_novPersonaId){alert("Seleccioná una persona.");return;}
   if(!_novTipo){alert("Seleccioná el tipo.");return;}
   const fechaNov=document.getElementById("mn-fecha").value||getFecha();
-  const nov={id:Date.now().toString(),personaId:_novPersonaId,fecha:fechaNov,tipo:_novTipo,detalle:(document.getElementById("mn-detalle").value||"").trim()};
+  const nov={id:_editNovId||Date.now().toString(),personaId:_novPersonaId,fecha:fechaNov,tipo:_novTipo,detalle:(document.getElementById("mn-detalle").value||"").trim()};
   if(_novTipo.toLowerCase().includes("licencia")){
     const ini=document.getElementById("mn-lic-inicio").value;
     const fin=document.getElementById("mn-lic-fin").value;
     if(!ini||!fin){alert("Completá las fechas.");return;}
     if(fin<ini){alert("La fecha de fin debe ser igual o posterior al inicio.");return;}
     nov.licIni=ini;nov.licFin=fin;
+    nov.estadoLic=document.getElementById("mn-lic-estado-sel").value||"Pendiente";
   }
-  window.novedades.push(nov);
+  if(_editNovId){
+    const original=window.novedades.find(x=>x.id===_editNovId);
+    if(original&&original._chunk!==undefined) nov._chunk=original._chunk;
+  }
+  _novPendiente=nov;
+  renderConfirmNovedad(nov);
+  document.getElementById("mn-form-body").style.display="none";
+  document.getElementById("mn-confirm-box").style.display="";
+  document.getElementById("mn-actions-form").style.display="none";
+  document.getElementById("mn-actions-confirm").style.display="flex";
+}
+function renderConfirmNovedad(nov){
+  const p=window.nomina.find(x=>x.id===nov.personaId)||{};
+  const filas=[
+    ["Persona",esc(p.nombre||"—")],
+    ["Tipo",badgeNov(nov.tipo)],
+    ["Fecha",nov.licIni?fmtDate(nov.licIni)+" → "+fmtDate(nov.licFin):fmtDate(nov.fecha)],
+  ];
+  if(nov.estadoLic) filas.push(["Estado",badgeEstadoLic(nov.estadoLic)]);
+  filas.push(["Detalle",nov.detalle?esc(nov.detalle):"—"]);
+  document.getElementById("mn-confirm-ficha").innerHTML=filas.map(([k,v])=>
+    "<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>"
+  ).join("");
+}
+function volverFormNovedad(){
+  mostrarVistaForm();
+}
+async function confirmarGuardarNovedad(){
+  if(!_novPendiente)return;
+  const nov=_novPendiente;
+  if(_editNovId){
+    const idx=window.novedades.findIndex(x=>x.id===_editNovId);
+    if(idx>=0) window.novedades[idx]=nov; else window.novedades.push(nov);
+  } else {
+    window.novedades.push(nov);
+  }
   cerrarModal("modal-novedad-overlay");
   renderAll();
   try{
     await window._guardarNovedad(nov);
     toast("✅ Novedad guardada");
   }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
+  _novPendiente=null;
 }
 
 // ============================================================
