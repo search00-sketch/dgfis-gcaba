@@ -32,7 +32,7 @@ function getEstadoPersona(p, hoy) {
     if(p.fechaBaja && hoy<p.fechaBaja) return 'Activo';
     return 'Baja';
   }
-  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==='Licencia'&&n.licIni&&n.licFin);
+  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==='Licencia'&&n.licIni&&n.licFin&&n.estadoLic!=='Rechazada');
   if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin)) return 'Licencia';
   return 'Activo';
 }
