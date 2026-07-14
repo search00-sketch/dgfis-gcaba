@@ -1,3 +1,6 @@
+# Git worktrees (aislamiento temporal para tareas de agentes)
+.worktrees/
+
 # Logs
 logs
 *.log
