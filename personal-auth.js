@@ -12,29 +12,30 @@ const MODULO_ID = window.MODULO_ID;
 let loggedUser = null;
 window._soloLectura = false;
 
-// Revalida la sesión guardada contra Firestore en vez de confiar a ciegas en
-// localStorage (podría haber sido editado desde la consola del navegador).
-// Se llama desde init(), que ya corre después de que el script módulo dejó
-// listos window._fGetDoc/_fDoc/_db.
-//
-// Como estas 3 páginas son documentos separados (no una SPA), cada cambio de
-// pantalla vuelve a mostrar el overlay de login por defecto (vía CSS) hasta
-// que este chequeo termina. Si se espera el viaje a Firestore antes de
-// ocultarlo, el usuario ve el popup de usuario/contraseña "parpadear" cada
-// vez que navega. Por eso acá se confía primero en lo guardado en
-// localStorage para ocultar el overlay al instante, y la revalidación contra
-// Firestore corre después, en segundo plano — sólo se vuelve a mostrar el
-// login si esa revalidación falla (sesión editada, usuario borrado, etc.).
-async function restaurarSesion(){
+// Parte SIN Firebase de restaurarSesion(): si hay una sesión con forma
+// válida en localStorage, la muestra al instante (oculta el overlay, badge
+// de usuario, pestañas admin-only vía _onLogin). Se llama sola, más abajo
+// en este mismo archivo, apenas termina de cargar — un <script> clásico
+// como este no depende de red (salvo el propio archivo, mismo origen y
+// cacheado). Antes, ese "ocultar al instante" vivía sólo dentro de
+// restaurarSesion(), pero esa función recién se llamaba desde el <script
+// type="module"> de cada página, DESPUÉS de que ese script terminara de
+// bajar el SDK de Firebase completo desde el CDN — un viaje de red que
+// podía demorar y que hacía "parpadear" el popup de usuario/contraseña en
+// cada cambio de pantalla (estas 3 páginas son documentos separados, no una
+// SPA, así que el overlay vuelve a su estado visible por defecto en cada
+// una). Devuelve la sesión ya parseada (o null) para que restaurarSesion()
+// no tenga que releerla.
+function mostrarSesionCacheada(){
   const saved = localStorage.getItem("dgf_session");
-  if(!saved) return;
+  if(!saved) return null;
   let parsed;
   try{
     parsed = JSON.parse(saved);
     if(!parsed||!parsed.username) throw new Error("sesión inválida");
   }catch(e){
     localStorage.removeItem("dgf_session");
-    return;
+    return null;
   }
 
   loggedUser=parsed;
@@ -43,6 +44,18 @@ async function restaurarSesion(){
   document.getElementById("userBadge").textContent=loggedUser.nombre;
   actualizarPermisoUI();
   if (typeof window._onLogin === "function") window._onLogin(loggedUser);
+  return parsed;
+}
+mostrarSesionCacheada();
+
+// Revalida contra Firestore la sesión que mostrarSesionCacheada() ya dejó
+// mostrada de forma optimista (podría haber sido editada desde la consola
+// del navegador, o el usuario borrado/deshabilitado). Se llama desde el
+// script módulo de cada página, una vez que window._fGetDoc/_fDoc/_db están
+// listos — sólo se vuelve a mostrar el login si esta revalidación falla.
+async function restaurarSesion(){
+  const parsed = mostrarSesionCacheada();
+  if(!parsed) return;
 
   try {
     const snap = await window._fGetDoc(window._fDoc(window._db,"usuarios",parsed.username));

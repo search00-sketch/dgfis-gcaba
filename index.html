@@ -46,6 +46,24 @@ body{min-height:100vh;display:flex;flex-direction:column}
     </button>
   </div>
 </div>
+<script>
+// Oculta el overlay de login al instante si hay una sesión guardada en
+// localStorage, sin esperar a que cargue Firebase ni a la revalidación
+// contra Firestore que hace el script de más abajo — evita el "parpadeo"
+// del popup de usuario/contraseña en cada visita a esta página. Es un
+// <script> clásico (no depende de red salvo el propio archivo, mismo
+// origen) que corre apenas se parsea, antes de que el <script
+// type="module"> de abajo siquiera empiece a bajar el SDK de Firebase del
+// CDN. Si la revalidación de ese script falla, vuelve a mostrar el overlay.
+(function(){
+  try {
+    var s = localStorage.getItem('dgf_session');
+    if (s && JSON.parse(s).username) {
+      document.getElementById('loginOverlay').style.display = 'none';
+    }
+  } catch(e) {}
+})();
+</script>
 
 <!-- HEADER -->
 <header>
@@ -492,7 +510,14 @@ function showAdminToast(msg, type) {
     document.getElementById('loginOverlay').style.display = 'none';
     onLoginSuccess();
   } catch(e) {
+    // El script de arriba puede haber ocultado el overlay de forma
+    // optimista confiando en localStorage: si la revalidación falla acá,
+    // hay que volver a mostrarlo (si no, quedaría oculto sin sesión válida).
     localStorage.removeItem('dgf_session');
+    document.getElementById('loginOverlay').style.display = 'flex';
+    const err = document.getElementById('loginErr');
+    err.textContent = '⚠️ Se cerró tu sesión: ' + e.message;
+    err.style.display = 'block';
   }
 })();
 </script>
