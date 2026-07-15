@@ -14,7 +14,7 @@
 
 .grid-dist{grid-template-columns:2fr .9fr 1.4fr 1.2fr 50px}
 .grid-nom{grid-template-columns:2fr .9fr .9fr .8fr 120px}
-.grid-hist{grid-template-columns:90px 2fr 1fr 2fr 40px}
+.grid-hist{grid-template-columns:90px 2fr 1fr 2fr 64px}
 .bdg-nov-presente{color:#2e7d32}
 
 .tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
@@ -175,6 +175,13 @@
       <button type="button" class="btn btn-gris btn-sm" style="width:100%;text-align:left" onclick="toggleHistTipoDropdown(event)" id="hist-tipo-btn">Todos los tipos ▾</button>
       <div class="autocomplete-list" id="hist-tipo-list"></div>
     </div>
+    <select class="ctrl" id="hist-estado" onchange="renderHistorial()" style="min-width:170px">
+      <option value="">Todos los estados</option>
+      <option value="Pendiente">Pendiente</option>
+      <option value="Aprobada">Aprobada</option>
+      <option value="A la espera de más información">A la espera de más información</option>
+      <option value="Rechazada">Rechazada</option>
+    </select>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Desde<input type="date" class="pinput" id="hist-desde" onchange="renderHistorial()"></label>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Hasta<input type="date" class="pinput" id="hist-hasta" onchange="renderHistorial()"></label>
     <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosHistorial()">✕ Limpiar filtros</button>
@@ -281,36 +288,55 @@
   <div class="modal">
     <button class="modal-close" onclick="cerrarModal('modal-novedad-overlay')">✕</button>
     <div class="modal-title" id="mn-title">Cargar novedad</div>
-    <div class="form-field full" style="margin-bottom:12px">
-      <label class="fl">Fecha de la novedad</label>
-      <input type="date" class="form-input" id="mn-fecha">
-    </div>
-    <div class="form-field full" id="mn-persona-wrap" style="margin-bottom:12px">
-      <label class="fl">Persona</label>
-      <div class="autocomplete-wrap">
-        <input class="form-input" id="mn-persona-input" placeholder="Escribir nombre…" oninput="filtrarPersonasAC()" autocomplete="off">
-        <div class="autocomplete-list" id="mn-persona-list"></div>
+    <div id="mn-form-body">
+      <div class="form-field full" style="margin-bottom:12px">
+        <label class="fl">Fecha de la novedad</label>
+        <input type="date" class="form-input" id="mn-fecha">
       </div>
-      <div id="mn-persona-seleccionada" style="display:none;background:#e8f4fd;border-radius:0;padding:8px 10px;font-size:13px;margin-top:4px;font-weight:600"></div>
-    </div>
-    <div style="margin-bottom:12px">
-      <label class="fl">Tipo de novedad</label>
-      <div class="tipo-grid" style="margin-top:6px" id="mn-tipos-grid"></div>
-    </div>
-    <div id="mn-lic-fechas" style="display:none;margin-bottom:12px">
-      <div class="nov-info">📋 Las licencias se aplican a un rango de fechas.</div>
-      <div class="lic-dates">
-        <div class="form-field"><label class="fl">Inicio</label><input type="date" class="form-input" id="mn-lic-inicio"></div>
-        <div class="form-field"><label class="fl">Fin</label><input type="date" class="form-input" id="mn-lic-fin"></div>
+      <div class="form-field full" id="mn-persona-wrap" style="margin-bottom:12px">
+        <label class="fl">Persona</label>
+        <div class="autocomplete-wrap">
+          <input class="form-input" id="mn-persona-input" placeholder="Escribir nombre…" oninput="filtrarPersonasAC()" autocomplete="off">
+          <div class="autocomplete-list" id="mn-persona-list"></div>
+        </div>
+        <div id="mn-persona-seleccionada" style="display:none;background:#e8f4fd;border-radius:0;padding:8px 10px;font-size:13px;margin-top:4px;font-weight:600"></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label class="fl">Tipo de novedad</label>
+        <div class="tipo-grid" style="margin-top:6px" id="mn-tipos-grid"></div>
+      </div>
+      <div id="mn-lic-fechas" style="display:none;margin-bottom:12px">
+        <div class="nov-info">📋 Las licencias se aplican a un rango de fechas.</div>
+        <div class="lic-dates">
+          <div class="form-field"><label class="fl">Inicio</label><input type="date" class="form-input" id="mn-lic-inicio"></div>
+          <div class="form-field"><label class="fl">Fin</label><input type="date" class="form-input" id="mn-lic-fin"></div>
+        </div>
+      </div>
+      <div id="mn-lic-estado" style="display:none;margin-bottom:12px">
+        <label class="fl">Estado de la licencia</label>
+        <select class="form-input" id="mn-lic-estado-sel">
+          <option value="Pendiente">Pendiente</option>
+          <option value="Aprobada">Aprobada</option>
+          <option value="A la espera de más información">A la espera de más información</option>
+          <option value="Rechazada">Rechazada</option>
+        </select>
+      </div>
+      <div class="form-field full" style="margin-bottom:14px">
+        <label class="fl">Detalle (opcional)</label>
+        <textarea class="form-input" id="mn-detalle" rows="3" placeholder="Motivo, observaciones…"></textarea>
       </div>
     </div>
-    <div class="form-field full" style="margin-bottom:14px">
-      <label class="fl">Detalle (opcional)</label>
-      <textarea class="form-input" id="mn-detalle" rows="3" placeholder="Motivo, observaciones…"></textarea>
+    <div id="mn-confirm-box" style="display:none">
+      <div class="confirm-box"><strong>Revisá los datos antes de guardar:</strong></div>
+      <div class="ficha-grid" id="mn-confirm-ficha"></div>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-azul" onclick="guardarNovedad()">Guardar novedad</button>
+    <div class="modal-actions" id="mn-actions-form">
+      <button class="btn btn-azul" onclick="revisarNovedad()">Guardar novedad</button>
       <button class="btn btn-gris" onclick="cerrarModal('modal-novedad-overlay')">Cancelar</button>
+    </div>
+    <div class="modal-actions" id="mn-actions-confirm" style="display:none">
+      <button class="btn btn-verde" onclick="confirmarGuardarNovedad()">✅ Validar y guardar</button>
+      <button class="btn btn-gris" onclick="volverFormNovedad()">← Volver</button>
     </div>
   </div>
 </div>
@@ -362,7 +388,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=3"></script>
-<script src="personal-dominio.js?v=4"></script>
+<script src="personal-dominio.js?v=5"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <script type="module">
@@ -532,9 +558,13 @@ function renderNovedades(){
         +badgeTurno(p.turno)
         +(p.rol?"<span style=\"font-size:11px;color:#666\">"+esc(p.rol)+"</span>":"")
         +badgeNov(n.tipo)
+        +(n.estadoLic?badgeEstadoLic(n.estadoLic):"")
         +(extra?"<span style=\"font-size:12px;color:#555\">"+esc(extra)+"</span>":"")
         +(n.detalle?"<span style=\"font-size:12px;color:#555\">"+esc(n.detalle)+"</span>":"")
-        +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"margin-left:auto;background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer\">✕</button>"
+        +"<span style=\"margin-left:auto;display:flex;gap:8px\">"
+        +"<button onclick=\"editarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#2563a8;font-size:14px;cursor:pointer\">✏️</button>"
+        +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer\">✕</button>"
+        +"</span>"
         +"</div>";
     }).join("")
     :"<div style=\"color:#aaa;font-size:13px;padding:8px 0\">Sin novedades activas para hoy.</div>";
@@ -642,6 +672,7 @@ function historialFiltrado(){
   const tiposSel=tiposHistSeleccionados();
   const desde=document.getElementById("hist-desde")?.value||"";
   const hasta=document.getElementById("hist-hasta")?.value||"";
+  const filtEstado=document.getElementById("hist-estado")?.value||"";
 
   return [...window.novedades].reverse().filter(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
@@ -649,6 +680,8 @@ function historialFiltrado(){
     if(tiposSel.length&&!tiposSel.includes(n.tipo))return false;
     if(desde&&n.fecha<desde)return false;
     if(hasta&&n.fecha>hasta)return false;
+    const esLic=n.tipo.toLowerCase().includes("licencia");
+    if(filtEstado&&(esLic?(n.estadoLic||"Pendiente"):null)!==filtEstado)return false;
     return true;
   });
 }
@@ -669,6 +702,7 @@ function limpiarFiltrosHistorial(){
   document.getElementById("hist-tipo-list").querySelectorAll("input").forEach(i=>i.checked=false);
   document.getElementById("hist-desde").value="";
   document.getElementById("hist-hasta").value="";
+  document.getElementById("hist-estado").value="";
   renderHistorial();
 }
 function renderHistorial(){
@@ -699,12 +733,17 @@ function renderHistorial(){
   document.getElementById("hist-body").innerHTML=hist.map((n,i)=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:"—"};
     const extra=n.licIni?fmtDate(n.licIni)+"→"+fmtDate(n.licFin):"";
+    const detalleTxt=[extra,n.detalle].filter(Boolean).map(esc).join(" · ")||"—";
+    const estadoBadge=n.estadoLic?badgeEstadoLic(n.estadoLic):"";
     return "<div class=\"table-row grid-hist\" style=\""+(i%2===0?"":"background:#fafafa")+";\">"
       +"<span style=\"font-size:12px;color:#777\">"+fmtDate(n.fecha)+"</span>"
       +"<span style=\"font-size:13px;font-weight:600\">"+esc(p.nombre)+"</span>"
       +badgeNov(n.tipo)
-      +"<span style=\"font-size:12px;color:#555\">"+esc(n.detalle||extra||"—")+"</span>"
+      +"<span style=\"font-size:12px;color:#555\">"+estadoBadge+" "+detalleTxt+"</span>"
+      +"<span style=\"display:flex;gap:4px\">"
+      +"<button onclick=\"editarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#2563a8;cursor:pointer;font-size:13px\">✏️</button>"
       +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#c0392b;cursor:pointer;font-size:13px\">✕</button>"
+      +"</span>"
       +"</div>";
   }).join("");
 }
@@ -868,24 +907,59 @@ async function reactivarPersona(id){
 // ============================================================
 //  MODAL NOVEDAD
 // ============================================================
-let _novPersonaId=null,_novTipo=null;
+const TIPO_ICONS={"Licencia":"📋","Llegada tarde":"⏰","Retiro anticipado":"🚪","Ausencia":"❌","Otro":"📝"};
+let _novPersonaId=null,_novTipo=null,_editNovId=null,_novPendiente=null;
+
+function renderTiposGrid(tipoSel){
+  document.getElementById("mn-tipos-grid").innerHTML=(window.tiposNovedad||[]).map((t,i)=>{
+    const esLast=i===(window.tiposNovedad.length-1)&&window.tiposNovedad.length%2!==0;
+    const sel=t===tipoSel?" sel":"";
+    return "<button class=\"tipo-btn"+sel+"\" onclick=\"selTipo(this,\'"+escJsAttr(t)+"\')\" style=\""+(esLast?"grid-column:1/-1":"")+"\">"+(TIPO_ICONS[t]||"📌")+" "+esc(t)+"</button>";
+  }).join("");
+}
+function mostrarVistaForm(){
+  document.getElementById("mn-form-body").style.display="";
+  document.getElementById("mn-confirm-box").style.display="none";
+  document.getElementById("mn-actions-form").style.display="flex";
+  document.getElementById("mn-actions-confirm").style.display="none";
+}
 function abrirModalNovedad(pid){
-  _novPersonaId=pid||null;_novTipo=null;
+  _novPersonaId=pid||null;_novTipo=null;_editNovId=null;_novPendiente=null;
   document.getElementById("mn-detalle").value="";
   document.getElementById("mn-fecha").value=getFecha();
   document.getElementById("mn-lic-fechas").style.display="none";
   document.getElementById("mn-lic-inicio").value=getFecha();
   document.getElementById("mn-lic-fin").value=getFecha();
-  const TIPO_ICONS={"Licencia":"📋","Llegada tarde":"⏰","Retiro anticipado":"🚪","Ausencia":"❌","Otro":"📝"};
-  document.getElementById("mn-tipos-grid").innerHTML=(window.tiposNovedad||[]).map((t,i)=>{
-    const esLast=i===(window.tiposNovedad.length-1)&&window.tiposNovedad.length%2!==0;
-    return "<button class=\"tipo-btn\" onclick=\"selTipo(this,\'"+escJsAttr(t)+"\')\" style=\""+(esLast?"grid-column:1/-1":"")+"\">"+(TIPO_ICONS[t]||"📌")+" "+esc(t)+"</button>";
-  }).join("");
+  document.getElementById("mn-lic-estado").style.display="none";
+  document.getElementById("mn-lic-estado-sel").value="Pendiente";
+  renderTiposGrid(null);
   const input=document.getElementById("mn-persona-input");
   const selDiv=document.getElementById("mn-persona-seleccionada");
   if(pid){const p=window.nomina.find(x=>x.id===pid);input.value="";input.style.display="none";selDiv.style.display="";selDiv.textContent=p?p.nombre:"—";}
   else{input.value="";input.style.display="";selDiv.style.display="none";_novPersonaId=null;}
   document.getElementById("mn-title").textContent="Cargar novedad";
+  mostrarVistaForm();
+  document.getElementById("modal-novedad-overlay").classList.add("open");
+}
+function editarNovedad(id){
+  const n=window.novedades.find(x=>x.id===id);
+  if(!n)return;
+  _editNovId=id;_novPersonaId=n.personaId;_novTipo=n.tipo;_novPendiente=null;
+  document.getElementById("mn-detalle").value=n.detalle||"";
+  document.getElementById("mn-fecha").value=n.fecha||getFecha();
+  const esLic=n.tipo.toLowerCase().includes("licencia");
+  document.getElementById("mn-lic-fechas").style.display=esLic?"":"none";
+  document.getElementById("mn-lic-inicio").value=n.licIni||getFecha();
+  document.getElementById("mn-lic-fin").value=n.licFin||getFecha();
+  document.getElementById("mn-lic-estado").style.display=esLic?"":"none";
+  document.getElementById("mn-lic-estado-sel").value=n.estadoLic||"Pendiente";
+  renderTiposGrid(n.tipo);
+  const p=window.nomina.find(x=>x.id===n.personaId);
+  document.getElementById("mn-persona-input").style.display="none";
+  const selDiv=document.getElementById("mn-persona-seleccionada");
+  selDiv.style.display="";selDiv.textContent=p?p.nombre:"—";
+  document.getElementById("mn-title").textContent="Editar novedad";
+  mostrarVistaForm();
   document.getElementById("modal-novedad-overlay").classList.add("open");
 }
 function filtrarPersonasAC(){
@@ -898,27 +972,71 @@ function filtrarPersonasAC(){
   list.classList.add("open");
 }
 function selPersonaAC(id,nombre){_novPersonaId=id;document.getElementById("mn-persona-input").value=nombre;document.getElementById("mn-persona-list").classList.remove("open");}
-function selTipo(btn,tipo){_novTipo=tipo;document.querySelectorAll(".tipo-btn").forEach(b=>b.classList.remove("sel"));btn.classList.add("sel");document.getElementById("mn-lic-fechas").style.display=tipo.toLowerCase().includes("licencia")?"":"none";}
-async function guardarNovedad(){
+function selTipo(btn,tipo){
+  _novTipo=tipo;
+  document.querySelectorAll(".tipo-btn").forEach(b=>b.classList.remove("sel"));
+  btn.classList.add("sel");
+  const esLic=tipo.toLowerCase().includes("licencia");
+  document.getElementById("mn-lic-fechas").style.display=esLic?"":"none";
+  document.getElementById("mn-lic-estado").style.display=esLic?"":"none";
+}
+function revisarNovedad(){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
   if(!_novPersonaId){alert("Seleccioná una persona.");return;}
   if(!_novTipo){alert("Seleccioná el tipo.");return;}
   const fechaNov=document.getElementById("mn-fecha").value||getFecha();
-  const nov={id:Date.now().toString(),personaId:_novPersonaId,fecha:fechaNov,tipo:_novTipo,detalle:(document.getElementById("mn-detalle").value||"").trim()};
+  const nov={id:_editNovId||Date.now().toString(),personaId:_novPersonaId,fecha:fechaNov,tipo:_novTipo,detalle:(document.getElementById("mn-detalle").value||"").trim()};
   if(_novTipo.toLowerCase().includes("licencia")){
     const ini=document.getElementById("mn-lic-inicio").value;
     const fin=document.getElementById("mn-lic-fin").value;
     if(!ini||!fin){alert("Completá las fechas.");return;}
     if(fin<ini){alert("La fecha de fin debe ser igual o posterior al inicio.");return;}
     nov.licIni=ini;nov.licFin=fin;
+    nov.estadoLic=document.getElementById("mn-lic-estado-sel").value||"Pendiente";
   }
-  window.novedades.push(nov);
+  if(_editNovId){
+    const original=window.novedades.find(x=>x.id===_editNovId);
+    if(original&&original._chunk!==undefined) nov._chunk=original._chunk;
+  }
+  _novPendiente=nov;
+  renderConfirmNovedad(nov);
+  document.getElementById("mn-form-body").style.display="none";
+  document.getElementById("mn-confirm-box").style.display="";
+  document.getElementById("mn-actions-form").style.display="none";
+  document.getElementById("mn-actions-confirm").style.display="flex";
+}
+function renderConfirmNovedad(nov){
+  const p=window.nomina.find(x=>x.id===nov.personaId)||{};
+  const filas=[
+    ["Persona",esc(p.nombre||"—")],
+    ["Tipo",badgeNov(nov.tipo)],
+    ["Fecha",nov.licIni?fmtDate(nov.licIni)+" → "+fmtDate(nov.licFin):fmtDate(nov.fecha)],
+  ];
+  if(nov.estadoLic) filas.push(["Estado",badgeEstadoLic(nov.estadoLic)]);
+  filas.push(["Detalle",nov.detalle?esc(nov.detalle):"—"]);
+  document.getElementById("mn-confirm-ficha").innerHTML=filas.map(([k,v])=>
+    "<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>"
+  ).join("");
+}
+function volverFormNovedad(){
+  mostrarVistaForm();
+}
+async function confirmarGuardarNovedad(){
+  if(!_novPendiente)return;
+  const nov=_novPendiente;
+  if(_editNovId){
+    const idx=window.novedades.findIndex(x=>x.id===_editNovId);
+    if(idx>=0) window.novedades[idx]=nov; else window.novedades.push(nov);
+  } else {
+    window.novedades.push(nov);
+  }
   cerrarModal("modal-novedad-overlay");
   renderAll();
   try{
     await window._guardarNovedad(nov);
     toast("✅ Novedad guardada");
   }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
+  _novPendiente=null;
 }
 
 // ============================================================
@@ -1079,7 +1197,7 @@ function abrirModalVer(id){
   ].map(([k,v])=>"<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>").join("");
   const novP=[...window.novedades].filter(n=>n.personaId===id).reverse().slice(0,10);
   document.getElementById("mv-novs").innerHTML=novP.length?
-    novP.map(n=>"<div class=\"hist-row\">"+badgeNov(n.tipo)+" <strong>"+fmtDate(n.fecha)+"</strong>"+(n.licIni?" ("+fmtDate(n.licIni)+"→"+fmtDate(n.licFin)+")":"")+(n.detalle?" · "+esc(n.detalle):"")+"</div>").join("")
+    novP.map(n=>"<div class=\"hist-row\">"+badgeNov(n.tipo)+(n.estadoLic?" "+badgeEstadoLic(n.estadoLic):"")+" <strong>"+fmtDate(n.fecha)+"</strong>"+(n.licIni?" ("+fmtDate(n.licIni)+"→"+fmtDate(n.licFin)+")":"")+(n.detalle?" · "+esc(n.detalle):"")+"</div>").join("")
     :"<div style=\"color:#aaa;font-size:12px\">Sin novedades.</div>";
   document.getElementById("modal-ver-overlay").classList.add("open");
 }

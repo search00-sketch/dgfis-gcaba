@@ -10,6 +10,7 @@ const HORARIOS = {"Turno Mañana":"Lun–Vie 07:00–14:00","Turno Tarde":"Lun�
 const TURNOS_BADGE = {"Turno Mañana":"bdg-turno-man","Turno Tarde":"bdg-turno-tar","Turno Noche":"bdg-turno-noc","SADOFE Diurno":"bdg-sadofe-d","SADOFE Noche":"bdg-sadofe-n","Administrativo":"bdg-admin","Gerencia":"bdg-ger"};
 const NOV_CLASS    = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro","Presente":"bdg-nov-presente"};
 const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bdg-baja"};
+const ESTADO_LIC_CLASS = {"Pendiente":"bdg-admin","Aprobada":"bdg-activo","A la espera de más información":"bdg-nov-tar","Rechazada":"bdg-baja"};
 const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
 
 // Fecha de HOY en el huso horario LOCAL del navegador (no UTC): usar
@@ -31,7 +32,7 @@ function getEstadoPersona(p, hoy) {
     if(p.fechaBaja && hoy<p.fechaBaja) return 'Activo';
     return 'Baja';
   }
-  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==='Licencia'&&n.licIni&&n.licFin);
+  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==='Licencia'&&n.licIni&&n.licFin&&n.estadoLic!=='Rechazada');
   if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin)) return 'Licencia';
   return 'Activo';
 }
@@ -54,12 +55,13 @@ function esNovedadAusencia(tipo){
   return t.includes('licencia')||t.includes('ausencia')||t.includes('compensatorio')||t.includes('articulo')||t.includes('artículo');
 }
 function personaAusenteEnFecha(pid,fecha){
-  return (window.novedades||[]).some(n=>n.personaId===pid&&esNovedadAusencia(n.tipo)&&novedadCubreFecha(n,fecha));
+  return (window.novedades||[]).some(n=>n.personaId===pid&&esNovedadAusencia(n.tipo)&&n.estadoLic!=='Rechazada'&&novedadCubreFecha(n,fecha));
 }
 
 function badgeTurno(t){return `<span class="badge ${TURNOS_BADGE[t]||'bdg-admin'}">${esc(t||'—')}</span>`;}
 function badgeEstado(e){return `<span class="badge ${ESTADO_CLASS[e]||'bdg-activo'}">${esc(e)}</span>`;}
 function badgeNov(tipo){return `<span class="badge ${NOV_CLASS[tipo]||'bdg-nov-otro'}">${esc(tipo)}</span>`;}
+function badgeEstadoLic(e){return `<span class="badge ${ESTADO_LIC_CLASS[e]||'bdg-admin'}">${esc(e||'Pendiente')}</span>`;}
 
 function esFeriado(fecha) {
   return (window.feriados||[]).includes(fecha);
