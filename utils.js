@@ -24,3 +24,16 @@ function escJsAttr(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
+
+// ¿"texto" contiene TODAS las palabras de "query" (separadas por espacios),
+// en cualquier orden? Ambos deben venir ya normalizados de la misma forma
+// (minúsculas, con o sin acentos según la página) antes de llamarla. Permite
+// buscar "PEREZ CARLOS" y encontrar "PEREZ JUAN CARLOS" (salteando el
+// nombre del medio, sin importar el orden) en vez de exigir que lo tipeado
+// aparezca como substring contigua.
+function coincideTexto(texto, query) {
+  const q = (query||'').trim();
+  if (!q) return true;
+  const t = texto||'';
+  return q.split(/\s+/).every(tok => t.includes(tok));
+}

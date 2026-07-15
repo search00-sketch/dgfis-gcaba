@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <!-- config.js carga FIREBASE_CONFIG desde variables de entorno (NO hardcodeado) -->
 <script src="config.js"></script>
-<script src="utils.js?v=1"></script>
+<script src="utils.js?v=2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -458,7 +458,7 @@ function doSearch() {
   }
   curRes=window.DB.filter(function(r){
     if (qd && norm(r.dni).indexOf(qd)===-1) return false;
-    if (qn && norm(r.nombre).indexOf(qn)===-1) return false;
+    if (qn && !coincideTexto(norm(r.nombre), qn)) return false;
     if (ql && norm(r.locacion).indexOf(ql)===-1 && norm(r.barrio).indexOf(ql)===-1) return false;
     if (qe && norm(r.expediente).indexOf(qe)===-1) return false;
     return true;
@@ -488,12 +488,13 @@ function bc(e) {
   return 'bx';
 }
 function renderRes() {
+  var qn=norm(document.getElementById('qN').value.trim());
   var qs=[
-    norm(document.getElementById('qN').value.trim()),
+    qn,
     norm(document.getElementById('qD').value.trim()),
     norm(document.getElementById('qL').value.trim()),
     norm(document.getElementById('qE').value.trim())
-  ];
+  ].concat(qn?qn.split(/\s+/):[]); // palabras sueltas del nombre, para resaltar aunque no sean contiguas
   document.getElementById('cntDisplay').textContent=curRes.length;
   document.getElementById('resSection').style.display='block';
   document.getElementById('emptyState').style.display='none';

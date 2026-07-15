@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Novedades de Personal</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=1"></script>
+<script src="utils.js?v=2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=5">
 <style>
@@ -545,7 +545,7 @@ function renderNovedades(){
 
   const novHoy=novedadesHoy().filter(n=>n.tipo!=="Presente").filter(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
-    return !busq||(p.nombre||"").toLowerCase().includes(busq);
+    return coincideTexto((p.nombre||"").toLowerCase(),busq);
   }).filter(n=>!filtTipo||n.tipo===filtTipo);
 
   document.getElementById("nov-hoy-title").textContent="Novedades activas — "+fmtDate(hoy)+" ("+novHoy.length+")";
@@ -587,7 +587,7 @@ function renderCargaDiaria(){
     if(filtTurno && p.turno!==filtTurno) return false;
     if(filtZona==="__sin__" && dist[p.id]) return false;
     if(filtZona && filtZona!=="__sin__" && dist[p.id]!==filtZona) return false;
-    if(busq && !(p.nombre||"").toLowerCase().includes(busq)) return false;
+    if(busq && !coincideTexto((p.nombre||"").toLowerCase(),busq)) return false;
     return true;
   }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
   activos=ordenarLista(activos,"carga",(p,campo)=>campo==="zona"?(dist[p.id]||""):p[campo]);
@@ -676,7 +676,7 @@ function historialFiltrado(){
 
   return [...window.novedades].reverse().filter(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
-    if(busq&&!(p.nombre||"").toLowerCase().includes(busq))return false;
+    if(busq&&!coincideTexto((p.nombre||"").toLowerCase(),busq))return false;
     if(tiposSel.length&&!tiposSel.includes(n.tipo))return false;
     if(desde&&n.fecha<desde)return false;
     if(hasta&&n.fecha>hasta)return false;
@@ -770,7 +770,7 @@ function renderNomina(){
   const filtRol=document.getElementById("nom-rol").value;
   const filtEst=document.getElementById("nom-estado").value;
   let lista=window.nomina.filter(p=>{
-    if(busq&&!p.nombre.toLowerCase().includes(busq)&&!(p.dni||"").includes(busq))return false;
+    if(busq&&!coincideTexto(p.nombre.toLowerCase(),busq)&&!(p.dni||"").includes(busq))return false;
     if(filtTurno&&p.turno!==filtTurno)return false;
     if(filtRol&&(p.rol||"Inspector")!==filtRol)return false;
     const est=getEstadoPersona(p,hoy);
@@ -966,7 +966,7 @@ function filtrarPersonasAC(){
   const q=(document.getElementById("mn-persona-input").value||"").toLowerCase();
   const list=document.getElementById("mn-persona-list");
   if(!q||q.length<2){list.classList.remove("open");return;}
-  const res=window.nomina.filter(p=>p.estado!=="Baja"&&(p.nombre.toLowerCase().includes(q)||(p.dni||"").includes(q))).slice(0,10);
+  const res=window.nomina.filter(p=>p.estado!=="Baja"&&(coincideTexto(p.nombre.toLowerCase(),q)||(p.dni||"").includes(q))).slice(0,10);
   if(!res.length){list.classList.remove("open");return;}
   list.innerHTML=res.map(p=>"<div class=\"autocomplete-item\" onclick=\"selPersonaAC(\'"+p.id+"\',\'"+escJsAttr(p.nombre)+"\')\" >"+esc(p.nombre)+" <span style=\"color:#888;font-size:11px\">"+esc(p.rol||"")+"</span></div>").join("");
   list.classList.add("open");
