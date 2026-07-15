@@ -55,7 +55,7 @@ function esNovedadAusencia(tipo){
   return t.includes('licencia')||t.includes('ausencia')||t.includes('compensatorio')||t.includes('articulo')||t.includes('artículo');
 }
 function personaAusenteEnFecha(pid,fecha){
-  return (window.novedades||[]).some(n=>n.personaId===pid&&esNovedadAusencia(n.tipo)&&novedadCubreFecha(n,fecha));
+  return (window.novedades||[]).some(n=>n.personaId===pid&&esNovedadAusencia(n.tipo)&&n.estadoLic!=='Rechazada'&&novedadCubreFecha(n,fecha));
 }
 
 function badgeTurno(t){return `<span class="badge ${TURNOS_BADGE[t]||'bdg-admin'}">${esc(t||'—')}</span>`;}
