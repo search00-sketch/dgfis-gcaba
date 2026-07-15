@@ -13,6 +13,23 @@ const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bd
 const ESTADO_LIC_CLASS = {"Pendiente":"bdg-admin","Aprobada":"bdg-activo","A la espera de más información":"bdg-nov-tar","Rechazada":"bdg-baja"};
 const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
 
+// Mapea el texto libre de "Jefatura" (como venía del Excel histórico, ya
+// deprecado como campo propio) al Rol que le corresponde. Los títulos de
+// jefatura/gerencia que no tienen un Rol fijo equivalente en el sistema
+// (ej: "SUB GERENTE", "JEFE SECCION") se devuelven tal cual, para no perder
+// esa información aunque no encajen en las 5 opciones de ROLES.
+const JEFATURA_A_ROL = {
+  "INSPECTOR/A":"Inspector","INSPECTOR":"Inspector",
+  "COORDINADOR/A GENERAL":"Coordinador General",
+  "COORDINADOR/A":"Coordinador Zonal","COORDINADOR":"Coordinador Zonal","COORDINADOR TT":"Coordinador Zonal",
+  "ADMINISTRATIVO/A":"Administrativo","ADMINISTRATIVO":"Administrativo",
+};
+function rolDesdeJefatura(jefatura){
+  const j=(jefatura||"").trim();
+  if(!j) return null;
+  return JEFATURA_A_ROL[j]||j;
+}
+
 // Fecha de HOY en el huso horario LOCAL del navegador (no UTC): usar
 // new Date().toISOString() acá corre la fecha un día para adelante entre
 // las 21:00 y la medianoche en Argentina (UTC-3), justo cuando

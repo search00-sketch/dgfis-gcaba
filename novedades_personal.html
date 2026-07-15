@@ -388,7 +388,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=4"></script>
-<script src="personal-dominio.js?v=5"></script>
+<script src="personal-dominio.js?v=6"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <script type="module">
@@ -794,7 +794,7 @@ function renderNomina(){
     return "<div class=\"table-row\" style=\"grid-template-columns:2fr .9fr .8fr .8fr .8fr 120px;"+(est==="Baja"?"background:#fff5f5":"")+"\">"
       +"<div><div class=\"nombre-cell\" style=\"color:"+(est==="Baja"?"#c0392b":"#222")+"\">"
       +esc(p.nombre)+(rol==="Chofer"?" 🚗":"")+"</div>"
-      +"<div class=\"sub-cell\">"+esc(p.jefatura||"—")+"</div></div>"
+      +"<div class=\"sub-cell\">"+esc(p.coordinador||"—")+"</div></div>"
       +badgeTurno(p.turno)
       +"<span style=\"font-size:12px;color:#555\">"+esc(rol)+"</span>"
       +"<span style=\"font-size:12px;color:#555\">"+esc(p.dni||"—")+"</span>"
@@ -816,9 +816,14 @@ function renderNomina(){
 let _editPersonaId=null;
 function abrirModalPersona(id){
   _editPersonaId=id;
-  const p=id?window.nomina.find(x=>x.id===id):{id:"",nombre:"",turno:"",rol:"Inspector",cuil:"",dni:"",coordinador:"",jefatura:"",modalidad:"",genero:"",celular:"",estado:"Activo"};
+  const p=id?window.nomina.find(x=>x.id===id):{id:"",nombre:"",turno:"",rol:"Inspector",cuil:"",dni:"",coordinador:"",modalidad:"",genero:"",celular:"",estado:"Activo",mailPersonal:"",fechaIngreso:"",domicilio:"",barrio:""};
   document.getElementById("mp-title").textContent=id?"Editar persona":"Nueva persona";
   const rol=p.rol||"Inspector";
+  // Algunas personas migradas desde la vieja "Jefatura" tienen un Rol que no
+  // es ninguna de las 5 opciones fijas (ej: "SUB GERENTE"). Se agrega como
+  // opción extra seleccionada para no perder ese valor si se guarda sin
+  // tocar el campo — si el admin elige otro Rol de la lista, ahí sí se pisa.
+  const rolExtra=ROLES.includes(rol)?"":"<option value=\""+esc(rol)+"\" selected>"+esc(rol)+"</option>";
   document.getElementById("mp-form").innerHTML=
     "<div class=\"form-field full\"><label class=\"fl\">Apellido y Nombre *</label><input class=\"form-input\" id=\"fp-nombre\" value=\""+esc(p.nombre||"")+"\"></div>"
     +"<div class=\"form-field\"><label class=\"fl\">DNI</label><input class=\"form-input\" id=\"fp-dni\" value=\""+esc(p.dni||"")+"\"></div>"
@@ -826,6 +831,7 @@ function abrirModalPersona(id){
     +"<div class=\"form-field\"><label class=\"fl\">Rol</label>"
     +"<select class=\"form-input\" id=\"fp-rol\">"
     +ROLES.map(r=>"<option value=\""+r+"\""+( rol===r?" selected":"")+">"+r+"</option>").join("")
+    +rolExtra
     +"</select></div>"
     +"<div class=\"form-field\"><label class=\"fl\">Turno</label>"
     +"<select class=\"form-input\" id=\"fp-turno\" onchange=\"actualizarHorario()\">"
@@ -836,9 +842,12 @@ function abrirModalPersona(id){
     +"<option value=\"Activo\""+( p.estado==="Activo"?" selected":"")+">Activo</option>"
     +"<option value=\"Baja\""+( p.estado==="Baja"?" selected":"")+">Baja</option>"
     +"</select></div>"
-    +"<div class=\"form-field\"><label class=\"fl\">Jefatura</label><input class=\"form-input\" id=\"fp-jefatura\" value=\""+esc(p.jefatura||"")+"\"></div>"
     +"<div class=\"form-field\"><label class=\"fl\">Coordinador</label><input class=\"form-input\" id=\"fp-coordinador\" value=\""+esc(p.coordinador||"")+"\"></div>"
-    +"<div class=\"form-field\"><label class=\"fl\">Celular</label><input class=\"form-input\" id=\"fp-celular\" value=\""+esc(p.celular||"")+"\"></div>";
+    +"<div class=\"form-field\"><label class=\"fl\">Celular</label><input class=\"form-input\" id=\"fp-celular\" value=\""+esc(p.celular||"")+"\"></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Mail personal</label><input class=\"form-input\" type=\"email\" id=\"fp-mail\" value=\""+esc(p.mailPersonal||"")+"\"></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Fecha de ingreso</label><input class=\"form-input\" type=\"date\" id=\"fp-ingreso\" value=\""+esc(p.fechaIngreso||"")+"\"></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Domicilio</label><input class=\"form-input\" id=\"fp-domicilio\" value=\""+esc(p.domicilio||"")+"\"></div>"
+    +"<div class=\"form-field\"><label class=\"fl\">Barrio</label><input class=\"form-input\" id=\"fp-barrio\" value=\""+esc(p.barrio||"")+"\"></div>";
   actualizarHorario();
   document.getElementById("modal-persona-overlay").classList.add("open");
 }
@@ -859,9 +868,12 @@ async function guardarPersona(){
     cuil:document.getElementById("fp-cuil").value.trim(),
     turno:document.getElementById("fp-turno").value,
     estado:document.getElementById("fp-estado").value,
-    jefatura:document.getElementById("fp-jefatura").value.trim(),
     coordinador:document.getElementById("fp-coordinador").value.trim(),
     celular:document.getElementById("fp-celular").value.trim(),
+    mailPersonal:document.getElementById("fp-mail").value.trim(),
+    fechaIngreso:document.getElementById("fp-ingreso").value,
+    domicilio:document.getElementById("fp-domicilio").value.trim(),
+    barrio:document.getElementById("fp-barrio").value.trim(),
   };
   let personaGuardada;
   if(_editPersonaId){const idx=window.nomina.findIndex(x=>x.id===_editPersonaId);if(idx>=0){window.nomina[idx]={...window.nomina[idx],...datos};personaGuardada=window.nomina[idx];}}
@@ -1068,7 +1080,7 @@ function exportNominaExcel(personas,filename,sheetName){
   const COLS=[
     {k:"nombre",h:"APELLIDO Y NOMBRE"},{k:"_estado",h:"ESTADO"},{k:"rol",h:"ROL"},
     {k:"turno",h:"TURNO"},{k:"_turnoDesc",h:"DESC. TURNO"},{k:"dni",h:"DNI"},
-    {k:"cuil",h:"CUIL"},{k:"jefatura",h:"JEFATURA"},{k:"coordinador",h:"COORDINADOR"},
+    {k:"cuil",h:"CUIL"},{k:"coordinador",h:"COORDINADOR"},
     {k:"celular",h:"CELULAR"},{k:"mailPersonal",h:"MAIL PERSONAL"},
     {k:"fechaIngreso",h:"FECHA INGRESO"},{k:"domicilio",h:"DOMICILIO"},
     {k:"barrio",h:"BARRIO"},{k:"motivoBaja",h:"MOTIVO BAJA"},{k:"fechaBaja",h:"FECHA BAJA"},
@@ -1084,7 +1096,7 @@ function exportNominaExcel(personas,filename,sheetName){
     return row;
   });
   const ws=XLSX.utils.json_to_sheet(rows,{header:COLS.map(c=>c.h)});
-  ws["!cols"]=[{wch:35},{wch:10},{wch:20},{wch:18},{wch:22},{wch:12},{wch:14},{wch:18},{wch:22},{wch:14},{wch:28},{wch:12},{wch:30},{wch:18},{wch:25},{wch:12}];
+  ws["!cols"]=[{wch:35},{wch:10},{wch:20},{wch:18},{wch:22},{wch:12},{wch:14},{wch:22},{wch:14},{wch:28},{wch:12},{wch:30},{wch:18},{wch:25},{wch:12}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheetName||"NOMINA");
   XLSX.writeFile(wb,filename);toast("✅ Excel exportado");
 }
@@ -1128,13 +1140,18 @@ async function cargarNominaExcel(){
       rowsA.forEach((row,i)=>{
         const nombre=cv(row["APELLIDO Y NOMBRE"]);if(!nombre)return;
         const dni=cvNum(row["DNI"]);
+        // El Rol ya cargado a mano (o migrado antes) siempre gana: así una
+        // reimportación del Excel nunca pisa un Rol correcto con el valor
+        // por defecto. Sólo se deriva de la columna JEFATURA del Excel para
+        // gente nueva o que todavía no tiene Rol asignado.
+        const rolPrevio=existMap[dni]&&existMap[dni].rol;
         const rec={
           id:existMap[dni]?existMap[dni].id:(Date.now()+i).toString(),
-          nombre:nombre.toUpperCase(),rol:"Inspector",
+          nombre:nombre.toUpperCase(),rol:rolPrevio||rolDesdeJefatura(cv(row["JEFATURA"]))||"Inspector",
           turno:normTurno(row["TURNO"]),cuil:cvNum(row["CUIL"]),dni,
           cbu:cv(row["CBU"]),mailPersonal:cv(row["MAIL PERSONAL"]),
           mailInstitucional:cv(row["MAIL INSTITUCIONAL"]),
-          coordinador:cv(row["COORDINADOR"]),jefatura:cv(row["JEFATURA"]),
+          coordinador:cv(row["COORDINADOR"]),
           modalidad:cv(row["MODALIDAD"]),genero:cv(row["GENERO"]),
           fechaNacimiento:fmtF(row["FECHA DE NACIMIENTO"]),fechaIngreso:fmtF(row["FECHA DE INGRESO"]),
           celular:cv(row["CELULAR PARTICULAR"]),
@@ -1154,7 +1171,7 @@ async function cargarNominaExcel(){
         const ap=cv(row["APELLIDO"]);const nm=cv(row["NOMBRE"]);
         const nombre=(ap+(nm?" "+nm:"")).trim().toUpperCase();if(!nombre)return;
         const dni=cvNum(row["DNI"]);if(dni&&existMap[dni])return;
-        recs.push({id:(Date.now()+50000+i).toString(),nombre,rol:"Inspector",turno:normTurno(row["TURNO"]),cuil:cvNum(row["CUIL"]),dni,jefatura:cv(row["PUESTO"]),modalidad:cv(row["MODALIDAD"]),genero:cv(row["GENERO"]),fechaIngreso:fmtF(row["FECHA DE INGRESO"]),celular:cv(row["CELULAR PARTICULAR"]),domicilio:cv(row["DOMICILIO"]),barrio:cv(row["BARRIO/LOCALIDAD"]),estado:"Baja",coordinador:"",mailPersonal:"",agentes_calle:""});
+        recs.push({id:(Date.now()+50000+i).toString(),nombre,rol:rolDesdeJefatura(cv(row["PUESTO"]))||"Inspector",turno:normTurno(row["TURNO"]),cuil:cvNum(row["CUIL"]),dni,modalidad:cv(row["MODALIDAD"]),genero:cv(row["GENERO"]),fechaIngreso:fmtF(row["FECHA DE INGRESO"]),celular:cv(row["CELULAR PARTICULAR"]),domicilio:cv(row["DOMICILIO"]),barrio:cv(row["BARRIO/LOCALIDAD"]),estado:"Baja",coordinador:"",mailPersonal:"",agentes_calle:""});
         nuevos++;
       });
       pfill.style.width="55%";
@@ -1194,6 +1211,7 @@ function abrirModalVer(id){
   document.getElementById("mv-ficha").innerHTML=[
     ["Turno",badgeTurno(p.turno)],["Rol",esc(p.rol||"Inspector")],["Estado",badgeEstado(est)],
     ["DNI",p.dni||"—"],["Celular",p.celular||"—"],["Ingreso",fmtDate(p.fechaIngreso)||"—"],
+    ["Mail",esc(p.mailPersonal||"—")],["Domicilio",esc(p.domicilio||"—")],["Barrio",esc(p.barrio||"—")],
   ].map(([k,v])=>"<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>").join("");
   const novP=[...window.novedades].filter(n=>n.personaId===id).reverse().slice(0,10);
   document.getElementById("mv-novs").innerHTML=novP.length?

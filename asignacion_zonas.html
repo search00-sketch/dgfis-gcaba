@@ -244,7 +244,7 @@
 
 <script>window.MODULO_ID='asignacion';</script>
 <script src="personal-auth.js?v=4"></script>
-<script src="personal-dominio.js?v=5"></script>
+<script src="personal-dominio.js?v=6"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <script type="module">
@@ -612,7 +612,7 @@ function exportarDia(){
   const activos=window.nomina.filter(p=>getEstadoPersona(p,fechaAsig)!=="Baja");
   const rows=activos.filter(p=>dist[p.id]).map(p=>({
     "Nombre":p.nombre,"Turno":p.turno,"Zona":dist[p.id]||"",
-    "Jefatura":p.jefatura||"","Coordinador":p.coordinador||"",
+    "Rol":p.rol||"Inspector","Coordinador":p.coordinador||"",
     "Celular":p.celular||"","Novedad":novsDePersonaHoy(p.id).map(n=>n.tipo).join(", ")||""
   }));
   if(!rows.length){toast("Sin personal asignado para exportar.");return;}

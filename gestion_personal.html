@@ -185,7 +185,7 @@
 
 <script>window.MODULO_ID='personal';</script>
 <script src="personal-auth.js?v=4"></script>
-<script src="personal-dominio.js?v=5"></script>
+<script src="personal-dominio.js?v=6"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <!-- Firebase module -->
@@ -445,7 +445,7 @@ function renderDist(){
     return `<div class="table-row grid-dist">
       <div>
         <div class="nombre-cell">${esc(p.nombre)}</div>
-        <div class="sub-cell">${esc(p.jefatura||'—')} · ${esc(p.celular||'—')}</div>
+        <div class="sub-cell">${esc(p.rol||'Inspector')} · ${esc(p.celular||'—')}</div>
       </div>
       <div>${badgeTurno(p.turno)}</div>
       <div style="font-size:13px;color:${zona?'#222;font-weight:600':'#aaa'}">${esc(zona||'Sin asignar')}</div>
@@ -494,7 +494,7 @@ function renderNomina(){
     return `<div class="table-row grid-nom" style="${est==='Baja'?'background:#fff5f5':''}">
       <div>
         <div class="nombre-cell" style="color:${est==='Baja'?'#c0392b':'#222'}">${esc(p.nombre)}</div>
-        <div class="sub-cell">${esc(p.jefatura||'—')} · ${esc(p.coordinador||'—')}</div>
+        <div class="sub-cell">${esc(p.coordinador||'—')}</div>
       </div>
       <div>${badgeTurno(p.turno)}</div>
       <div style="font-size:12px;color:#555">${esc(p.rol||'Inspector')}</div>
@@ -617,7 +617,7 @@ function abrirModalVer(id){
   document.getElementById('mv-ficha').innerHTML=[
     ['Turno',badgeTurno(p.turno)],['Estado',badgeEstado(est)],
     ['DNI',esc(p.dni||'—')],['CUIL',esc(p.cuil||'—')],
-    ['Jefatura',esc(p.jefatura||'—')],['Coordinador',esc(p.coordinador||'—')],
+    ['Rol',esc(p.rol||'Inspector')],['Coordinador',esc(p.coordinador||'—')],
     ['Modalidad',esc(p.modalidad||'—')],['Celular',esc(p.celular||'—')],
   ].map(([k,v])=>`<div class="ficha-item"><div class="ficha-key">${k}</div><div class="ficha-val">${v}</div></div>`).join('');
 
@@ -665,7 +665,7 @@ function exportarDia(){
   const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja');
   const rows=activos.filter(p=>dist[p.id]).map(p=>({
     'Nombre':p.nombre,'Turno':p.turno,'Zona':dist[p.id]||'',
-    'Jefatura':p.jefatura||'','Coordinador':p.coordinador||'',
+    'Rol':p.rol||'Inspector','Coordinador':p.coordinador||'',
     'Celular':p.celular||'','Novedad':novsDePersonaHoy(p.id).map(n=>n.tipo).join(', ')||''
   }));
   if(!rows.length){toast('Sin personal asignado para exportar.');return;}
@@ -862,7 +862,7 @@ function exportNominaExcel(personas, filename, sheetName) {
     { k:'dni',                h:'DNI'                        },
     { k:'cuil',               h:'CUIL'                       },
     { k:'cbu',                h:'CBU'                        },
-    { k:'jefatura',           h:'JEFATURA'                   },
+    { k:'rol',                h:'ROL'                        },
     { k:'coordinador',        h:'COORDINADOR'                },
     { k:'modalidad',          h:'MODALIDAD'                  },
     { k:'genero',             h:'GÉNERO'                     },
@@ -900,6 +900,7 @@ function exportNominaExcel(personas, filename, sheetName) {
     COLS.forEach(c => {
       if (c.k === '_turnoDesc') row[c.h] = TURNO_DESC[p.turno] || '';
       else if (c.k === 'estado') row[c.h] = est;
+      else if (c.k === 'rol') row[c.h] = p.rol || 'Inspector';
       else row[c.h] = p[c.k] || '';
     });
     return row;
