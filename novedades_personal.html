@@ -609,12 +609,14 @@ function renderCargaDiaria(){
 
     let estadoHtml;
     if(editable){
-      estadoHtml="<select class=\"ctrl carga-select\" data-pid=\""+p.id+"\" style=\"width:100%\">"
+      estadoHtml="<select class=\"ctrl carga-select\" data-pid=\""+p.id+"\" style=\"width:100%\" onchange=\"onCargaEstadoChange(this)\">"
         +tipos.map(t=>"<option value=\""+esc(t)+"\""+(t===valorActual?" selected":"")+">"+esc(t)+"</option>").join("")
-        +"</select>";
+        +"</select>"
+        +"<input type=\"text\" class=\"ctrl carga-obs\" placeholder=\"Observación (opcional)\" style=\"display:none;margin-top:4px;width:100%;font-size:12px;padding:4px 6px\">";
     } else {
       const extra=existente.licIni?" ("+fmtDate(existente.licIni)+" al "+fmtDate(existente.licFin)+")":"";
       estadoHtml=badgeNov(existente.tipo)+(extra?"<span style=\"font-size:11px;color:#888;margin-left:6px\">"+esc(extra)+"</span>":"")
+        +(existente.detalle?"<div style=\"font-size:11px;color:#888;margin-top:2px\">"+esc(existente.detalle)+"</div>":"")
         +"<span style=\"font-size:10px;color:#aaa;margin-left:6px\" title=\"Ya tiene un registro para este día — editalo desde Historial o abajo en Novedades activas\">🔒</span>";
     }
 
@@ -631,18 +633,28 @@ function renderCargaDiaria(){
     activos.length+" personas · "+conExcepcion+" ya con excepción cargada"+(editables?" · "+editables+" pendientes de guardar":"");
 }
 
+function onCargaEstadoChange(sel){
+  const obs=sel.parentElement.querySelector(".carga-obs");
+  if(!obs) return;
+  if(sel.value==="Presente"){ obs.style.display="none"; obs.value=""; }
+  else { obs.style.display="block"; }
+}
+
 async function guardarCargaDiaria(){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
   const fecha=getFecha();
   const selects=document.querySelectorAll(".carga-select");
   if(!selects.length){toast("No hay personas para cargar.");return;}
-  const registros=[...selects].map(sel=>({
-    id:sel.dataset.pid+"_"+fecha,
-    personaId:sel.dataset.pid,
-    fecha:fecha,
-    tipo:sel.value,
-    detalle:"",
-  }));
+  const registros=[...selects].map(sel=>{
+    const obs=sel.parentElement.querySelector(".carga-obs");
+    return{
+      id:sel.dataset.pid+"_"+fecha,
+      personaId:sel.dataset.pid,
+      fecha:fecha,
+      tipo:sel.value,
+      detalle:(sel.value!=="Presente"&&obs)?obs.value.trim():"",
+    };
+  });
   toast("Guardando…");
   try{
     await window._guardarNovedadesBulk(registros);
