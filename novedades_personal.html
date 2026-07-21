@@ -1418,10 +1418,13 @@ function parsearAsistenciaExcel(wb, soloHoja, soloTipo) {
       });
 
       const filaObs = aoa[ri+2] || [];
-      const obs = filaObs.filter(v => v && String(v).trim()).join(" | ").slice(0,200);
 
-      // Recopilar novedades del día
+      // Recopilar novedades del día y la observación de esa misma columna
+      // (antes se unían TODAS las celdas de la fila de observaciones del mes
+      // entero en un solo string y se repetía en cada novedad de la persona;
+      // ahora cada novedad se queda sólo con la celda de su propio día).
       const diasNovedad = {};
+      const diasObs = {};
       Object.entries(colFechas).forEach(([ci, fecha]) => {
         const val = fila[parseInt(ci)];
         if(!val) return;
@@ -1430,6 +1433,8 @@ function parsearAsistenciaExcel(wb, soloHoja, soloTipo) {
         const tipo = ASIST_TIPO_MAP[valStr] || valStr;
         if(soloTipo && tipo !== soloTipo) return;
         diasNovedad[fecha] = tipo;
+        const obsVal = filaObs[parseInt(ci)];
+        diasObs[fecha] = (obsVal!==null && obsVal!==undefined) ? String(obsVal).trim() : "";
       });
 
       if(Object.keys(diasNovedad).length > 0) {
@@ -1452,7 +1457,11 @@ function parsearAsistenciaExcel(wb, soloHoja, soloTipo) {
           });
 
           grupos.forEach(g => {
-            const base = {nombreExcel:nombreTrim, personaId:persona.id, tipo:g.tipo, detalle:obs};
+            // Observación del grupo: sólo las celdas de los días que forman
+            // parte de ESTE grupo (para un rango de varias fechas, une nada
+            // más que esas fechas — no las de todo el mes de la persona).
+            const detalleGrupo = g.fechas.map(f => diasObs[f] || "").filter(Boolean).join(" | ").slice(0,200);
+            const base = {nombreExcel:nombreTrim, personaId:persona.id, tipo:g.tipo, detalle:detalleGrupo};
             if(ASIST_RANGO.has(g.tipo) && g.fechas.length > 1) {
               resultados.push({...base, fecha:g.fechas[0], licIni:g.fechas[0], licFin:g.fechas[g.fechas.length-1]});
             } else {
@@ -1477,22 +1486,40 @@ async function previsualizarAsistencia() {
     const soloTipo = document.getElementById("asist-filtro-tipo").value;
     const {novedades, noEncontrados} = parsearAsistenciaExcel(_asistWB, soloHoja, soloTipo);
 
-    // Detectar duplicados contra las novedades ya cargadas
-    const yaExisten = new Set(window.novedades.map(n => n.personaId+"|"+n.fecha+"|"+n.tipo));
-    const nuevas    = novedades.filter(n => !yaExisten.has(n.personaId+"|"+n.fecha+"|"+n.tipo));
-    const dupCount  = novedades.length - nuevas.length;
+    // Detectar duplicados contra las novedades ya cargadas — indexadas por
+    // persona+fecha+tipo para poder comparar el detalle, no sólo si existe.
+    const existentes = {};
+    window.novedades.forEach(n => { existentes[n.personaId+"|"+n.fecha+"|"+n.tipo] = n; });
+
+    const paraImportar = [];
+    let sinCambios = 0;
+    novedades.forEach(n => {
+      const existente = existentes[n.personaId+"|"+n.fecha+"|"+n.tipo];
+      if(!existente) { paraImportar.push({...n, _accion:"nueva"}); return; }
+      // Sólo "Llegada tarde" se re-considera si cambió el horario (detalle);
+      // el resto de los tipos sigue tratándose como duplicado sin más, igual que antes.
+      if(n.tipo === "Llegada tarde" && (existente.detalle||"") !== (n.detalle||"")) {
+        paraImportar.push({...n, _accion:"actualizar", _existenteId:existente.id});
+        return;
+      }
+      sinCambios++;
+    });
+    const nuevasCount     = paraImportar.filter(n => n._accion==="nueva").length;
+    const actualizarCount = paraImportar.filter(n => n._accion==="actualizar").length;
 
     // Agrupar por persona para la preview
     const porPersona = {};
-    nuevas.forEach(n => {
+    paraImportar.forEach(n => {
       const p = window.nomina.find(x => x.id === n.personaId) || {nombre:n.nombreExcel};
       if(!porPersona[p.nombre]) porPersona[p.nombre] = [];
       porPersona[p.nombre].push(n);
     });
 
     document.getElementById("asist-preview-title").textContent =
-      nuevas.length + " novedades nuevas a importar" +
-      (dupCount > 0 ? " (" + dupCount + " ya existentes, se omiten)" : "") +
+      nuevasCount + " novedades nuevas" +
+      (actualizarCount > 0 ? ", " + actualizarCount + " para actualizar horario" : "") +
+      " a importar" +
+      (sinCambios > 0 ? " (" + sinCambios + " ya existentes sin cambios, se omiten)" : "") +
       " — " + Object.keys(porPersona).length + " personas";
 
     document.getElementById("asist-preview-body").innerHTML =
@@ -1502,7 +1529,9 @@ async function previsualizarAsistencia() {
         "<div style=\"display:flex;flex-wrap:wrap;gap:4px\">" +
         novs.map(n =>
           "<span style=\"font-size:11px;background:#f0f4f8;border-radius:0;padding:2px 7px\">" +
+          (n._accion==="actualizar"?"🔄 ":"") +
           badgeNov(n.tipo) + " " + (n.licIni ? fmtDate(n.licIni)+" → "+fmtDate(n.licFin) : fmtDate(n.fecha)) +
+          (n.detalle?" ("+esc(n.detalle)+")":"") +
           "</span>"
         ).join("") + "</div></div>"
       ).join("") || "<div style=\"padding:16px;color:#aaa;text-align:center\">Sin novedades nuevas.</div>";
@@ -1513,11 +1542,11 @@ async function previsualizarAsistencia() {
       : "";
 
     document.getElementById("asist-preview").style.display = "block";
-    _asistNovedadesParsed = nuevas;
+    _asistNovedadesParsed = paraImportar;
 
     const ib = document.getElementById("asistImportBtn");
-    if(nuevas.length > 0) { ib.disabled = false; ib.style.opacity = "1"; }
-    else                  { ib.disabled = true;  ib.style.opacity = ".45"; }
+    if(paraImportar.length > 0) { ib.disabled = false; ib.style.opacity = "1"; }
+    else                        { ib.disabled = true;  ib.style.opacity = ".45"; }
 
   } catch(err) {
     showAsistToast("❌ Error: "+err.message, "err");
@@ -1537,20 +1566,36 @@ async function importarAsistencia() {
   pwrap.style.display = "block"; pfill.style.width = "10%";
   try {
     const ahora = Date.now();
-    const nuevas = _asistNovedadesParsed.map((n, i) => conAuditoria({
-      id: (ahora + i).toString(),
-      personaId: n.personaId,
-      fecha: n.fecha,
-      tipo: n.tipo,
-      detalle: n.detalle || "",
-      ...(n.licIni ? {licIni:n.licIni, licFin:n.licFin} : {}),
-    }, null));
+    let iNueva = 0;
+    const registros = _asistNovedadesParsed.map(n => {
+      if(n._accion === "actualizar") {
+        // Reutiliza id/_chunk del registro existente y pisa sólo el detalle
+        // (horario) — conserva el resto de sus campos (creadoPor, licIni, etc.)
+        const original = window.novedades.find(x => x.id === n._existenteId);
+        return conAuditoria({...(original||{}), detalle: n.detalle || ""}, original);
+      }
+      return conAuditoria({
+        id: (ahora + (iNueva++)).toString(),
+        personaId: n.personaId,
+        fecha: n.fecha,
+        tipo: n.tipo,
+        detalle: n.detalle || "",
+        ...(n.licIni ? {licIni:n.licIni, licFin:n.licFin} : {}),
+      }, null);
+    });
     pfill.style.width = "40%";
     // Una escritura por chunk afectado en vez de una por novedad.
-    await window._guardarNovedadesBulk(nuevas);
-    window.novedades.push(...nuevas);
+    await window._guardarNovedadesBulk(registros);
+    registros.forEach(r => {
+      const idx = window.novedades.findIndex(x => x.id === r.id);
+      if(idx >= 0) window.novedades[idx] = r; else window.novedades.push(r);
+    });
     pfill.style.width = "100%";
-    showAsistToast("✅ " + nuevas.length + " novedades importadas correctamente.", "ok");
+    const actualizadasCount = _asistNovedadesParsed.filter(n => n._accion==="actualizar").length;
+    const nuevasCount = registros.length - actualizadasCount;
+    showAsistToast("✅ " + nuevasCount + " novedades nuevas" +
+      (actualizadasCount ? " y " + actualizadasCount + " actualizadas (horario)" : "") +
+      " importadas correctamente.", "ok");
     _asistNovedadesParsed = [];
     document.getElementById("asistImportBtn").disabled = true;
     document.getElementById("asistImportBtn").style.opacity = ".45";
