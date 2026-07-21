@@ -78,6 +78,9 @@ async function restaurarSesion(){
   }
 }
 
+function usuarioActual(){
+  return loggedUser ? {username:loggedUser.username, nombre:loggedUser.nombre} : null;
+}
 function puedeEditar(){
   return !!loggedUser && (loggedUser.role==="admin" || !(loggedUser.permisos&&loggedUser.permisos[MODULO_ID]==="viewer"));
 }

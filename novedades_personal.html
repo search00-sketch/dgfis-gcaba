@@ -389,7 +389,7 @@
 </div>
 
 <script>window.MODULO_ID='novedades';</script>
-<script src="personal-auth.js?v=4"></script>
+<script src="personal-auth.js?v=5"></script>
 <script src="personal-dominio.js?v=6"></script>
 <script src="personal-datos.js?v=2"></script>
 
@@ -488,6 +488,18 @@ const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("es-AR"):"—";
 // esc()/escJsAttr() ahora viven en utils.js (compartido por todo el portal)
 function getFecha(){return document.getElementById("fecha-global").value||todayISO();}
 function toast(msg,ms=2400){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),ms);}
+// Deja rastro de quién creó/modificó una novedad (para seguimiento ante errores).
+// `original` es el registro previo si se está editando uno existente (o null/undefined si es nuevo).
+function conAuditoria(nov,original){
+  const u=(typeof usuarioActual==="function")?usuarioActual():null;
+  const quien=u?u.nombre:"—";
+  const ahora=new Date().toISOString();
+  if(original&&original.creadoPor){nov.creadoPor=original.creadoPor;nov.creadoEn=original.creadoEn;}
+  else{nov.creadoPor=quien;nov.creadoEn=ahora;}
+  nov.modificadoPor=quien;
+  nov.modificadoEn=ahora;
+  return nov;
+}
 // novedadCubreFecha/novedadDePersonaEnFecha ahora viven en personal-dominio.js
 function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filter(p=>getEstadoPersona(p,h)!=="Baja").length;document.getElementById("badge-activos").textContent=a+" activos";}
 
@@ -656,13 +668,16 @@ async function guardarCargaDiaria(){
   if(!seleccionados.length){toast("Nadie tiene un estado elegido todavía.");return;}
   const registros=seleccionados.map(sel=>{
     const obs=sel.parentElement.querySelector(".carga-obs");
-    return{
-      id:sel.dataset.pid+"_"+fecha,
+    const id=sel.dataset.pid+"_"+fecha;
+    const original=window.novedades.find(n=>n.id===id);
+    const r={
+      id,
       personaId:sel.dataset.pid,
       fecha:fecha,
       tipo:sel.value,
       detalle:(sel.value!=="Presente"&&obs)?obs.value.trim():"",
     };
+    return conAuditoria(r,original);
   });
   toast("Guardando…");
   try{
@@ -756,11 +771,13 @@ function renderHistorial(){
     const extra=n.licIni?fmtDate(n.licIni)+"→"+fmtDate(n.licFin):"";
     const detalleTxt=[extra,n.detalle].filter(Boolean).map(esc).join(" · ")||"—";
     const estadoBadge=n.estadoLic?badgeEstadoLic(n.estadoLic):"";
+    const tituloPor="Cargado por "+(n.creadoPor||n.modificadoPor)+(n.modificadoPor&&n.modificadoPor!==n.creadoPor?" · Última edición: "+n.modificadoPor:"");
+    const porTxt=n.modificadoPor?"<span style=\"font-size:11px;color:#aaa\" title=\""+esc(tituloPor)+"\"> · 👤 "+esc(n.modificadoPor)+"</span>":"";
     return "<div class=\"table-row grid-hist\" style=\""+(i%2===0?"":"background:#fafafa")+";\">"
       +"<span style=\"font-size:12px;color:#777\">"+fmtDate(n.fecha)+"</span>"
       +"<span style=\"font-size:13px;font-weight:600\">"+esc(p.nombre)+"</span>"
       +badgeNov(n.tipo)
-      +"<span style=\"font-size:12px;color:#555\">"+estadoBadge+" "+detalleTxt+"</span>"
+      +"<span style=\"font-size:12px;color:#555\">"+estadoBadge+" "+detalleTxt+porTxt+"</span>"
       +"<span style=\"display:flex;gap:4px\">"
       +"<button onclick=\"editarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#2563a8;cursor:pointer;font-size:13px\">✏️</button>"
       +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#c0392b;cursor:pointer;font-size:13px\">✕</button>"
@@ -1027,10 +1044,9 @@ function revisarNovedad(){
     nov.licIni=ini;nov.licFin=fin;
     nov.estadoLic=document.getElementById("mn-lic-estado-sel").value||"Pendiente";
   }
-  if(_editNovId){
-    const original=window.novedades.find(x=>x.id===_editNovId);
-    if(original&&original._chunk!==undefined) nov._chunk=original._chunk;
-  }
+  const original=_editNovId?window.novedades.find(x=>x.id===_editNovId):null;
+  if(original&&original._chunk!==undefined) nov._chunk=original._chunk;
+  conAuditoria(nov,original);
   _novPendiente=nov;
   renderConfirmNovedad(nov);
   document.getElementById("mn-form-body").style.display="none";
@@ -1236,7 +1252,7 @@ function abrirModalVer(id){
   ].map(([k,v])=>"<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>").join("");
   const novP=[...window.novedades].filter(n=>n.personaId===id).reverse().slice(0,10);
   document.getElementById("mv-novs").innerHTML=novP.length?
-    novP.map(n=>"<div class=\"hist-row\">"+badgeNov(n.tipo)+(n.estadoLic?" "+badgeEstadoLic(n.estadoLic):"")+" <strong>"+fmtDate(n.fecha)+"</strong>"+(n.licIni?" ("+fmtDate(n.licIni)+"→"+fmtDate(n.licFin)+")":"")+(n.detalle?" · "+esc(n.detalle):"")+"</div>").join("")
+    novP.map(n=>"<div class=\"hist-row\">"+badgeNov(n.tipo)+(n.estadoLic?" "+badgeEstadoLic(n.estadoLic):"")+" <strong>"+fmtDate(n.fecha)+"</strong>"+(n.licIni?" ("+fmtDate(n.licIni)+"→"+fmtDate(n.licFin)+")":"")+(n.detalle?" · "+esc(n.detalle):"")+(n.modificadoPor?" <span style=\"color:#aaa\">· 👤 "+esc(n.modificadoPor)+"</span>":"")+"</div>").join("")
     :"<div style=\"color:#aaa;font-size:12px\">Sin novedades.</div>";
   document.getElementById("modal-ver-overlay").classList.add("open");
 }
@@ -1496,14 +1512,14 @@ async function importarAsistencia() {
   pwrap.style.display = "block"; pfill.style.width = "10%";
   try {
     const ahora = Date.now();
-    const nuevas = _asistNovedadesParsed.map((n, i) => ({
+    const nuevas = _asistNovedadesParsed.map((n, i) => conAuditoria({
       id: (ahora + i).toString(),
       personaId: n.personaId,
       fecha: n.fecha,
       tipo: n.tipo,
       detalle: n.detalle || "",
       ...(n.licIni ? {licIni:n.licIni, licFin:n.licFin} : {}),
-    }));
+    }, null));
     pfill.style.width = "40%";
     // Una escritura por chunk afectado en vez de una por novedad.
     await window._guardarNovedadesBulk(nuevas);
