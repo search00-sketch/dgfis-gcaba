@@ -39,6 +39,8 @@
 .hist-row{background:#f5f5f5;padding:6px 10px;margin-bottom:4px;font-size:12px}
 
 .nov-info{background:#fffbe6;border:1px solid #ffe58f;padding:8px 12px;font-size:12px;margin-bottom:12px}
+#carga-body .table-row{padding:1px var(--sp-3);min-height:24px}
+#carga-body select.ctrl{padding:3px 6px;font-size:.82rem}
 .confirm-box{background:#fff3cd;border:1.5px solid #ffc107;padding:14px;margin-bottom:14px;font-size:13px}
 .confirm-box strong{color:#856404}
 .lic-dates{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -121,9 +123,9 @@
   <div class="gestion-zonas">
     <div class="gz-title">✅ Carga diaria — <span id="carga-fecha-label"></span></div>
     <p style="font-size:.8rem;color:#777;margin-bottom:10px">
-      Sólo aparece quien le toca trabajar ese día (según turno, respetando findes y feriados). Por defecto figuran
-      <strong>Presente</strong>: cambiá el selector de quien tenga una excepción del día (ausencia, llegada tarde,
-      etc.) y guardá. Para licencias de varios días seguís usando "+ Cargar novedad".
+      Sólo aparece quien le toca trabajar ese día (según turno, respetando findes y feriados). Quien todavía no
+      tiene estado cargado aparece marcado en rojo: elegí <strong>Presente</strong> o la excepción que corresponda
+      (ausencia, llegada tarde, etc.) y guardá. Para licencias de varios días seguís usando "+ Cargar novedad".
     </p>
     <div class="toolbar" style="margin-bottom:10px">
       <input class="search-input" id="carga-buscar" placeholder="🔍 Buscar nombre…" oninput="renderCargaDiaria()">
@@ -599,20 +601,22 @@ function renderCargaDiaria(){
     +"<span>Estado del día</span>";
 
   const tipos=["Presente",...(window.tiposNovedad||[]).filter(t=>t!=="Presente")];
-  let editables=0, conExcepcion=0;
+  let sinCargar=0, conExcepcion=0;
 
   document.getElementById("carga-body").innerHTML=activos.map(p=>{
     const existente=novedadDePersonaEnFecha(p.id,fecha);
     const editable=!existente||existente.tipo==="Presente";
-    const valorActual=existente?existente.tipo:"Presente";
-    if(editable) editables++; else conExcepcion++;
+    const valorActual=existente?existente.tipo:"";
+    if(editable && !existente) sinCargar++; else if(!editable) conExcepcion++;
 
     let estadoHtml;
     if(editable){
-      estadoHtml="<select class=\"ctrl carga-select\" data-pid=\""+p.id+"\" style=\"width:100%\" onchange=\"onCargaEstadoChange(this)\">"
+      const pendiente=valorActual==="";
+      estadoHtml="<select class=\"ctrl carga-select\" data-pid=\""+p.id+"\" style=\"width:100%"+(pendiente?";border-color:#e74c3c;background:#fff5f5":"")+"\" onchange=\"onCargaEstadoChange(this)\">"
+        +"<option value=\"\""+(pendiente?" selected":"")+">— Sin cargar —</option>"
         +tipos.map(t=>"<option value=\""+esc(t)+"\""+(t===valorActual?" selected":"")+">"+esc(t)+"</option>").join("")
         +"</select>"
-        +"<input type=\"text\" class=\"ctrl carga-obs\" placeholder=\"Observación (opcional)\" style=\"display:none;margin-top:4px;width:100%;font-size:12px;padding:4px 6px\">";
+        +"<input type=\"text\" class=\"ctrl carga-obs\" placeholder=\"Observación (opcional)\" style=\"display:none;margin-top:2px;width:100%;font-size:11px;padding:2px 6px\">";
     } else {
       const extra=existente.licIni?" ("+fmtDate(existente.licIni)+" al "+fmtDate(existente.licFin)+")":"";
       estadoHtml=badgeNov(existente.tipo)+(extra?"<span style=\"font-size:11px;color:#888;margin-left:6px\">"+esc(extra)+"</span>":"")
@@ -630,22 +634,27 @@ function renderCargaDiaria(){
   }).join("") || "<div style=\"padding:16px;color:#aaa;text-align:center\">Sin personas activas para este filtro.</div>";
 
   document.getElementById("carga-info").textContent=
-    activos.length+" personas · "+conExcepcion+" ya con excepción cargada"+(editables?" · "+editables+" pendientes de guardar":"");
+    activos.length+" personas · "+conExcepcion+" ya con excepción cargada"+(sinCargar?" · "+sinCargar+" sin cargar":"");
 }
 
 function onCargaEstadoChange(sel){
+  if(sel.value===""){ sel.style.borderColor="#e74c3c"; sel.style.background="#fff5f5"; }
+  else { sel.style.borderColor=""; sel.style.background=""; }
   const obs=sel.parentElement.querySelector(".carga-obs");
   if(!obs) return;
-  if(sel.value==="Presente"){ obs.style.display="none"; obs.value=""; }
+  if(sel.value==="Presente"||sel.value===""){ obs.style.display="none"; obs.value=""; }
   else { obs.style.display="block"; }
 }
 
 async function guardarCargaDiaria(){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
   const fecha=getFecha();
-  const selects=document.querySelectorAll(".carga-select");
+  const selects=[...document.querySelectorAll(".carga-select")];
   if(!selects.length){toast("No hay personas para cargar.");return;}
-  const registros=[...selects].map(sel=>{
+  const seleccionados=selects.filter(sel=>sel.value!=="");
+  const sinCargar=selects.length-seleccionados.length;
+  if(!seleccionados.length){toast("Nadie tiene un estado elegido todavía.");return;}
+  const registros=seleccionados.map(sel=>{
     const obs=sel.parentElement.querySelector(".carga-obs");
     return{
       id:sel.dataset.pid+"_"+fecha,
@@ -665,7 +674,7 @@ async function guardarCargaDiaria(){
     renderCargaDiaria();
     renderNovedades();
     renderHistorial();
-    toast("✅ Carga diaria guardada: "+registros.length+" personas — "+fmtDate(fecha));
+    toast("✅ Carga diaria guardada: "+registros.length+" personas — "+fmtDate(fecha)+(sinCargar?" · "+sinCargar+" quedaron sin cargar":""));
   }catch(e){
     toast("❌ Error al guardar: "+e.message,4000);
     console.error(e);
