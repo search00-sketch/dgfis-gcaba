@@ -46,6 +46,33 @@ body{min-height:100vh;display:flex;flex-direction:column}
     </button>
   </div>
 </div>
+
+<!-- CAMBIAR CONTRASEÑA -->
+<div class="overlay" id="modal-cambiar-pass-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">Cambiar contraseña</div>
+    <div id="cp-err" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Contraseña actual</label>
+      <input class="form-input" type="password" id="cp-actual" autocomplete="current-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva" autocomplete="new-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px">
+      <label class="fl">Repetir nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva2" autocomplete="new-password">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="document.getElementById('modal-cambiar-pass-overlay').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-azul" id="cp-guardar-btn" onclick="guardarCambioPassPropia()">Guardar</button>
+    </div>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='loginOverlay')o.classList.remove('open');}));
+</script>
 <script>
 // Oculta el overlay de login al instante si hay una sesión guardada en
 // localStorage, sin esperar a que cargue Firebase ni a la revalidación
@@ -76,6 +103,7 @@ body{min-height:100vh;display:flex;flex-direction:column}
       <span class="dot"></span>
       <span id="userBadgeName"></span>
     </div>
+    <button id="cpBtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña" style="display:none">🔑 Cambiar contraseña</button>
     <button id="logoutBtn" onclick="doLogout()">Cerrar sesión</button>
   </div>
 </header>
@@ -279,16 +307,58 @@ window.doLogout = function() {
   document.getElementById('lUser').value = '';
   document.getElementById('lPass').value = '';
   document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('cpBtn').style.display = 'none';
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('adminPanel').style.display = 'none';
   document.getElementById('moduleGrid').innerHTML = '';
   document.getElementById('welcomeTitle').textContent = 'Bienvenido';
 };
 
+// -- CAMBIAR CONTRASEÑA PROPIA -----------------------------------
+window.abrirModalCambiarPass = function() {
+  document.getElementById('cp-actual').value = '';
+  document.getElementById('cp-nueva').value = '';
+  document.getElementById('cp-nueva2').value = '';
+  document.getElementById('cp-err').style.display = 'none';
+  document.getElementById('modal-cambiar-pass-overlay').classList.add('open');
+};
+function mostrarCpMsg(texto, ok) {
+  const err = document.getElementById('cp-err');
+  err.style.background = ok ? '#dcfce7' : '#fee2e2';
+  err.style.color = ok ? '#166534' : '#b91c1c';
+  err.textContent = texto;
+  err.style.display = 'block';
+}
+window.guardarCambioPassPropia = async function() {
+  const actual = document.getElementById('cp-actual').value;
+  const nueva  = document.getElementById('cp-nueva').value;
+  const nueva2 = document.getElementById('cp-nueva2').value;
+  if (!actual || !nueva || !nueva2) { mostrarCpMsg('Completá todos los campos.', false); return; }
+  if (nueva.length < 6) { mostrarCpMsg('La nueva contraseña debe tener al menos 6 caracteres.', false); return; }
+  if (nueva !== nueva2) { mostrarCpMsg('Las contraseñas nuevas no coinciden.', false); return; }
+  const btn = document.getElementById('cp-guardar-btn');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const snap = await getDoc(doc(db, 'usuarios', loggedUser.username));
+    if (!snap.exists() || snap.data().passHash !== await sha256(actual)) {
+      mostrarCpMsg('La contraseña actual no es correcta.', false);
+      return;
+    }
+    await setDoc(doc(db, 'usuarios', loggedUser.username), { passHash: await sha256(nueva) }, { merge: true });
+    mostrarCpMsg('✅ Contraseña actualizada.', true);
+    setTimeout(() => document.getElementById('modal-cambiar-pass-overlay').classList.remove('open'), 1400);
+  } catch(e) {
+    mostrarCpMsg('Error: ' + e.message, false);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+};
+
 // -- POST-LOGIN -------------------------------------------------
 function onLoginSuccess() {
   document.getElementById('userBadge').style.display = 'flex';
   document.getElementById('userBadgeName').textContent = loggedUser.nombre;
+  document.getElementById('cpBtn').style.display = 'inline';
   document.getElementById('logoutBtn').style.display = 'inline';
   document.getElementById('welcomeTitle').textContent = '👋 Hola, ' + loggedUser.nombre;
   document.getElementById('welcomeSub').textContent =

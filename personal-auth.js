@@ -116,3 +116,42 @@ async function doLogin(){
 }
 function showLoginErr(m){const e=document.getElementById("loginErr");e.textContent=m;e.style.display="block";document.getElementById("lPass").value="";}
 function doLogout(){loggedUser=null;localStorage.removeItem("dgf_session");location.reload();}
+
+// -- CAMBIAR CONTRASEÑA PROPIA -----------------------------------
+// Requiere que la página host tenga el modal (#modal-cambiar-pass-overlay
+// con #cp-actual/#cp-nueva/#cp-nueva2/#cp-err/#cp-guardar-btn) y las
+// funciones toast()/cerrarModal() ya definidas (mismo patrón que el resto
+// de los modales de estas páginas).
+function abrirModalCambiarPass(){
+  document.getElementById("cp-actual").value="";
+  document.getElementById("cp-nueva").value="";
+  document.getElementById("cp-nueva2").value="";
+  document.getElementById("cp-err").style.display="none";
+  document.getElementById("modal-cambiar-pass-overlay").classList.add("open");
+}
+async function guardarCambioPassPropia(){
+  const err=document.getElementById("cp-err");
+  err.style.display="none";
+  const actual=document.getElementById("cp-actual").value;
+  const nueva=document.getElementById("cp-nueva").value;
+  const nueva2=document.getElementById("cp-nueva2").value;
+  if(!actual||!nueva||!nueva2){err.textContent="Completá todos los campos.";err.style.display="block";return;}
+  if(nueva.length<6){err.textContent="La nueva contraseña debe tener al menos 6 caracteres.";err.style.display="block";return;}
+  if(nueva!==nueva2){err.textContent="Las contraseñas nuevas no coinciden.";err.style.display="block";return;}
+  const btn=document.getElementById("cp-guardar-btn");
+  btn.disabled=true;btn.textContent="Guardando…";
+  try{
+    const snap=await window._fGetDoc(window._fDoc(window._db,"usuarios",loggedUser.username));
+    if(!snap.exists()||snap.data().passHash!==await sha256(actual)){
+      err.textContent="La contraseña actual no es correcta.";err.style.display="block";
+      return;
+    }
+    await window._fSetDoc(window._fDoc(window._db,"usuarios",loggedUser.username),{passHash:await sha256(nueva)},{merge:true});
+    cerrarModal("modal-cambiar-pass-overlay");
+    toast("✅ Contraseña actualizada.");
+  }catch(e){
+    err.textContent="Error: "+e.message;err.style.display="block";
+  }finally{
+    btn.disabled=false;btn.textContent="Guardar";
+  }
+}

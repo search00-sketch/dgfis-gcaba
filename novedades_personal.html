@@ -49,6 +49,30 @@
 <body>
 <div class="toast" id="toast"></div>
 
+<!-- CAMBIAR CONTRASEÑA -->
+<div class="overlay" id="modal-cambiar-pass-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">Cambiar contraseña</div>
+    <div id="cp-err" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Contraseña actual</label>
+      <input class="form-input" type="password" id="cp-actual" autocomplete="current-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva" autocomplete="new-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px">
+      <label class="fl">Repetir nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva2" autocomplete="new-password">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-cambiar-pass-overlay')">Cancelar</button>
+      <button class="btn btn-azul" id="cp-guardar-btn" onclick="guardarCambioPassPropia()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div class="overlay open" id="loginOverlay" style="z-index:3000">
   <div class="modal" style="max-width:360px;text-align:center">
@@ -87,6 +111,7 @@
     <input type="date" id="fecha-global">
     <div class="badge-count" id="badge-activos">— activos</div>
     <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
     <button class="hbtn" onclick="doLogout()">Salir</button>
   </div>
 </header>
@@ -389,7 +414,7 @@
 </div>
 
 <script>window.MODULO_ID='novedades';</script>
-<script src="personal-auth.js?v=5"></script>
+<script src="personal-auth.js?v=6"></script>
 <script src="personal-dominio.js?v=6"></script>
 <script src="personal-datos.js?v=2"></script>
 
