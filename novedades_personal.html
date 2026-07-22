@@ -158,6 +158,9 @@
       <select class="ctrl" id="carga-zona" onchange="renderCargaDiaria()">
         <option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>
       </select>
+      <select class="ctrl" id="carga-estado" onchange="renderCargaDiaria()">
+        <option value="">Todos los estados</option><option value="__sin__">Sin asignar</option>
+      </select>
       <button class="btn btn-verde" onclick="guardarCargaDiaria()">💾 Guardar carga diaria</button>
       <span id="carga-info" style="font-size:.78rem;color:#888;align-self:center"></span>
     </div>
@@ -558,10 +561,19 @@ function poblarSelects(){
   const tn=document.getElementById("nom-turno");
   if(tn) tn.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   const ct=document.getElementById("carga-turno");
-  if(ct) ct.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
+  // Administrativo/Gerencia no aparecen en Carga diaria (ver renderCargaDiaria),
+  // así que tampoco tiene sentido ofrecerlos como opción de filtro acá.
+  if(ct) ct.innerHTML="<option value=\"\">Todos los turnos</option>"
+    +TURNOS.filter(t=>t!=="Administrativo"&&t!=="Gerencia").map(t=>"<option value=\""+t+"\">"+t+"</option>").join("");
   const cz=document.getElementById("carga-zona");
   if(cz) cz.innerHTML="<option value=\"\">Todas las zonas</option><option value=\"__sin__\">Sin asignar</option>"
     +allZonas().map(z=>"<option value=\""+esc(z)+"\">"+esc(z)+"</option>").join("");
+  const ce=document.getElementById("carga-estado");
+  if(ce){
+    const tiposEstado=["Presente",...(window.tiposNovedad||[]).filter(t=>t!=="Presente")];
+    ce.innerHTML="<option value=\"\">Todos los estados</option><option value=\"__sin__\">Sin asignar</option>"
+      +tiposEstado.map(t=>"<option value=\""+esc(t)+"\">"+esc(t)+"</option>").join("");
+  }
 }
 
 function renderAll(){
@@ -618,14 +630,22 @@ function renderCargaDiaria(){
   const busq=(document.getElementById("carga-buscar").value||"").toLowerCase();
   const filtTurno=document.getElementById("carga-turno").value;
   const filtZona=document.getElementById("carga-zona")?.value||"";
+  const filtEstado=document.getElementById("carga-estado")?.value||"";
   const dist=window.distribuciones[fecha]||{};
 
   let activos=window.nomina.filter(p=>{
     if(getEstadoPersona(p,fecha)==="Baja") return false;
+    if(p.turno==="Administrativo" || p.turno==="Gerencia") return false;
     if(!trabajaHoy(p,fecha)) return false;
     if(filtTurno && p.turno!==filtTurno) return false;
     if(filtZona==="__sin__" && dist[p.id]) return false;
     if(filtZona && filtZona!=="__sin__" && dist[p.id]!==filtZona) return false;
+    if(filtEstado){
+      const existente=novedadDePersonaEnFecha(p.id,fecha);
+      const estadoActual=existente?existente.tipo:"";
+      if(filtEstado==="__sin__" && estadoActual!=="") return false;
+      if(filtEstado!=="__sin__" && estadoActual!==filtEstado) return false;
+    }
     if(busq && !coincideTexto((p.nombre||"").toLowerCase(),busq)) return false;
     return true;
   }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
