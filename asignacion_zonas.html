@@ -545,7 +545,10 @@ async function asignarZona(pid,zona){
   if(!window._distTimers)window._distTimers={};
   const key=fechaAsig+"|"+pid;
   clearTimeout(window._distTimers[key]);
-  window._distTimers[key]=setTimeout(async()=>{await window._guardarAsignacion(fechaAsig,pid,zona);},1500);
+  window._distTimers[key]=setTimeout(async()=>{
+    try{ await window._guardarAsignacion(fechaAsig,pid,zona); }
+    catch(e){ toast("❌ Error al guardar la asignación: "+e.message,4000); console.error(e); }
+  },1500);
 }
 
 async function copiarAsignacionAnterior(){
@@ -792,9 +795,11 @@ async function aplicarMasivo(){
     count++;
   });
   cerrarModal("modal-masivo-overlay");renderDist();
-  toast("✅ "+count+" personas asignadas a \""+( zona||"Sin asignar")+"\" para "+fmtDate(fechaAsig));
-  await window._fUpdateOrCrear(window._fDoc(window._db,"distribuciones",fechaAsig),campos);
-  window._refrescarCacheDist(fechaAsig);
+  try{
+    await window._fUpdateOrCrear(window._fDoc(window._db,"distribuciones",fechaAsig),campos);
+    window._refrescarCacheDist(fechaAsig);
+    toast("✅ "+count+" personas asignadas a \""+( zona||"Sin asignar")+"\" para "+fmtDate(fechaAsig));
+  }catch(e){toast("❌ Error al guardar la asignación masiva: "+e.message,4000);console.error(e);}
 }
 document.addEventListener("change",e=>{if(e.target.classList.contains("mas-check"))actualizarCountMasivo();});
 
@@ -810,7 +815,10 @@ async function guardarEvento(){
   if(!window.eventos)window.eventos=[];
   window.eventos.push({id:Date.now().toString(),nombre,tipo,fecha:getFechaAsig()});
   cerrarModal("modal-evento-overlay");renderDist();
-  await window._guardarEventos();toast("✅ Evento registrado");
+  try{
+    await window._guardarEventos();
+    toast("✅ Evento registrado");
+  }catch(e){toast("❌ Error al guardar el evento: "+e.message,4000);console.error(e);}
 }
 
 // ============================================================
@@ -836,16 +844,33 @@ async function agregarZona(){
 async function eliminarZona(idx){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
   const z=window.zonas[idx];
-  if(!confirm("Eliminar zona \""+z+"\"?"))return;
+  if(!confirm("Eliminar zona \""+z+"\"?\n\nLas asignaciones ya guardadas con esta zona en fechas pasadas NO se actualizan ni se borran: van a quedar apuntando a una zona que ya no existe en la lista, y esas personas van a dejar de contarse en los resúmenes por zona."))return;
   window.zonas.splice(idx,1);renderConfigZonas();
   await window._guardarZonas();toast("Zona eliminada");
 }
 async function renombrarZona(idx,nuevoNombre){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");renderConfigZonas();return;}
   const n=(nuevoNombre||"").trim().toUpperCase();
-  if(!n||n===window.zonas[idx])return;
+  const anterior=window.zonas[idx];
+  if(!n||n===anterior)return;
   if(window.zonas.some((z,i)=>i!==idx&&z===n)){alert("Ya existe esa zona.");return;}
   window.zonas[idx]=n;await window._guardarZonas();renderConfigZonas();
+  // Actualizar también las asignaciones YA guardadas con el nombre viejo —
+  // si no, quedan huérfanas apuntando a una zona que ya no existe en la lista.
+  toast("Zona renombrada — actualizando asignaciones existentes…");
+  try{
+    const snap=await window._fGetDocs(window._fCol(window._db,"distribuciones"));
+    const afectados=snap.docs.filter(d=>Object.values(d.data().asignaciones||{}).includes(anterior));
+    await Promise.all(afectados.map(d=>{
+      const asignaciones={...d.data().asignaciones};
+      Object.keys(asignaciones).forEach(pid=>{if(asignaciones[pid]===anterior)asignaciones[pid]=n;});
+      return window._fUpdateOrCrear(d.ref,{asignaciones});
+    }));
+    window.distribuciones={};
+    await window.cargarDistFecha(getFechaAsig());
+    renderAll();
+    toast("✅ Zona renombrada ("+afectados.length+" fecha(s) de historial actualizadas)");
+  }catch(e){toast("❌ Se renombró la zona, pero falló actualizar el historial: "+e.message,5000);console.error(e);}
 }
 
 // ============================================================
@@ -901,8 +926,21 @@ async function precargarFeriados(){
   toast("✅ "+agregados+" feriados precargados");
 }
 
-function exportarBackup(){
-  const data={nomina:window.nomina,novedades:window.novedades,zonas:window.zonas,eventos:window.eventos,fecha:new Date().toISOString()};
+async function exportarBackup(){
+  // window.distribuciones sólo tiene en memoria las fechas ya consultadas en
+  // esta sesión (caché por fecha) — para que el backup sea realmente
+  // completo hay que traer la colección entera de Firestore, igual que hace
+  // limpiarDistribuciones() antes de borrarla.
+  toast("Preparando backup…");
+  const distSnap=await window._fGetDocs(window._fCol(window._db,"distribuciones"));
+  const distribucionesCompletas={};
+  distSnap.docs.forEach(d=>{distribucionesCompletas[d.id]=d.data();});
+  const data={
+    nomina:window.nomina,novedades:window.novedades,zonas:window.zonas,eventos:window.eventos,
+    distribuciones:distribucionesCompletas,
+    feriados:{lista:window.feriados||[],desc:window.feriadosDesc||{}},
+    fecha:new Date().toISOString()
+  };
   const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(b);
   a.download="backup_personal_"+todayISO()+".json";a.click();

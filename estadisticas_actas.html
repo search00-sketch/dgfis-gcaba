@@ -110,7 +110,7 @@ tr:hover td{background:#f8fafc;}
 #panelCarga{display:none;} /* JS lo muestra con display:block al hacer clic en la tab */
 .ucard{background:var(--sur);border-radius:var(--r);padding:22px;border:var(--border-w) solid var(--bor);margin-bottom:16px;}
 .uarea{border:2px dashed var(--bor);border-radius:var(--r);padding:32px;text-align:center;cursor:pointer;background:#f8fafc;position:relative;}
-.uarea:hover{border-color:var(--pli);background:#eff6ff;}
+.uarea:hover,.uarea.drag{border-color:var(--pli);background:#eff6ff;}
 .uarea input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .pwrap{height:8px;background:var(--bor);border-radius:0;margin-top:14px;overflow:hidden;display:none;}
 .pfill{height:100%;background:var(--pli);transition:width .3s;}
@@ -479,7 +479,7 @@ function aplicarFiltros() {
   const hasta = document.getElementById('fHasta').value;
 
   datosFiltrados = (window.ACTAS||[]).filter(r => {
-    if (op && r.operativo !== op) return false;
+    if (op && (r.operativo||'').toUpperCase().trim() !== op) return false;
     if (zona && r.zona !== zona) return false;
     if (turno && r.turno !== turno) return false;
     if (desde && r.fecha && r.fecha < desde) return false;
@@ -520,11 +520,14 @@ const COLORS = ['#2563a8','#f59e0b','#22c55e','#e85d04','#a855f7','#ec4899','#14
 function renderStats() {
   const D = datosFiltrados;
 
-  // KPIs
+  // KPIs — normalizar mayúsculas/espacios al comparar (igual que ya se hace
+  // con turno más abajo): una variante de casing del Excel no debe perderse
+  // de estos conteos.
+  const normOp = v => (v||'').toUpperCase().trim();
   document.getElementById('kTotal').textContent     = D.length.toLocaleString('es-AR');
-  document.getElementById('kVI').textContent        = D.filter(r=>r.operativo==='VENTA ILEGAL').length.toLocaleString('es-AR');
-  document.getElementById('kEM').textContent        = D.filter(r=>r.operativo==='EVENTO MASIVO').length.toLocaleString('es-AR');
-  document.getElementById('kFT').textContent        = D.filter(r=>r.operativo==='PARTIDO DE FUTBOL').length.toLocaleString('es-AR');
+  document.getElementById('kVI').textContent        = D.filter(r=>normOp(r.operativo)==='VENTA ILEGAL').length.toLocaleString('es-AR');
+  document.getElementById('kEM').textContent        = D.filter(r=>normOp(r.operativo)==='EVENTO MASIVO').length.toLocaleString('es-AR');
+  document.getElementById('kFT').textContent        = D.filter(r=>normOp(r.operativo)==='PARTIDO DE FUTBOL').length.toLocaleString('es-AR');
   document.getElementById('kPrecintos').textContent = D.reduce((s,r)=>(s+(r.precintos||[]).length),0).toLocaleString('es-AR');
   document.getElementById('kZonas').textContent     = [...new Set(D.map(r=>r.zona).filter(Boolean))].length;
 
@@ -618,7 +621,7 @@ function renderStats() {
 
   // ── Por operativo (donut) con números ────────────────────────────────
   const byOp = {};
-  D.forEach(r => { const o = r.operativo||'Otro'; byOp[o] = (byOp[o]||0)+1; });
+  D.forEach(r => { const o = normOp(r.operativo)||'Otro'; byOp[o] = (byOp[o]||0)+1; });
   destroyChart('op');
   charts.op = new Chart(document.getElementById('chartOp'), {
     type:'doughnut',
@@ -719,7 +722,11 @@ function renderStats() {
   D.forEach(r => {
     if (!r.fecha) return;
     const d = new Date(r.fecha+'T12:00:00').getDay();
-    const op = r.operativo||'VENTA ILEGAL';
+    // Antes un operativo vacío/desconocido se contaba como "VENTA ILEGAL"
+    // (mal atribuido); ahora si no matchea ninguno de los 3 conocidos,
+    // simplemente no se cuenta acá (el guard de abajo ya lo maneja),
+    // igual que el donut de arriba lo bucketea aparte como "Otro".
+    const op = normOp(r.operativo);
     if (diaData[op]) diaData[op][d]++;
   });
   destroyChart('dia');
@@ -874,6 +881,21 @@ window.onFileChosen = function(input) {
     btn.style.opacity = '.45';
   }
 };
+
+// El texto de la zona de carga invita a "arrastrar" el Excel, pero no había
+// ningún listener de drag&drop — arrastrar un archivo no hacía nada.
+(function(){
+  const ua = document.getElementById('uarea');
+  if (!ua) return;
+  ua.addEventListener('dragenter', e => { e.preventDefault(); ua.classList.add('drag'); });
+  ua.addEventListener('dragover',  e => { e.preventDefault(); ua.classList.add('drag'); });
+  ua.addEventListener('dragleave', e => { e.preventDefault(); ua.classList.remove('drag'); });
+  ua.addEventListener('drop', e => {
+    e.preventDefault(); ua.classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (f) window.onFileChosen({files:[f]});
+  });
+})();
 
 window.cargarExcel = async function() {
   if (!chosenFile) return;
@@ -1059,6 +1081,12 @@ window.cargarExcel = async function() {
     // Invalidar caché local
     sessionStorage.removeItem('dgf_actas_cache');
     sessionStorage.removeItem('dgf_actas_ts');
+
+    // Reflejar los datos recién guardados en Estadísticas/Mapa/Tabla sin
+    // esperar a un reload manual — antes quedaban mostrando lo de antes de
+    // la carga hasta que alguien apretaba "Actualizar" o recargaba la página.
+    window.ACTAS = todosLosRegistros;
+    init();
 
     toast.textContent = `✅ ${todosLosRegistros.length.toLocaleString('es-AR')} registros totales guardados en ${totalNuevosChunks} chunks (${nuevos} nuevos, ${actualizados} actualizados). Lecturas futuras: ${totalNuevosChunks + 1}.`;
     toast.className = 'toast ok';

@@ -103,7 +103,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
       <span class="dot"></span>
       <span id="userBadgeName"></span>
     </div>
-    <button id="cpBtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña" style="display:none">🔑 Cambiar contraseña</button>
+    <button id="cpBtn" class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña" style="display:none">🔑 Cambiar contraseña</button>
     <button id="logoutBtn" onclick="doLogout()">Cerrar sesión</button>
   </div>
 </header>
@@ -166,7 +166,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {
-  getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection
+  getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // -- INIT FIREBASE ----------------------------------------------
@@ -527,15 +527,15 @@ window.deleteUser = async function(username) {
 };
 
 // -- TOGGLE MÓDULO ----------------------------------------------
+// arrayUnion/arrayRemove son atómicos del lado de Firestore: dos admins
+// tocando módulos distintos del mismo usuario al mismo tiempo ya no se
+// pisan (antes se leía el array entero, se modificaba en el cliente y se
+// reescribía completo — la edición más lenta perdía la de la otra).
 window.toggleModulo = async function(username, modulo, enabled) {
   try {
-    const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-    const snap = await getDoc(doc(db, 'usuarios', username));
-    if (!snap.exists()) return;
-    let mods = snap.data().modulos || [];
-    if (enabled) { if (!mods.includes(modulo)) mods.push(modulo); }
-    else { mods = mods.filter(m => m !== modulo); }
-    await setDoc(doc(db, 'usuarios', username), { modulos: mods }, { merge: true });
+    await updateDoc(doc(db, 'usuarios', username), {
+      modulos: enabled ? arrayUnion(modulo) : arrayRemove(modulo)
+    });
     showAdminToast(`✅ Módulo "${modulo}" ${enabled?'habilitado':'deshabilitado'} para ${username}.`, 'ok');
   } catch(e) {
     showAdminToast('Error: ' + e.message, 'err');
@@ -545,11 +545,9 @@ window.toggleModulo = async function(username, modulo, enabled) {
 // -- NIVEL DE PERMISO POR MÓDULO (editor puede editar, viewer sólo ve) ----
 window.cambiarPermiso = async function(username, modulo, nivel) {
   try {
-    const snap = await getDoc(doc(db, 'usuarios', username));
-    if (!snap.exists()) return;
-    const permisos = snap.data().permisos || {};
-    permisos[modulo] = nivel;
-    await setDoc(doc(db, 'usuarios', username), { permisos }, { merge: true });
+    // Notación de punto: sólo toca esa clave del mapa "permisos", no lo pisa
+    // entero (mismo problema de condición de carrera que arriba).
+    await updateDoc(doc(db, 'usuarios', username), { ['permisos.' + modulo]: nivel });
     showAdminToast(`✅ Permiso de "${modulo}" para ${username}: ${nivel==='viewer'?'sólo ver':'editor'}.`, 'ok');
   } catch(e) {
     showAdminToast('Error: ' + e.message, 'err');

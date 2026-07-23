@@ -422,22 +422,28 @@ function renderDist(){
   const busq=(document.getElementById('dist-buscar').value||'').toLowerCase();
   const filtTurno=document.getElementById('dist-turno').value;
   const filtZona=document.getElementById('dist-zona-filtro').value;
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja');
+  // El estado (baja/licencia) se evalúa a la fecha que se está asignando, no
+  // "hoy" — antes este panel mezclaba las dos fechas (mismo bug que ya se
+  // había corregido en Asignación de Zonas, nunca replicado acá).
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,fechaAsig)!=='Baja');
+  // Administrativo/Gerencia (turno u rol) nunca reciben asignación de zona:
+  // no deberían inflar el "Sin asignar" de este panel.
+  const rolOTurnoDeOficina=p=>{const r=p.rol||'Inspector';return r==='Coordinador General'||r==='Administrativo'||p.turno==='Administrativo'||p.turno==='Gerencia';};
 
   // Personas que trabajan en la fecha de asignación
   const diaAsig = new Date(fechaAsig+'T12:00:00').getDay();
   const esFeriadoAsig = esFeriado(fechaAsig);
-  const trabajanEseDia = activos.filter(p=>trabajaHoy(p,fechaAsig));
+  const trabajanEseDia = activos.filter(p=>!rolOTurnoDeOficina(p)&&trabajaHoy(p,fechaAsig));
 
   // Mostrar indicador de fecha de asignación
   const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const labelFechaAsig = document.getElementById('dist-info');
 
   const conZona=trabajanEseDia.filter(p=>dist[p.id]).length;
-  const sinAsignar=trabajanEseDia.filter(p=>!dist[p.id]&&getEstadoPersona(p,hoy)!=='Licencia').length;
+  const sinAsignar=trabajanEseDia.filter(p=>!dist[p.id]&&getEstadoPersona(p,fechaAsig)!=='Licencia').length;
   const novHoy=novedadesHoy();
   const ausentes=novHoy.filter(n=>n.tipo==='Ausencia').length;
-  const licencias=activos.filter(p=>getEstadoPersona(p,hoy)==='Licencia').length;
+  const licencias=activos.filter(p=>getEstadoPersona(p,fechaAsig)==='Licencia').length;
 
   document.getElementById('dist-stats').innerHTML=`
     <div class="stat-card"><div class="stat-num">${trabajanEseDia.length}</div><div class="stat-label">Trabajan ${DIAS[diaAsig]}${esFeriadoAsig?' 🔴 Feriado':''}</div></div>
@@ -472,7 +478,7 @@ function renderDist(){
   document.getElementById('dist-body').innerHTML=lista.map(p=>{
     const zona=dist[p.id]||'';
     const novs=novsDePersonaHoy(p.id);
-    const est=getEstadoPersona(p,hoy);
+    const est=getEstadoPersona(p,fechaAsig);
     return `<div class="table-row grid-dist">
       <div>
         <div class="nombre-cell">${esc(p.nombre)}</div>

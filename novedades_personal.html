@@ -794,13 +794,19 @@ function limpiarFiltrosHistorial(){
 }
 function renderHistorial(){
   const listEl=document.getElementById("hist-tipo-list");
-  if(!listEl.dataset.built){
+  // Se reconstruye sólo cuando cambia la lista de tipos (alta/baja/rename
+  // desde "Tipos de novedad"), no en cada render — así no se pierden los
+  // checkboxes ya tildados cuando renderHistorial() se llama por otro motivo
+  // (incluido el propio onchange de estos mismos checkboxes).
+  const tiposActuales=JSON.stringify(window.tiposNovedad||[]);
+  if(listEl.dataset.built!==tiposActuales){
+    const marcados=new Set(tiposHistSeleccionados());
     listEl.innerHTML=(window.tiposNovedad||[]).map(t=>
       "<label class=\"autocomplete-item\" style=\"display:flex;gap:8px;align-items:center\">"
-      +"<input type=\"checkbox\" value=\""+esc(t)+"\" onchange=\"actualizarHistTipoBtn();renderHistorial()\"> "+esc(t)
+      +"<input type=\"checkbox\" value=\""+esc(t)+"\""+(marcados.has(t)?" checked":"")+" onchange=\"actualizarHistTipoBtn();renderHistorial()\"> "+esc(t)
       +"</label>"
     ).join("");
-    listEl.dataset.built="1";
+    listEl.dataset.built=tiposActuales;
   }
   actualizarHistTipoBtn();
 
@@ -841,10 +847,14 @@ async function borrarNovedad(id){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
   if(!confirm("¿Eliminar esta novedad?"))return;
   const n=window.novedades.find(x=>x.id===id);
-  window.novedades=window.novedades.filter(x=>x.id!==id);
-  renderNovedades();renderHistorial();
+  if(!n)return;
   try{
     await window._eliminarNovedad(n);
+    // Recién tras confirmar el borrado en Firestore se saca de la lista local
+    // — si la escritura falla, la novedad sigue viéndose (no queda "borrada"
+    // en pantalla sin haberse borrado de verdad).
+    window.novedades=window.novedades.filter(x=>x.id!==id);
+    renderNovedades();renderHistorial();
     toast("Novedad eliminada");
   }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
 }
@@ -964,13 +974,22 @@ async function guardarPersona(){
     domicilio:document.getElementById("fp-domicilio").value.trim(),
     barrio:document.getElementById("fp-barrio").value.trim(),
   };
-  let personaGuardada;
-  if(_editPersonaId){const idx=window.nomina.findIndex(x=>x.id===_editPersonaId);if(idx>=0){window.nomina[idx]={...window.nomina[idx],...datos};personaGuardada=window.nomina[idx];}}
-  else{personaGuardada={...datos,id:Date.now().toString(),modalidad:"",genero:"",agentes_calle:""};window.nomina.push(personaGuardada);}
-  cerrarModal("modal-persona-overlay");
-  renderAll();
+  const existente=_editPersonaId?window.nomina.find(x=>x.id===_editPersonaId):null;
+  const personaGuardada=existente
+    ? {...existente,...datos}
+    : {...datos,id:Date.now().toString(),modalidad:"",genero:"",agentes_calle:""};
   try{
     await window._guardarPersona(personaGuardada);
+    // Recién si el guardado funcionó se refleja en la nómina local — si
+    // falla, no queda mostrando datos que en realidad no se guardaron.
+    if(existente){
+      const idx=window.nomina.findIndex(x=>x.id===_editPersonaId);
+      if(idx>=0) window.nomina[idx]=personaGuardada;
+    } else {
+      window.nomina.push(personaGuardada);
+    }
+    cerrarModal("modal-persona-overlay");
+    renderAll();
     toast("✅ Persona guardada");
   }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
 }
@@ -984,23 +1003,30 @@ async function confirmarBaja(){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
   if(!_bajaId)return;
   const motivo=document.getElementById("baja-motivo").value.trim();
-  const idx=window.nomina.findIndex(x=>x.id===_bajaId);
-  if(idx>=0){window.nomina[idx].estado="Baja";window.nomina[idx].motivoBaja=motivo;window.nomina[idx].fechaBaja=getFecha();}
-  cerrarModal("modal-baja-overlay");renderAll();
+  const p=window.nomina.find(x=>x.id===_bajaId);
+  if(!p){_bajaId=null;return;}
+  const actualizado={...p,estado:"Baja",motivoBaja:motivo,fechaBaja:getFecha()};
   try{
-    if(idx>=0) await window._guardarPersona(window.nomina[idx]);
+    await window._guardarPersona(actualizado);
+    const idx=window.nomina.findIndex(x=>x.id===_bajaId);
+    if(idx>=0) window.nomina[idx]=actualizado;
+    cerrarModal("modal-baja-overlay");renderAll();
     toast("✅ Baja registrada");
+    _bajaId=null;
   }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
-  _bajaId=null;
 }
 async function reactivarPersona(id){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
   if(!confirm("¿Reactivar a esta persona?"))return;
-  const idx=window.nomina.findIndex(x=>x.id===id);
-  if(idx>=0){window.nomina[idx].estado="Activo";delete window.nomina[idx].motivoBaja;delete window.nomina[idx].fechaBaja;}
-  renderAll();
+  const p=window.nomina.find(x=>x.id===id);
+  if(!p)return;
+  const actualizado={...p,estado:"Activo"};
+  delete actualizado.motivoBaja;delete actualizado.fechaBaja;
   try{
-    if(idx>=0) await window._guardarPersona(window.nomina[idx]);
+    await window._guardarPersona(actualizado);
+    const idx=window.nomina.findIndex(x=>x.id===id);
+    if(idx>=0) window.nomina[idx]=actualizado;
+    renderAll();
     toast("✅ Persona reactivada");
   }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
 }
@@ -1067,7 +1093,10 @@ function filtrarPersonasAC(){
   const q=(document.getElementById("mn-persona-input").value||"").toLowerCase();
   const list=document.getElementById("mn-persona-list");
   if(!q||q.length<2){list.classList.remove("open");return;}
-  const res=window.nomina.filter(p=>p.estado!=="Baja"&&(coincideTexto(p.nombre.toLowerCase(),q)||(p.dni||"").includes(q))).slice(0,10);
+  // Igual que en Carga diaria/Nómina: si la baja tiene fecha, sigue "activa"
+  // para novedades de una fecha anterior a esa baja (no sólo p.estado crudo).
+  const fechaNov=document.getElementById("mn-fecha").value||getFecha();
+  const res=window.nomina.filter(p=>getEstadoPersona(p,fechaNov)!=="Baja"&&(coincideTexto(p.nombre.toLowerCase(),q)||(p.dni||"").includes(q))).slice(0,10);
   if(!res.length){list.classList.remove("open");return;}
   list.innerHTML=res.map(p=>"<div class=\"autocomplete-item\" onclick=\"selPersonaAC(\'"+p.id+"\',\'"+escJsAttr(p.nombre)+"\')\" >"+esc(p.nombre)+" <span style=\"color:#888;font-size:11px\">"+esc(p.rol||"")+"</span></div>").join("");
   list.classList.add("open");
@@ -1124,19 +1153,23 @@ function volverFormNovedad(){
 async function confirmarGuardarNovedad(){
   if(!_novPendiente)return;
   const nov=_novPendiente;
-  if(_editNovId){
-    const idx=window.novedades.findIndex(x=>x.id===_editNovId);
-    if(idx>=0) window.novedades[idx]=nov; else window.novedades.push(nov);
-  } else {
-    window.novedades.push(nov);
-  }
-  cerrarModal("modal-novedad-overlay");
-  renderAll();
   try{
     await window._guardarNovedad(nov);
+    // Recién si el guardado en Firestore funcionó se refleja en la lista
+    // local y se cierra el modal — si falla, sigue abierto con los mismos
+    // datos cargados para poder reintentar, en vez de dar por guardado algo
+    // que no llegó a guardarse.
+    if(_editNovId){
+      const idx=window.novedades.findIndex(x=>x.id===_editNovId);
+      if(idx>=0) window.novedades[idx]=nov; else window.novedades.push(nov);
+    } else {
+      window.novedades.push(nov);
+    }
+    cerrarModal("modal-novedad-overlay");
+    renderAll();
     toast("✅ Novedad guardada");
+    _novPendiente=null;
   }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
-  _novPendiente=null;
 }
 
 // ============================================================
@@ -1225,9 +1258,17 @@ async function cargarNominaExcel(){
       function normTurno(v){return TURNO_MAP[(v||"").toString().trim().toUpperCase()]||cv(v);}
       const existMap={};window.nomina.forEach(p=>{if(p.dni)existMap[p.dni]=p;});
       const recs=[];let nuevos=0,actualizados=0;
+      const dnisDuplicados=[];
       rowsA.forEach((row,i)=>{
         const nombre=cv(row["APELLIDO Y NOMBRE"]);if(!nombre)return;
         const dni=cvNum(row["DNI"]);
+        // Si el mismo DNI ya apareció en una fila anterior de ESTE mismo
+        // Excel, saltear la fila (si no, las dos generan el mismo id y una
+        // pisa a la otra en Firestore sin ningún aviso) y avisar al final.
+        if(dni&&existMap[dni]&&existMap[dni]._deEstaImportacion){
+          dnisDuplicados.push(nombre+" (DNI "+dni+")");
+          return;
+        }
         // El Rol ya cargado a mano (o migrado antes) siempre gana: así una
         // reimportación del Excel nunca pisa un Rol correcto con el valor
         // por defecto. Sólo se deriva de la columna JEFATURA del Excel para
@@ -1252,6 +1293,10 @@ async function cargarNominaExcel(){
           estado:"Activo",
         };
         if(existMap[dni])actualizados++;else nuevos++;
+        // Marcar como visto en ESTA importación (para detectar duplicados
+        // dentro del mismo Excel) y que la hoja BAJAS reconozca a esta
+        // persona si también aparece ahí, aunque sea de alta nueva.
+        if(dni){rec._deEstaImportacion=true;existMap[dni]=rec;}
         recs.push(rec);
       });
       pfill.style.width="40%";
@@ -1262,6 +1307,8 @@ async function cargarNominaExcel(){
         recs.push({id:(Date.now()+50000+i).toString(),nombre,rol:rolDesdeJefatura(cv(row["PUESTO"]))||"Inspector",turno:normTurno(row["TURNO"]),cuil:cvNum(row["CUIL"]),dni,modalidad:cv(row["MODALIDAD"]),genero:cv(row["GENERO"]),fechaIngreso:fmtF(row["FECHA DE INGRESO"]),celular:cv(row["CELULAR PARTICULAR"]),domicilio:cv(row["DOMICILIO"]),barrio:cv(row["BARRIO/LOCALIDAD"]),estado:"Baja",coordinador:"",mailPersonal:"",agentes_calle:""});
         nuevos++;
       });
+      // Sacar la marca interna antes de subir — no es un campo real de la persona.
+      recs.forEach(r=>{delete r._deEstaImportacion;});
       pfill.style.width="55%";
 
       // Conservar personas existentes que no aparecen en este Excel (upsert por DNI, no reemplazo)
@@ -1280,8 +1327,14 @@ async function cargarNominaExcel(){
       sessionStorage.removeItem("dgf_personal_nomina");sessionStorage.removeItem("dgf_personal_nomina_ts");
       const ac=recs.filter(r=>r.estado==="Activo").length;
       const ba=recs.filter(r=>r.estado==="Baja").length;
-      toastEl.textContent="✅ "+recs.length+" registros ("+nuevos+" nuevos, "+actualizados+" actualizados). Activos: "+ac+" | Bajas: "+ba;
-      toastEl.style.background="#dcfce7";toastEl.style.color="#15803d";
+      let msg="✅ "+recs.length+" registros ("+nuevos+" nuevos, "+actualizados+" actualizados). Activos: "+ac+" | Bajas: "+ba;
+      if(dnisDuplicados.length){
+        msg+=" ⚠️ "+dnisDuplicados.length+" fila(s) con DNI repetido en el mismo Excel, no importadas: "+dnisDuplicados.join(", ");
+        toastEl.style.background="#fff3cd";toastEl.style.color="#856404";
+      } else {
+        toastEl.style.background="#dcfce7";toastEl.style.color="#15803d";
+      }
+      toastEl.textContent=msg;
       renderAll();
     }catch(err){toastEl.textContent="❌ Error: "+err.message;toastEl.style.background="#fee2e2";toastEl.style.color="#b91c1c";console.error(err);}
     finally{btn.disabled=false;btn.textContent="Subir a Firestore";setTimeout(()=>{pwrap.style.display="none";pfill.style.width="0%";},3000);}
@@ -1298,7 +1351,7 @@ function abrirModalVer(id){
   document.getElementById("mv-title").textContent=p.nombre+" · "+(p.rol||"Inspector");
   document.getElementById("mv-ficha").innerHTML=[
     ["Turno",badgeTurno(p.turno)],["Rol",esc(p.rol||"Inspector")],["Estado",badgeEstado(est)],
-    ["DNI",p.dni||"—"],["Celular",p.celular||"—"],["Ingreso",fmtDate(p.fechaIngreso)||"—"],
+    ["DNI",esc(p.dni||"—")],["Celular",esc(p.celular||"—")],["Ingreso",fmtDate(p.fechaIngreso)||"—"],
     ["Mail",esc(p.mailPersonal||"—")],["Domicilio",esc(p.domicilio||"—")],["Barrio",esc(p.barrio||"—")],
   ].map(([k,v])=>"<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>").join("");
   const novP=[...window.novedades].filter(n=>n.personaId===id).reverse().slice(0,10);
@@ -1434,14 +1487,21 @@ function parsearAsistenciaExcel(wb, soloHoja, soloTipo) {
       const nombreNorm = sinAcentos(nombreTrim.replace(",","").replace(/\s+/g," ").trim().toUpperCase());
       const partes = nombreNorm.split(" ").filter(Boolean);
 
-      // Buscar en nómina: todos los apellidos del Excel deben aparecer en el nombre
-      const persona = window.nomina.find(p => {
-        const pn = sinAcentos((p.nombre||"").toUpperCase());
-        // Coincidencia exacta primero
-        if(pn === nombreNorm) return true;
-        // Coincidencia parcial: al menos los 2 primeros tokens coinciden
-        return partes.slice(0,2).every(pt => pn.includes(pt));
-      });
+      // Buscar en nómina: coincidencia exacta primero. Si no hay, parcial
+      // (al menos los 2 primeros tokens del Excel aparecen en el nombre) —
+      // pero si esa coincidencia parcial matchea a MÁS DE UNA persona, es
+      // ambiguo: no elegir una al azar (antes tomaba la primera encontrada),
+      // se trata como "no encontrado" con aviso propio más abajo.
+      let persona = window.nomina.find(p => sinAcentos((p.nombre||"").toUpperCase()) === nombreNorm);
+      let personaAmbigua = false;
+      if(!persona){
+        const candidatos = window.nomina.filter(p => {
+          const pn = sinAcentos((p.nombre||"").toUpperCase());
+          return partes.slice(0,2).every(pt => pn.includes(pt));
+        });
+        if(candidatos.length === 1) persona = candidatos[0];
+        else if(candidatos.length > 1) personaAmbigua = true;
+      }
 
       const filaObs = aoa[ri+2] || [];
 
@@ -1465,7 +1525,7 @@ function parsearAsistenciaExcel(wb, soloHoja, soloTipo) {
 
       if(Object.keys(diasNovedad).length > 0) {
         if(!persona) {
-          noEncontrados.add(nombreExcel.trim());
+          noEncontrados.add(nombreExcel.trim()+(personaAmbigua?" (ambiguo: coincide con más de una persona de la nómina)":""));
         } else {
           // Agrupar días consecutivos del mismo tipo en rangos
           const fechasSorted = Object.keys(diasNovedad).sort();
@@ -1600,6 +1660,10 @@ async function importarAsistencia() {
         const original = window.novedades.find(x => x.id === n._existenteId);
         return conAuditoria({...(original||{}), detalle: n.detalle || ""}, original);
       }
+      // Igual que en el alta manual (revisarNovedad): una "Licencia" arranca
+      // en "Pendiente" si no se le asigna otro estado explícitamente — antes
+      // esto sólo pasaba en el alta manual, nunca en la importación masiva.
+      const esLicencia = n.tipo.toLowerCase().includes("licencia");
       return conAuditoria({
         id: (ahora + (iNueva++)).toString(),
         personaId: n.personaId,
@@ -1607,6 +1671,7 @@ async function importarAsistencia() {
         tipo: n.tipo,
         detalle: n.detalle || "",
         ...(n.licIni ? {licIni:n.licIni, licFin:n.licFin} : {}),
+        ...(esLicencia ? {estadoLic:"Pendiente"} : {}),
       }, null);
     });
     pfill.style.width = "40%";

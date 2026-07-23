@@ -312,9 +312,8 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
     <div class="ctitle">Instrucciones</div>
     <ul style="font-size:.87rem;color:var(--mut);line-height:2.1;padding-left:16px">
       <li>Solo usuarios autorizados pueden cargar datos.</li>
-      <li>Al cargar se <strong>reemplaza toda</strong> la base en Firestore.</li>
+      <li>Al cargar se <strong>actualizan o agregan</strong> los registros del Excel en Firestore (no se borra lo que ya hab&#237;a y no est&#225; en este archivo).</li>
       <li>Hojas procesadas: Hoja 17, RENOVACIONES, NUEVOS EMPLAZAMIENTOS, FOODTRUCK, ALIMENTOS HISTORIAL, LEGALES/TRASLADOS.</li>
-      <li>CANCHAS e INS REG POSTULANTES no tienen ubicaci&#243;n georreferenciable.</li>
     </ul>
   </div>
 </main>
@@ -368,12 +367,13 @@ function findCoords(loc, barrio) {
   }
   return null;
 }
+// Mismos colores que bc() (clasificación de estado de la tabla) — antes
+// vivían duplicados acá con reglas propias, y se habían ido desalineando
+// (ej. "COMPLETO"/"GUARDA"/"NUEVO"/"PARA INICIAR" tenían badge propio en la
+// tabla pero cualquiera de esos caía al color por defecto en el mapa).
 function mcolor(e) {
-  var u=(e||'').toUpperCase();
-  if (u.indexOf('OTORGADO')!==-1||u.indexOf('INSCRIPTO')!==-1) return '#16a34a';
-  if (u.indexOf('VENCIDO')!==-1||u.indexOf('DENEGADO')!==-1||u.indexOf('REVOCADO')!==-1) return '#dc2626';
-  if (u.indexOf('SUBSANACION')!==-1||u.indexOf('CHEQ')!==-1||u.indexOf('FALTANTE')!==-1) return '#ea580c';
-  return '#2563a8';
+  var COLORES={bg:'#15803d',br:'#b91c1c',bo:'#b45309',bb:'#0369a1',bx:'#55606b'};
+  return COLORES[bc(e)];
 }
 function showOnMap(r) {
   var coords = findCoords(r.locacion, r.barrio);
@@ -430,7 +430,9 @@ function switchTab(name, btn) {
   if (name==='search') setTimeout(function(){if(_map)_map.invalidateSize();},120);
 }
 function openLogin() {
-  document.getElementById('loginErr').style.display='none';
+  var errEl=document.getElementById('loginErr');
+  errEl.textContent='Usuario o contraseña incorrectos.';
+  errEl.style.display='none';
   document.getElementById('lUser').value='';
   document.getElementById('lPass').value='';
   document.getElementById('loginOverlay').classList.add('show');
@@ -444,6 +446,7 @@ async function doLogin() {
   var u = document.getElementById('lUser').value.trim().toLowerCase();
   var p = document.getElementById('lPass').value;
   var errEl = document.getElementById('loginErr');
+  errEl.textContent='Usuario o contraseña incorrectos.';
   errEl.style.display='none';
   if (!u || !p) { errEl.style.display='block'; return; }
   try {
@@ -677,7 +680,12 @@ async function loadExcel(){
       });
       setP(40);
       showT('📊 '+excelRecs.length+' registros en el Excel. Comparando...','info');
-      function clave(r){return (r.expediente||r.dni||r.nombre)+'|'+r.hoja;}
+      // Si no hay expediente ni DNI (ej. hoja "LEGALES", que no tiene columna
+      // de DNI), usar sólo el nombre es débil: dos personas distintas con el
+      // mismo nombre y sin esos datos se pisarían entre sí. Sumar locación y
+      // categoría como desempate reduce esa colisión (no la elimina del todo,
+      // pero la hace mucho menos probable).
+      function clave(r){return (r.expediente||r.dni||(r.nombre+'|'+r.locacion+'|'+r.categoria))+'|'+r.hoja;}
       var excelMap={};
       excelRecs.forEach(function(r){excelMap[clave(r)]=r;});
       setP(45);
