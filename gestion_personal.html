@@ -216,6 +216,7 @@
 <!-- Firebase module -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, collection, collectionGroup, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
@@ -223,6 +224,11 @@ if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); t
 // Inicializar window.distribuciones AQUÍ para que cargarDistFecha funcione
 window.distribuciones = {};
 const app = initializeApp(FIREBASE_CONFIG);
+// App Check: si config.js todavía no tiene la clave (no configurada), se
+// sigue funcionando igual — App Check queda simplemente sin inicializar.
+if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
+  initializeAppCheck(app, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+}
 const db  = getFirestore(app);
 
 // Exponer para el script global

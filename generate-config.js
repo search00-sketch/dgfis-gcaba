@@ -34,6 +34,9 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "${vars.FIREBASE_MESSAGING_SENDER_ID || ''}",
   appId: "${vars.FIREBASE_APP_ID || ''}"
 };
+// Clave pública de reCAPTCHA v3 para Firebase App Check (no es secreta: está
+// pensada para ir en el cliente, igual que FIREBASE_CONFIG).
+const RECAPTCHA_SITE_KEY = "${vars.RECAPTCHA_SITE_KEY || ''}";
 `;
 
 fs.writeFileSync(configPath, config, 'utf8');
