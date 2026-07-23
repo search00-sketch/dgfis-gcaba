@@ -41,7 +41,6 @@ body{font-family:var(--font);background:var(--c-bg);color:var(--c-ink);font-size
   background:rgba(255,255,255,.12);border:var(--border-w) solid rgba(255,255,255,.35);
   padding:5px 12px;font-size:var(--fs-sm);
 }
-#userBadge{display:none}
 #userBadge .dot{width:8px;height:8px;background:#4ade80;border-radius:50%}
 .hbtn,#logoutBtn{
   background:rgba(255,255,255,.12);border:var(--border-w) solid rgba(255,255,255,.4);color:#fff;

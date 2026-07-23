@@ -8,26 +8,14 @@
 <script src="config.js"></script>
 <script src="utils.js?v=2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="estilo-comun.css?v=5">
+<link rel="stylesheet" href="estilo-comun.css?v=6">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
 
 .grid-dist{grid-template-columns:2fr .9fr 1.4fr 1.2fr 50px}
-.grid-nom{grid-template-columns:2fr .9fr .9fr .8fr 120px}
-.grid-hist{grid-template-columns:90px 2fr 1fr 2fr 40px}
-
-.tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.tipo-btn{border:1.5px solid var(--bor);padding:9px;text-align:center;font-size:13px;cursor:pointer;background:#fff}
-.tipo-btn.sel{font-weight:700;border-color:var(--azul);border-width:2px}
 
 .eventos-banner{background:#fff8e1;border:1px solid #ffe082;padding:10px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .ev-pill{background:#ffe082;padding:3px 10px;font-size:12px;font-weight:600;color:#5c4000}
-
-.autocomplete-wrap{position:relative}
-.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--azul2);border-top:none;max-height:200px;overflow-y:auto;z-index:100;display:none}
-.autocomplete-list.open{display:block}
-.autocomplete-item{padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0}
-.autocomplete-item:hover{background:#e8f4fd}
 
 .ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
 .ficha-item{background:#f9f9f9;padding:8px 12px}
@@ -37,20 +25,11 @@
 .hist-zona{max-height:140px;overflow-y:auto}
 .hist-row{background:#f5f5f5;padding:6px 10px;margin-bottom:4px;font-size:12px}
 
-.nov-info{background:#fffbe6;border:1px solid #ffe58f;padding:8px 12px;font-size:12px;margin-bottom:12px}
-.confirm-box{background:#fff3cd;border:1.5px solid #ffc107;padding:14px;margin-bottom:14px;font-size:13px}
-.confirm-box strong{color:#856404}
-.lic-dates{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-
 /* Estilos adicionales para asignación */
 .rol-chofer{font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;margin-left:4px;font-weight:700}
 .rol-coord{font-size:10px;background:#e0e7ff;color:#3730a3;padding:1px 5px;margin-left:4px;font-weight:700}
 .no-asignable{opacity:.45;pointer-events:none}
 .no-asignable .zona-select{background:#f5f5f5;cursor:not-allowed}
-.dia-selector{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.dia-pill{padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--bor);background:#fff}
-.dia-pill.active{background:var(--azul);color:#fff;border-color:var(--azul)}
-.dia-pill:hover:not(.active){border-color:var(--azul2)}
 </style>
 </head>
 <body>

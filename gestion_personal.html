@@ -8,7 +8,7 @@
 <script src="config.js"></script>
 <script src="utils.js?v=2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="estilo-comun.css?v=5">
+<link rel="stylesheet" href="estilo-comun.css?v=6">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
 
@@ -182,7 +182,7 @@
 <div class="panel" id="panel-zonas">
   <div class="toolbar">
     <button class="btn btn-verde" onclick="exportarResumenZonas()">⬇ Exportar zonas</button>
-    <button class="btn btn-verde" onclick="exportarPorZona()">⬇ Planilla por zona (CSV)</button>
+    <button class="btn btn-verde" onclick="exportarPorZona()">⬇ Planilla por zona (Excel)</button>
   </div>
   <div class="zonas-grid" id="zonas-grid"></div>
 </div>
@@ -217,7 +217,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, collection, collectionGroup, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
 
@@ -237,12 +237,7 @@ window._fDoc    = doc;
 window._fGetDoc = getDoc;
 window._fGetDocs= getDocs;
 window._fSetDoc = setDoc;
-window._fDelDoc = deleteDoc;
-window._fCol    = collection;
-window._fColGroup = collectionGroup;
-window._fBatch  = writeBatch;
 window._fDeleteField = deleteField;
-window._fUpdateDoc = updateDoc;
 // Actualiza campos con notación de punto ("asignaciones.<id>"); si el
 // documento de esa fecha todavía no existe, lo crea vacío y reintenta
 // (updateDoc() sólo falla por "not-found" en ese caso puntual).
@@ -317,14 +312,6 @@ function toast(msg,ms=2400) {
 
 function getFecha(){return document.getElementById('fecha-global').value||todayISO();}
 function getDistHoy(){return window.distribuciones[getFecha()]||{};}
-
-function exportCSV(rows,fn){
-  if(!rows.length) return;
-  const h=Object.keys(rows[0]);
-  const lines=[h.join(','),...rows.map(r=>h.map(k=>`"${(r[k]||'').toString().replace(/"/g,'""')}"` ).join(','))];
-  const b=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();
-}
 
 // ============================================================
 //  TABS

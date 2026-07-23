@@ -78,7 +78,7 @@
 
   window.addEventListener('DOMContentLoaded', cargarDatos);
 </script>
-<link rel="stylesheet" href="estilo-comun.css?v=5">
+<link rel="stylesheet" href="estilo-comun.css?v=6">
 <style>
 :root{--bg:var(--c-bg);--sur:var(--c-surface);--pri:var(--c-brand);--pli:var(--c-brand-2);--acc:var(--c-accent);--txt:var(--c-ink);--mut:var(--c-ink-mut);--bor:var(--c-line-soft);--ok:var(--c-ok);--wa:var(--c-warn);--da:var(--c-danger);--inf:var(--c-info);--r:var(--radius);}
 header{border-bottom:var(--border-w-strong) solid var(--c-line);padding:0 28px;display:flex;align-items:stretch;justify-content:space-between;flex-wrap:wrap;}
@@ -213,7 +213,7 @@ mark{background:#fef9c3;color:inherit;border-radius:0;padding:0 2px;}
   </div>
 </div>
 <script>
-document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='loginOverlay')o.classList.remove('open');}));
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 </script>
 
 <header>
@@ -385,7 +385,7 @@ function showOnMap(r) {
   document.getElementById('mdD').textContent = r.dispo||'—';
   var sw = document.getElementById('mdSadeWrap');
   if (r.sade && r.sade.indexOf('IF-')===0) {
-    sw.innerHTML = '<a class="sadelink" href="https://sistemas.buenosaires.gob.ar/SADE/login" target="_blank">&#128506; Ver informe SADE: '+esc(r.sade)+'</a>';
+    sw.innerHTML = '<a class="sadelink" href="https://sistemas.buenosaires.gob.ar/SADE/login" target="_blank" rel="noopener">&#128506; Ver informe SADE: '+esc(r.sade)+'</a>';
   } else { sw.innerHTML=''; }
   document.getElementById('mdetail').classList.add('show');
   document.getElementById('mempty').style.display='none';
@@ -461,7 +461,8 @@ async function doLogin() {
     document.getElementById('loginOverlay').classList.remove('show');
     document.getElementById('ubadge').style.display='inline-flex';
     document.getElementById('ubadgeN').textContent=snap.data().nombre||u;
-    if (snap.data().role === 'admin') document.getElementById('tabUpload').style.display = '';
+    // Sólo llega hasta acá si ya pasó el chequeo de admin de arriba.
+    document.getElementById('tabUpload').style.display = '';
   } catch(e) {
     errEl.textContent='Error de conexión.'; errEl.style.display='block';
   }
@@ -608,9 +609,16 @@ function renderPagi() {
   var total=Math.ceil(curRes.length/PG);
   if (total<=1){document.getElementById('pagi').innerHTML='';return;}
   var h='<button class="pbtn" onclick="goPage('+(curPage-1)+')" '+(curPage===1?'disabled':'')+'>&#8249;</button>';
+  // El "…" tiene que aparecer una sola vez por tramo oculto contiguo — antes
+  // se disparaba en posiciones fijas (i===4 e i===total-2) que, cuando la
+  // página actual está cerca de un extremo, caían dentro del MISMO tramo
+  // oculto y mostraban "… …" sin números en el medio.
+  var prevShown=true;
   for (var i=1;i<=total;i++) {
-    if (total>10&&i>3&&i<total-1&&Math.abs(i-curPage)>2){if(i===4||i===total-2)h+='<span style="padding:5px 4px;color:#64748b">&#8230;</span>';continue;}
+    var oculto=total>10&&i>3&&i<total-1&&Math.abs(i-curPage)>2;
+    if (oculto){if(prevShown)h+='<span style="padding:5px 4px;color:#64748b">&#8230;</span>';prevShown=false;continue;}
     h+='<button class="pbtn'+(i===curPage?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
+    prevShown=true;
   }
   h+='<button class="pbtn" onclick="goPage('+(curPage+1)+')" '+(curPage===total?'disabled':'')+'>&#8250;</button>';
   h+='<span style="margin-left:7px;font-size:.76rem;color:#64748b">Pág '+curPage+' de '+total+'</span>';

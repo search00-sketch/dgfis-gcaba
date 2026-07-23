@@ -18,7 +18,7 @@
 <!-- XLSX para carga -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-<link rel="stylesheet" href="estilo-comun.css?v=5">
+<link rel="stylesheet" href="estilo-comun.css?v=6">
 <style>
 :root{--bg:var(--c-bg);--sur:var(--c-surface);--pri:var(--c-brand);--pli:var(--c-brand-2);--acc:var(--c-accent);--txt:var(--c-ink);--mut:var(--c-ink-mut);--bor:var(--c-line-soft);--ok:var(--c-ok);--da:var(--c-danger);--r:var(--radius);}
 
@@ -317,7 +317,7 @@ tr:hover td{background:#f8fafc;}
   <div class="ucard" style="font-size:.82rem;color:var(--mut);line-height:1.9">
     <strong style="color:var(--pri)">Campos que se guardan en Firestore:</strong><br>
     Id · fecha · inspector · turno · operativo · zona · direccion · infractor · actaSecuestro · actaComprobacion ·
-    barrio · comuna · lat · lng · mesAnio · precintos (array con artículo/cantidad/categoría por precinto)
+    barrio · comuna · lat · lng · precintos (array con artículo/cantidad/categoría por precinto)
   </div>
 </div>
 </main>
@@ -581,7 +581,7 @@ function renderStats() {
     }
   };
 
-  // ── Actas por mes — usando fecha directamente (mesAnio puede estar roto) ──
+  // ── Actas por mes — calculado directamente de "fecha" ──
   const MESES_LABEL  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   const byMesMap = {};
@@ -777,7 +777,7 @@ function renderMapa() {
   if (heatLayer) { mapInstance.removeLayer(heatLayer); heatLayer = null; }
   if (markersGroup) { mapInstance.removeLayer(markersGroup); markersGroup = null; }
 
-  const conCoords = datosFiltrados.filter(r => r.lat && r.lng && r.lat !== 0);
+  const conCoords = datosFiltrados.filter(r => r.lat && r.lng);
   document.getElementById('mapCount').textContent = conCoords.length + ' puntos con coordenadas';
 
   if (mapMode === 'heat') {
@@ -977,14 +977,6 @@ window.cargarExcel = async function() {
       comuna:           row['COMUNA SIN C'] != null ? String(row['COMUNA SIN C']) : null,
       lat:              row['Y'] ?? null,
       lng:              row['X'] ?? null,
-      mesAnio:         (()=>{
-        if (!fecha) return null;
-        const d = new Date(fecha + 'T12:00:00');
-        if (isNaN(d)) return null;
-        // Guardar como "YYYY-MM" para ordenar, mostrar solo mes en el gráfico
-        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-      })(),
-      anioActa:        fecha ? new Date(fecha+'T12:00:00').getFullYear() : null,
       precintos,
       fueDecomisado:    String(row['FUE DECOMISADO?']||'NO').trim(),
       fotoActa:         row['Foto de acta'] ? String(row['Foto de acta']).trim() : null,
