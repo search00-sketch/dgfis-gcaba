@@ -692,19 +692,21 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 //  EXPORTACIONES
 // ============================================================
 function exportarDia(){
-  const hoy=getFecha(); const dist=getDistHoy();
-  const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja');
+  // Este botón vive junto al selector "Asignando para" de la Distribución
+  // del día (renderDist) — tiene que exportar esa misma fecha, no "hoy".
+  const fechaAsig=getFechaAsig(); const dist=getDistAsig();
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,fechaAsig)!=='Baja');
   const rows=activos.filter(p=>dist[p.id]).map(p=>({
     'Nombre':p.nombre,'Turno':p.turno,'Zona':dist[p.id]||'',
     'Rol':p.rol||'Inspector','Coordinador':p.coordinador||'',
-    'Celular':p.celular||'','Novedad':novsDePersonaHoy(p.id).map(n=>n.tipo).join(', ')||''
+    'Celular':p.celular||'','Novedad':window.novedades.filter(n=>n.personaId===p.id&&novedadCubreFecha(n,fechaAsig)).map(n=>n.tipo).join(', ')||''
   }));
   if(!rows.length){toast('Sin personal asignado para exportar.');return;}
   const ws=XLSX.utils.json_to_sheet(rows);
   ws['!cols']=[{wch:35},{wch:16},{wch:20},{wch:18},{wch:30},{wch:14},{wch:25}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'DISTRIBUCIÓN');
-  XLSX.writeFile(wb,`nomina_dia_${hoy}.xlsx`);
+  XLSX.writeFile(wb,`nomina_dia_${fechaAsig}.xlsx`);
   toast('✅ Nómina del día exportada');
 }
 function exportarActivos(){
@@ -743,16 +745,19 @@ function exportarHistorialNovedades(){
   toast('✅ Historial exportado en Excel');
 }
 function exportarResumenZonas(){
+  // Este panel ("Resumen por zona") no tiene selector de fecha propio: muestra
+  // y exporta siempre el día de hoy — antes exportaba la fecha de "Asignando
+  // para" de OTRO panel (Distribución del día), invisible acá, sin relación
+  // con lo que se ve en pantalla.
   const hoy=getFecha();
-  const fechaAsig=getFechaAsig();
-  const dist=getDistAsig();
+  const dist=getDistHoy();
   const activos=window.nomina.filter(p=>getEstadoPersona(p,hoy)!=='Baja');
 
   // Usar SheetJS para formato visual
   const wb = XLSX.utils.book_new();
   const aoa = []; // array of arrays
 
-  const fechaObj = new Date(fechaAsig+'T12:00:00');
+  const fechaObj = new Date(hoy+'T12:00:00');
   const DIAS = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
   const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const diaNombre = DIAS[fechaObj.getDay()];
@@ -863,7 +868,7 @@ function exportarResumenZonas(){
   ws['!cols'] = colWidths;
 
   XLSX.utils.book_append_sheet(wb, ws, 'DISTRIBUCIÓN');
-  XLSX.writeFile(wb, `distribucion_${fechaAsig}.xlsx`);
+  XLSX.writeFile(wb, `distribucion_${hoy}.xlsx`);
   toast('✅ Resumen de zonas exportado');
 }
 function exportarPorZona(){exportarResumenZonas();}

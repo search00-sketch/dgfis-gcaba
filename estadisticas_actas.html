@@ -442,7 +442,9 @@ function fmtFecha(f) {
   // "T12:00:00" evita que, al pasar a hora local (UTC-3 en Argentina), la
   // fecha se corra un día para atrás (medianoche UTC = 21hs del día anterior).
   const d = new Date(f + 'T12:00:00');
-  return isNaN(d) ? f : d.toLocaleDateString('es-AR');
+  // Si no parsea como fecha válida, se devuelve el texto tal cual venía del
+  // Excel — hay que escaparlo, porque este valor se inserta directo en HTML.
+  return isNaN(d) ? esc(f) : d.toLocaleDateString('es-AR');
 }
 
 // esc() ahora vive en utils.js (compartido por todo el portal)

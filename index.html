@@ -424,26 +424,26 @@ async function loadUserTable() {
             ${MODULOS_DISPONIBLES.map(m => `
               <label style="font-size:.74rem;display:flex;align-items:center;gap:3px;cursor:pointer">
                 <input type="checkbox" ${modsActuales.includes(m)?'checked':''}
-                  onchange="toggleModulo('${d.id}','${m}',this.checked)"
+                  onchange="toggleModulo('${escJsAttr(d.id)}','${m}',this.checked)"
                   ${role==='admin'?'disabled title="Admin tiene acceso a todo"':''}
                 > ${esc(m)}
               </label>
               ${modsActuales.includes(m)&&role!=='admin' ? `
               <select style="font-size:.7rem;padding:1px 3px" title="Nivel de permiso en ${esc(m)}"
-                onchange="cambiarPermiso('${d.id}','${m}',this.value)">
+                onchange="cambiarPermiso('${escJsAttr(d.id)}','${m}',this.value)">
                 <option value="editor" ${(permisosActuales[m]||'editor')==='editor'?'selected':''}>✏️ Editor</option>
                 <option value="viewer" ${permisosActuales[m]==='viewer'?'selected':''}>👁 Sólo ver</option>
               </select>` : ''}`).join('')}
           </div>
         </td>
         <td>
-          <input class="pinput" type="password" id="np_${d.id}"
+          <input class="pinput" type="password" id="np_${esc(d.id)}"
                  placeholder="Nueva contraseña">
         </td>
         <td style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="abtn" onclick="changePass('${d.id}', this)">Cambiar pass</button>
+          <button class="abtn" onclick="changePass('${escJsAttr(d.id)}', this)">Cambiar pass</button>
           ${d.id !== 'srepetto'
-            ? `<button class="abtn danger" onclick="deleteUser('${d.id}')">Eliminar</button>`
+            ? `<button class="abtn danger" onclick="deleteUser('${escJsAttr(d.id)}')">Eliminar</button>`
             : ''}
         </td>
       `;
