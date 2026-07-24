@@ -494,7 +494,7 @@ else window.cargarTodo();
 window.nomina        = [];
 window.novedades     = [];
 window.zonas         = [];
-window.tiposNovedad  = ["Licencia","Llegada tarde","Retiro anticipado","Ausencia","Otro"];
+window.tiposNovedad  = ["Licencia","Llegada tarde","Retiro anticipado","Ausencia","Otro","Compensatorio","Articulo","Entrada demorada"];
 window.distribuciones= {};
 window.feriados      = [];
 window.feriadosDesc  = {};
@@ -1713,7 +1713,7 @@ function showAsistToast(msg, type) {
 function renderTiposNovedad() {
   const lista = document.getElementById("tipos-nov-lista");
   if (!lista) return;
-  const FIJOS = ["Licencia","Llegada tarde","Retiro anticipado","Ausencia","Otro"];
+  const FIJOS = ["Licencia","Llegada tarde","Retiro anticipado","Ausencia","Otro","Compensatorio","Articulo","Entrada demorada"];
   lista.innerHTML = (window.tiposNovedad||[]).map((t,i) => {
     const esFijo = FIJOS.includes(t);
     return "<div class=\"zona-tag\">"
