@@ -37,3 +37,14 @@ function coincideTexto(texto, query) {
   const t = texto||'';
   return q.split(/\s+/).every(tok => t.includes(tok));
 }
+
+// El <header> (título/fecha/usuario) quedó fijo (position:sticky) en las 6
+// páginas. Mide su alto real y lo expone en --sticky-offset para que otros
+// elementos sticky de la página (columna de pestañas del trío, mapa de
+// Buscador de Permisos) arranquen debajo de él en vez de quedar tapados.
+function actualizarStickyOffset() {
+  const header = document.querySelector('header');
+  document.documentElement.style.setProperty('--sticky-offset', (header ? header.offsetHeight : 0) + 'px');
+}
+document.addEventListener('DOMContentLoaded', actualizarStickyOffset);
+window.addEventListener('resize', actualizarStickyOffset);

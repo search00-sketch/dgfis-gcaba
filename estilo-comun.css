@@ -31,6 +31,7 @@ body{font-family:var(--font);background:var(--c-bg);color:var(--c-ink);font-size
   padding:var(--sp-3) var(--sp-4);
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-2);
   border-bottom:var(--border-w-strong) solid var(--c-line);
+  position:sticky;top:0;z-index:500;
 }
 .header-title,.htitle h1{font-size:var(--fs-md);font-weight:700}
 .header-sub,.htitle p{font-size:var(--fs-sm);opacity:.65;margin-top:2px}
@@ -74,7 +75,7 @@ main{max-width:1100px;margin:0 auto;padding:var(--sp-6) var(--sp-4);width:100%}
   flex:0 0 170px;width:170px;flex-direction:column;align-items:stretch;gap:0;
   padding:var(--sp-2) 0;overflow-x:visible;
   border-bottom:none;border-right:var(--border-w-strong) solid var(--c-line);
-  position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto;
+  position:sticky;top:var(--sticky-offset,0px);align-self:flex-start;max-height:calc(100vh - var(--sticky-offset,0px));overflow-y:auto;
 }
 .layout-row .tab{
   border-bottom:none;border-left:3px solid transparent;text-align:left;

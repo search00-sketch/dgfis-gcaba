@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <!-- config.js carga FIREBASE_CONFIG desde variables de entorno (NO hardcodeado) -->
 <script src="config.js"></script>
-<script src="utils.js?v=2"></script>
+<script src="utils.js?v=3"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -78,7 +78,7 @@
 
   window.addEventListener('DOMContentLoaded', cargarDatos);
 </script>
-<link rel="stylesheet" href="estilo-comun.css?v=6">
+<link rel="stylesheet" href="estilo-comun.css?v=7">
 <style>
 :root{--bg:var(--c-bg);--sur:var(--c-surface);--pri:var(--c-brand);--pli:var(--c-brand-2);--acc:var(--c-accent);--txt:var(--c-ink);--mut:var(--c-ink-mut);--bor:var(--c-line-soft);--ok:var(--c-ok);--wa:var(--c-warn);--da:var(--c-danger);--inf:var(--c-info);--r:var(--radius);}
 header{border-bottom:var(--border-w-strong) solid var(--c-line);padding:0 28px;display:flex;align-items:stretch;justify-content:space-between;flex-wrap:wrap;}
@@ -133,7 +133,7 @@ mark{background:#fef9c3;color:inherit;border-radius:0;padding:0 2px;}
 .pbtn:hover{border-color:var(--pli);color:var(--pli);}.pbtn.active{background:var(--pri);color:#fff;border-color:var(--pri);}
 .pbtn:disabled{opacity:.4;cursor:not-allowed;}
 .estate{text-align:center;padding:50px 20px;color:var(--mut);}.estate .ei{font-size:3rem;margin-bottom:10px;}
-.msticky{position:sticky;top:16px;}
+.msticky{position:sticky;top:calc(var(--sticky-offset,0px) + 16px);}
 .mcard{background:var(--sur);border:var(--border-w) solid var(--bor);overflow:hidden;}
 .mhead{padding:12px 15px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;}
 .mhtitle{font-size:.77rem;font-weight:700;color:var(--pri);text-transform:uppercase;letter-spacing:.06em;}
