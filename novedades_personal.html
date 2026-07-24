@@ -319,7 +319,7 @@
     <button class="modal-close" onclick="cerrarModal('modal-novedad-overlay')">✕</button>
     <div class="modal-title" id="mn-title">Cargar novedad</div>
     <div id="mn-form-body">
-      <div class="form-field full" style="margin-bottom:12px">
+      <div class="form-field full" style="margin-bottom:12px" id="mn-fecha-wrap">
         <label class="fl">Fecha de la novedad</label>
         <input type="date" class="form-input" id="mn-fecha">
       </div>
@@ -1049,6 +1049,7 @@ function abrirModalNovedad(pid){
   _novPersonaId=pid||null;_novTipo=null;_editNovId=null;_novPendiente=null;
   document.getElementById("mn-detalle").value="";
   document.getElementById("mn-fecha").value=getFecha();
+  document.getElementById("mn-fecha-wrap").style.display="";
   document.getElementById("mn-lic-fechas").style.display="none";
   document.getElementById("mn-lic-inicio").value=getFecha();
   document.getElementById("mn-lic-fin").value=getFecha();
@@ -1070,6 +1071,7 @@ function editarNovedad(id){
   document.getElementById("mn-detalle").value=n.detalle||"";
   document.getElementById("mn-fecha").value=n.fecha||getFecha();
   const esLic=n.tipo.toLowerCase().includes("licencia");
+  document.getElementById("mn-fecha-wrap").style.display=esLic?"none":"";
   document.getElementById("mn-lic-fechas").style.display=esLic?"":"none";
   document.getElementById("mn-lic-inicio").value=n.licIni||getFecha();
   document.getElementById("mn-lic-fin").value=n.licFin||getFecha();
@@ -1102,6 +1104,7 @@ function selTipo(btn,tipo){
   document.querySelectorAll(".tipo-btn").forEach(b=>b.classList.remove("sel"));
   btn.classList.add("sel");
   const esLic=tipo.toLowerCase().includes("licencia");
+  document.getElementById("mn-fecha-wrap").style.display=esLic?"none":"";
   document.getElementById("mn-lic-fechas").style.display=esLic?"":"none";
   document.getElementById("mn-lic-estado").style.display=esLic?"":"none";
 }
@@ -1117,6 +1120,7 @@ function revisarNovedad(){
     if(!ini||!fin){alert("Completá las fechas.");return;}
     if(fin<ini){alert("La fecha de fin debe ser igual o posterior al inicio.");return;}
     nov.licIni=ini;nov.licFin=fin;
+    nov.fecha=ini;
     nov.estadoLic=document.getElementById("mn-lic-estado-sel").value||"Pendiente";
   }
   const original=_editNovId?window.novedades.find(x=>x.id===_editNovId):null;
