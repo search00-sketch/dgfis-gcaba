@@ -159,7 +159,7 @@
         <option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>
       </select>
       <select class="ctrl" id="carga-estado" onchange="renderCargaDiaria()">
-        <option value="">Todos los estados</option><option value="__sin__">Sin asignar</option>
+        <option value="">Todos los estados</option><option value="__sin__">Sin cargar</option>
       </select>
       <button class="btn btn-verde" onclick="guardarCargaDiaria()">💾 Guardar carga diaria</button>
       <span id="carga-info" style="font-size:.78rem;color:#888;align-self:center"></span>
@@ -572,7 +572,7 @@ function poblarSelects(){
   const ce=document.getElementById("carga-estado");
   if(ce){
     const tiposEstado=["Presente",...(window.tiposNovedad||[]).filter(t=>t!=="Presente")];
-    ce.innerHTML="<option value=\"\">Todos los estados</option><option value=\"__sin__\">Sin asignar</option>"
+    ce.innerHTML="<option value=\"\">Todos los estados</option><option value=\"__sin__\">Sin cargar</option>"
       +tiposEstado.map(t=>"<option value=\""+esc(t)+"\">"+esc(t)+"</option>").join("");
   }
 }
