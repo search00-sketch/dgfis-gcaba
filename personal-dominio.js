@@ -8,7 +8,7 @@ const TURNOS   = ["Turno Mañana","Turno Tarde","Turno Noche","SADOFE Diurno","S
 const ROLES    = ["Inspector","Coordinador Zonal","Coordinador General","Chofer","Administrativo"];
 const HORARIOS = {"Turno Mañana":"Lun–Vie 07:00–14:00","Turno Tarde":"Lun–Vie 13:00–20:00","Turno Noche":"Lun–Jue 19:00–01:00","SADOFE Diurno":"Sáb–Dom–Feriados 07:00–19:00","SADOFE Noche":"Vie–Sáb–Dom 19:00–01:00","Administrativo":"Administrativo","Gerencia":"Gerencia"};
 const TURNOS_BADGE = {"Turno Mañana":"bdg-turno-man","Turno Tarde":"bdg-turno-tar","Turno Noche":"bdg-turno-noc","SADOFE Diurno":"bdg-sadofe-d","SADOFE Noche":"bdg-sadofe-n","Administrativo":"bdg-admin","Gerencia":"bdg-ger"};
-const NOV_CLASS    = {"Licencia":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro","Presente":"bdg-nov-presente"};
+const NOV_CLASS    = {"Licencia":"bdg-nov-lic","Licencia Médica":"bdg-nov-lic","Licencia Ordinaria":"bdg-nov-lic","Llegada tarde":"bdg-nov-tar","Retiro anticipado":"bdg-nov-ret","Ausencia":"bdg-nov-aus","Otro":"bdg-nov-otro","Presente":"bdg-nov-presente"};
 const ESTADO_CLASS = {"Activo":"bdg-activo","Licencia":"bdg-licencia","Baja":"bdg-baja"};
 const ESTADO_LIC_CLASS = {"Pendiente":"bdg-admin","Aprobada":"bdg-activo","A la espera de más información":"bdg-nov-tar","Rechazada":"bdg-baja"};
 const ZONAS_DEFAULT = ["ONCE","AVELLANEDA","LINIERS","CONSTITUCIÓN","RETIRO","FLORIDA","CAMINITO","CORRIENTES CULTURAL","BARRIO CHINO","SAN TELMO","BOULEVARD CERVIÑO","PLAZA FRANCIA","PARQUE TRES DE FEBRERO","PARQUE MATADEROS","PATRULLA I","PATRULLA II","PATRULLA III","PATRULLA IV","PATRULLA V"];
@@ -49,13 +49,13 @@ function getEstadoPersona(p, hoy) {
     if(p.fechaBaja && hoy<p.fechaBaja) return 'Activo';
     return 'Baja';
   }
-  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo==='Licencia'&&n.licIni&&n.licFin&&n.estadoLic!=='Rechazada');
+  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo.toLowerCase().includes('licencia')&&n.licIni&&n.licFin&&n.estadoLic!=='Rechazada');
   if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin)) return 'Licencia';
   return 'Activo';
 }
 function novedadesHoy() {
   const hoy=getFecha();
-  return window.novedades.filter(n=>n.fecha===hoy||(n.tipo==='Licencia'&&n.licIni&&n.licFin&&hoy>=n.licIni&&hoy<=n.licFin));
+  return window.novedades.filter(n=>n.fecha===hoy||(n.tipo.toLowerCase().includes('licencia')&&n.licIni&&n.licFin&&hoy>=n.licIni&&hoy<=n.licFin));
 }
 function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
 function allZonas(){return [...(window.zonas||[]),'EVENTO ESPECIAL','PARTIDO FÚTBOL'];}

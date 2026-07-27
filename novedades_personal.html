@@ -494,7 +494,7 @@ else window.cargarTodo();
 window.nomina        = [];
 window.novedades     = [];
 window.zonas         = [];
-window.tiposNovedad  = ["Licencia","Llegada tarde","Retiro anticipado","Ausencia","Otro","Compensatorio","Articulo","Entrada demorada"];
+window.tiposNovedad  = ["Licencia Médica","Licencia Ordinaria","Llegada tarde","Retiro anticipado","Ausencia","Otro","Compensatorio","Articulo","Entrada demorada"];
 window.distribuciones= {};
 window.feriados      = [];
 window.feriadosDesc  = {};
@@ -1029,7 +1029,7 @@ async function reactivarPersona(id){
 // ============================================================
 //  MODAL NOVEDAD
 // ============================================================
-const TIPO_ICONS={"Licencia":"📋","Llegada tarde":"⏰","Retiro anticipado":"🚪","Ausencia":"❌","Otro":"📝"};
+const TIPO_ICONS={"Licencia":"📋","Licencia Médica":"🏥","Licencia Ordinaria":"📋","Llegada tarde":"⏰","Retiro anticipado":"🚪","Ausencia":"❌","Otro":"📝"};
 let _novPersonaId=null,_novTipo=null,_editNovId=null,_novPendiente=null;
 
 function renderTiposGrid(tipoSel){
@@ -1713,7 +1713,7 @@ function showAsistToast(msg, type) {
 function renderTiposNovedad() {
   const lista = document.getElementById("tipos-nov-lista");
   if (!lista) return;
-  const FIJOS = ["Licencia","Llegada tarde","Retiro anticipado","Ausencia","Otro","Compensatorio","Articulo","Entrada demorada"];
+  const FIJOS = ["Licencia Médica","Licencia Ordinaria","Llegada tarde","Retiro anticipado","Ausencia","Otro","Compensatorio","Articulo","Entrada demorada"];
   lista.innerHTML = (window.tiposNovedad||[]).map((t,i) => {
     const esFijo = FIJOS.includes(t);
     return "<div class=\"zona-tag\">"
