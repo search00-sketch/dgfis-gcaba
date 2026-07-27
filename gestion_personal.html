@@ -580,10 +580,10 @@ function renderNovedades(){
     +thOrden('hist','tipo','Tipo','renderNovedades')
     +'<span>Detalle</span><span></span>';
 
-  document.getElementById('nov-body').innerHTML=hist.map((n,i)=>{
+  document.getElementById('nov-body').innerHTML=hist.map(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:'—'};
     const extra=n.licIni?`${fmtDate(n.licIni)}→${fmtDate(n.licFin)}`:'';
-    return `<div class="table-row grid-hist" style="${i%2===0?'':'background:#fafafa'}">
+    return `<div class="table-row grid-hist">
       <span style="font-size:12px;color:#777">${fmtDate(n.fecha)}</span>
       <span style="font-size:13px;font-weight:600">${esc(p.nombre)}</span>
       ${badgeNov(n.tipo)}
