@@ -128,9 +128,9 @@ select.ctrl,.pinput{border:var(--border-w) solid var(--c-line-soft);padding:var(
 .th-sort:hover{text-decoration:underline}
 .table-body{max-height:640px;overflow-y:auto}
 .table-row{display:grid;padding:3px var(--sp-3);gap:6px;align-items:center;border-bottom:var(--border-w) solid var(--c-line-soft);min-height:30px}
-.table-row:hover{background:var(--c-bg)}
+.table-row:hover{background:#bfd6ec}
 .table-row:nth-child(even){background:#fafaf8}
-.table-row:nth-child(even):hover{background:var(--c-bg)}
+.table-row:nth-child(even):hover{background:#bfd6ec}
 .nombre-cell{font-weight:600;font-size:var(--fs-base);line-height:1.2}
 .sub-cell{font-size:var(--fs-sm);color:var(--c-ink-mut);margin-top:0;line-height:1.2}
 .table-info{font-size:var(--fs-sm);color:var(--c-ink-mut);margin-bottom:6px}
