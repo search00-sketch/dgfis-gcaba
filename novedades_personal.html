@@ -267,7 +267,8 @@
         <label class="fl">Filtrar por tipo</label>
         <select class="form-input" id="asist-filtro-tipo" style="width:200px">
           <option value="">Todos los tipos</option>
-          <option value="Licencia">Solo Licencias</option>
+          <option value="Licencia Médica">Solo Licencias Médicas</option>
+          <option value="Licencia Ordinaria">Solo Licencias Ordinarias</option>
           <option value="Ausencia">Solo Ausencias</option>
           <option value="Llegada tarde">Solo Llegadas tarde</option>
           <option value="Retiro anticipado">Solo Retiros anticipados</option>
@@ -1373,7 +1374,7 @@ document.addEventListener("click",e=>{const l=document.getElementById("mn-person
 // ============================================================
 const ASIST_TIPO_MAP = {
   "Ausente":"Ausencia","Ausente ":"Ausencia","Injustificado":"Ausencia","Injustificado ":"Ausencia",
-  "Enfermedad":"Enfermedad","Licencia Ordinaria":"Licencia","Licencia":"Licencia",
+  "Enfermedad":"Licencia Médica","Licencia Ordinaria":"Licencia Ordinaria","Licencia":"Licencia Ordinaria",
   "Llegada Tarde":"Llegada tarde","Llegada tarde":"Llegada tarde","Entrada Demorada":"Llegada tarde",
   "Retiro Anticipado":"Retiro anticipado","Retiro anticipado":"Retiro anticipado",
   "Compesatorio":"Compensatorio","Compensatorio":"Compensatorio",
@@ -1383,7 +1384,7 @@ const ASIST_TIPO_MAP = {
   "Baja":"Baja","Maternidad":"Maternidad","Paternidad":"Paternidad","ART":"ART","Mudanza":"Otro",
 };
 // Tipos que se agrupan en rango cuando son días consecutivos
-const ASIST_RANGO = new Set(["Licencia","Lic. Largo Tratamiento","Maternidad","Paternidad","ART","Enfermedad"]);
+const ASIST_RANGO = new Set(["Licencia Médica","Licencia Ordinaria","Lic. Largo Tratamiento","Maternidad","Paternidad","ART"]);
 // Tipos que NO son novedades (estado normal)
 const ASIST_IGNORAR = new Set(["Presente","","Libre (trabaja 3 de 4 días)"]);
 
