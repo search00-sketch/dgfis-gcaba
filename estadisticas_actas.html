@@ -654,7 +654,7 @@ function renderStats() {
   // ── Categorías ───────────────────────────────────────────────────────
   const byCat = {};
   D.forEach(r => (r.precintos||[]).forEach(p => {
-    const c = (p.categoria||'Sin categoría').toUpperCase().trim();
+    const c = String(p.categoria||'Sin categoría').toUpperCase().trim();
     byCat[c] = (byCat[c]||0)+1;
   }));
   const topCat = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,10);
@@ -946,13 +946,13 @@ window.cargarExcel = async function() {
           precinto: String(num),
           cantidad: row[cant] ?? null,
           articulo: row[art] ?? null,
-          categoria: row[cat] ?? null,
+          categoria: row[cat] != null ? String(row[cat]).trim() : null,
         });
       }
     });
 
     let fecha = '';
-    const raw = row['Fecha Labrado'];
+    const raw = row['Fecha de Labrado'] ?? row['Fecha de labrado'] ?? row['Fecha Labrado'];
     if (raw) {
       if (typeof raw === 'number') {
         const d = new Date(Math.round((raw - 25569) * 86400 * 1000));
