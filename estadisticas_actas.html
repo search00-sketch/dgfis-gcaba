@@ -991,8 +991,8 @@ window.cargarExcel = async function() {
 
     const data = await chosenFile.arrayBuffer();
     const wb = XLSX.read(data);
-    const ws = wb.Sheets['Forms ACTAS'];
-    if (!ws) throw new Error('No se encontró la hoja "Forms ACTAS"');
+    const ws = wb.Sheets['Sheet1'] || wb.Sheets['Forms ACTAS'];
+    if (!ws) throw new Error('No se encontró la hoja "Sheet1" ni "Forms ACTAS". Hojas en el archivo: ' + wb.SheetNames.join(', '));
     const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
 
     // Construir mapa Id → registro del Excel
