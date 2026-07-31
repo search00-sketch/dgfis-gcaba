@@ -165,6 +165,18 @@ tr:hover td{background:#f8fafc;}
     <select id="fZona" onchange="aplicarFiltros()"><option value="">Todas</option></select>
   </div>
   <div class="ffield">
+    <label>Categoría</label>
+    <select id="fCategoria" onchange="aplicarFiltros()"><option value="">Todas</option></select>
+  </div>
+  <div class="ffield">
+    <label>Food Truck</label>
+    <select id="fFoodTruck" onchange="aplicarFiltros()"><option value="">Todos</option></select>
+  </div>
+  <div class="ffield">
+    <label>Tipo de conexión</label>
+    <select id="fTipoConexion" onchange="aplicarFiltros()"><option value="">Todas</option></select>
+  </div>
+  <div class="ffield">
     <label>Turno</label>
     <select id="fTurno" onchange="aplicarFiltros()">
       <option value="">Todos</option>
@@ -465,15 +477,33 @@ let datosFiltrados = [];
 let tblPage = 1;
 const TBL_PER = 50;
 
-function poblarZonas() {
-  const zonas = [...new Set((window.ACTAS||[]).map(r=>r.zona).filter(Boolean))].sort();
-  const sel = document.getElementById('fZona');
-  zonas.forEach(z => { const o = document.createElement('option'); o.textContent = z; sel.appendChild(o); });
+// Puebla los <select> cuyas opciones dependen de los datos cargados (no son
+// fijas como Operativo/Turno). Se llama de nuevo en cada init() — incluido
+// después de reimportar un Excel — así que primero limpia lo que había, para
+// no ir duplicando opciones en cada recarga.
+function poblarSelectDinamico(id, valores, placeholder) {
+  const sel = document.getElementById(id);
+  const actual = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  [...new Set(valores.filter(Boolean))].sort().forEach(v => {
+    const o = document.createElement('option'); o.textContent = v; sel.appendChild(o);
+  });
+  if ([...sel.options].some(o => o.value === actual)) sel.value = actual;
+}
+function poblarFiltros() {
+  const actas = window.ACTAS || [];
+  poblarSelectDinamico('fZona', actas.map(r=>r.zona), 'Todas');
+  poblarSelectDinamico('fCategoria', actas.flatMap(r=>(r.precintos||[]).map(p=>p.categoria)), 'Todas');
+  poblarSelectDinamico('fFoodTruck', actas.map(r=>r.foodTruck), 'Todos');
+  poblarSelectDinamico('fTipoConexion', actas.map(r=>r.tipoConexion), 'Todas');
 }
 
 function aplicarFiltros() {
-  const op    = document.getElementById('fOperativo').value;
-  const zona  = document.getElementById('fZona').value;
+  const op        = document.getElementById('fOperativo').value;
+  const zona      = document.getElementById('fZona').value;
+  const categoria = document.getElementById('fCategoria').value;
+  const foodTruck = document.getElementById('fFoodTruck').value;
+  const conexion  = document.getElementById('fTipoConexion').value;
   const turno = document.getElementById('fTurno').value;
   const desde = document.getElementById('fDesde').value;
   const hasta = document.getElementById('fHasta').value;
@@ -481,6 +511,9 @@ function aplicarFiltros() {
   datosFiltrados = (window.ACTAS||[]).filter(r => {
     if (op && (r.operativo||'').toUpperCase().trim() !== op) return false;
     if (zona && r.zona !== zona) return false;
+    if (categoria && !(r.precintos||[]).some(p=>p.categoria===categoria)) return false;
+    if (foodTruck && r.foodTruck !== foodTruck) return false;
+    if (conexion && r.tipoConexion !== conexion) return false;
     if (turno && r.turno !== turno) return false;
     if (desde && r.fecha && r.fecha < desde) return false;
     if (hasta && r.fecha && r.fecha > hasta) return false;
@@ -494,14 +527,14 @@ function aplicarFiltros() {
 }
 
 function limpiarFiltros() {
-  ['fOperativo','fZona','fTurno'].forEach(id => document.getElementById(id).value = '');
+  ['fOperativo','fZona','fCategoria','fFoodTruck','fTipoConexion','fTurno'].forEach(id => document.getElementById(id).value = '');
   ['fDesde','fHasta'].forEach(id => document.getElementById(id).value = '');
   aplicarFiltros();
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 function init() {
-  poblarZonas();
+  poblarFiltros();
   aplicarFiltros();
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('statsContent').style.display = 'block';
@@ -911,28 +944,17 @@ window.cargarExcel = async function() {
 
   const CHUNK_SIZE = 500; // registros por documento Firestore
 
-  const PRECINTO_COLS = [
-    ['Nº de Precinto 0','Cantidad','Artículo','Categoría'],
-    ['Nº de Precinto 1','Cantidad1','Artículo1','Categoría1'],
-    ['Nº de Precinto 2','Cantidad2','Artículo2','Categoría2'],
-    ['Nº de Precinto 3','Cantidad3','Artículo3','Categoría3'],
-    ['Nº de Precinto 4','Cantidad4','Artículo4','Categoría4'],
-    ['Nº de Precinto 5','Cantidad5','Artículo5','Categoría5'],
-    ['Nº de Precinto 6','Cantidad6','Artículo6','Categoría6'],
-    ['Nº de Precinto 7','Cantidad7','Artículo7','Categoría7'],
-    ['Nº de Precinto 8','Cantidad8','Artículo8','Categoría8'],
-    ['Nº de Precinto 9','Cantidad9','Artículo9','Categoría9'],
-    ['Nº de Precinto 10','Cantidad10','Artículo10','Categoría10'],
-    ['Nº de Precinto 11','Cantidad11','Artículo11','Categoría11'],
-    ['Nº de Precinto 12','Cantidad12','Artículo12','Categoría12'],
-    ['Nº de Precinto 13','Cantidad13','Artículo13','Categoría13'],
-    ['Nº de Precinto 14','Cantidad14','Artículo14','Categoría14'],
-    ['Nº de Precinto 15','Cantidad15','Artículo15','Categoría15'],
-    ['Nº de Precinto 16','Cantidad16','Artículo16','Categoría16'],
-    ['Nº de Precinto 17','Cantidad17','Artículo17','Categoría17'],
-    ['Nº de Precinto 18','Cantidad18','Artículo18','Categoría18'],
-    ['Nº de Precinto 19','Cantidad19','Artículo19','Categoría19'],
-  ];
+  // El Excel numera "Nº de Precinto" arrancando en 1 (no en 0), y las columnas
+  // Cantidad/Artículo/Categoría del primer precinto no llevan sufijo — recién
+  // el segundo precinto en adelante se sufija con 1,2,3... (uno menos que su
+  // "Nº de Precinto"). Antes esta lista no coincidía con esos nombres reales
+  // (probaba "Nº de Precinto 0","Nº de Precinto 1"... hasta sólo 19), lo que
+  // corría cada precinto contra los datos del siguiente y perdía los últimos.
+  const PRECINTO_COLS = [];
+  for (let i = 0; i < 34; i++) {
+    const suf = i === 0 ? '' : String(i);
+    PRECINTO_COLS.push(['Nº de Precinto ' + (i + 1), 'Cantidad' + suf, 'Artículo' + suf, 'Categoría' + suf]);
+  }
 
   function parsearFila(row) {
     const id = String(row['Id'] || row['ID'] || '').trim();
@@ -971,6 +993,8 @@ window.cargarExcel = async function() {
       zona:             String(row['Zona']||'').trim() || null,
       direccion:        String(row['Dirección y Altura']||'').trim() || null,
       infractor:        String(row['Nombre del Infractor']||'').trim() || null,
+      foodTruck:        String(row['¿Se trata del secuestro de un food truck?']||'').trim() || null,
+      tipoConexion:     String(row['Tipo de conexion']||'').trim() || null,
       actaSecuestro:    row['Nº de Acta de Secuestro'] != null ? String(row['Nº de Acta de Secuestro']) : null,
       actaComprobacion: row['Nº de Acta de Comprobacíon'] != null ? String(row['Nº de Acta de Comprobacíon']) : null,
       barrio:           String(row['BARRIO']||'').trim() || null,
