@@ -810,20 +810,29 @@ function renderMapa() {
   if (heatLayer) { mapInstance.removeLayer(heatLayer); heatLayer = null; }
   if (markersGroup) { mapInstance.removeLayer(markersGroup); markersGroup = null; }
 
-  const conCoords = datosFiltrados.filter(r => r.lat && r.lng);
+  // r.lat/r.lng vienen tal cual del Excel (columnas Y/X) — a veces el
+  // geocoding falla y esas celdas terminan con texto (una dirección, un WKT
+  // "POINT(...)") o coordenadas en otro sistema (metros, no grados). Antes
+  // sólo se chequeaba que no estuvieran vacíos: un solo valor así rompía
+  // L.circleMarker/L.LatLng con una excepción no capturada que abortaba el
+  // resto del mapa entero. Ahora se exige número finito y dentro de rango.
+  const conCoords = datosFiltrados
+    .map(r => [r, Number(r.lat), Number(r.lng)])
+    .filter(([,lat,lng]) => Number.isFinite(lat) && Number.isFinite(lng)
+      && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0));
   document.getElementById('mapCount').textContent = conCoords.length + ' puntos con coordenadas';
 
   if (mapMode === 'heat') {
-    const pts = conCoords.map(r => [r.lat, r.lng, 1]);
+    const pts = conCoords.map(([,lat,lng]) => [lat, lng, 1]);
     heatLayer = L.heatLayer(pts, { radius:18, blur:15, maxZoom:17,
       gradient:{0.3:'blue',0.6:'yellow',0.9:'orange',1:'red'}
     }).addTo(mapInstance);
   } else {
     markersGroup = L.layerGroup();
     const colores = {'VENTA ILEGAL':'#2563a8','EVENTO MASIVO':'#f59e0b','PARTIDO DE FUTBOL':'#dc2626'};
-    conCoords.forEach(r => {
+    conCoords.forEach(([r,lat,lng]) => {
       const color = colores[r.operativo] || '#2563a8';
-      const m = L.circleMarker([r.lat, r.lng], {
+      const m = L.circleMarker([lat, lng], {
         radius:5, fillColor:color, color:'#fff', weight:1, fillOpacity:0.8
       });
       m.bindPopup(`<b>${esc(r.actaSecuestro||'–')}</b><br>${esc(r.zona||'')}<br>${esc(r.direccion||'')}<br><i>${fmtFecha(r.fecha)}</i>`);
