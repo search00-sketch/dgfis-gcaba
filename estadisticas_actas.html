@@ -967,7 +967,9 @@ window.cargarExcel = async function() {
 
   function parsearFila(row) {
     const id = String(row['Id'] || row['ID'] || '').trim();
-    if (!id) return null;
+    // El Id siempre es numérico (lo genera el formulario) — una fila con texto
+    // ahí (encabezado repetido, celda mal pegada, etc.) no es un acta real.
+    if (!id || !/^\d+$/.test(id)) return null;
 
     const precintos = [];
     PRECINTO_COLS.forEach(([np, cant, art, cat]) => {
