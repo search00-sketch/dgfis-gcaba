@@ -84,29 +84,30 @@ function esFeriado(fecha) {
   return (window.feriados||[]).includes(fecha);
 }
 
-// Qué turnos trabajan según el día de la semana y si es feriado
-// Feriados = mismo tratamiento que sábado/domingo (SADOFE)
+// Qué turnos trabajan según el día de la semana y si es feriado.
+// El feriado sólo afecta al turno DIURNO (entre semana se cubre como findes,
+// con SADOFE Diurno en vez de Turno Mañana/Tarde). El turno NOCHE se define
+// únicamente por el día de la semana y no cambia si es feriado: Lun-Jue de
+// noche siempre es Turno Noche, Vie/Sáb/Dom de noche siempre es SADOFE Noche
+// — SADOFE Noche no trabaja entre semana aunque ese día sea feriado.
 function turnosQueTrabajan(diaSemana, fecha) {
   // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
-  const esFinde    = diaSemana === 0 || diaSemana === 6;
-  const esViernes  = diaSemana === 5;
-  const esFeriadoD = fecha ? esFeriado(fecha) : false;
+  const esFinde     = diaSemana === 0 || diaSemana === 6;
+  const esFeriadoD  = fecha ? esFeriado(fecha) : false;
   const esNoLaboral = esFinde || esFeriadoD;
 
   const result = new Set();
   if (esNoLaboral) {
-    // Sábado, domingo o feriado → SADOFE
     result.add('SADOFE Diurno');
-    result.add('SADOFE Noche');
   } else {
-    // Día hábil
     result.add('Turno Mañana');
     result.add('Turno Tarde');
-    if (diaSemana >= 1 && diaSemana <= 4) result.add('Turno Noche'); // Lun-Jue
   }
-  // SADOFE Noche también trabaja el viernes hábil (no feriado) por la noche
-  if (esViernes && !esFeriadoD) result.add('SADOFE Noche');
-  // Y siempre en finde/feriado ya está incluido arriba
+  if (diaSemana >= 1 && diaSemana <= 4) {
+    result.add('Turno Noche'); // Lun-Jue, sea o no feriado
+  } else {
+    result.add('SADOFE Noche'); // Vie-Sab-Dom, sea o no feriado
+  }
   return result;
 }
 
