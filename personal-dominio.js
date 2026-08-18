@@ -42,6 +42,19 @@ function todayISO(){
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
 
+// Suma `dias` (puede ser negativo) a la fecha de un <input type="date"> y
+// dispara su evento "change" — así la página reacciona igual que si el
+// usuario hubiera elegido la fecha a mano en el calendario (setear .value
+// por JS solo no dispara "change").
+function moverFecha(inputId, dias){
+  const input=document.getElementById(inputId);
+  if(!input) return;
+  const d=new Date((input.value||todayISO())+"T12:00:00");
+  d.setDate(d.getDate()+dias);
+  input.value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  input.dispatchEvent(new Event("change"));
+}
+
 function getEstadoPersona(p, hoy) {
   if(p.estado==='Baja'){
     // Si la baja tiene fecha, sigue "Activo" para consultas de fechas anteriores

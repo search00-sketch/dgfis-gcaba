@@ -108,7 +108,9 @@
     </div>
   </div>
   <div class="header-right">
+    <button class="hbtn" onclick="moverFecha('fecha-global',-1)" title="Día anterior">◀</button>
     <input type="date" id="fecha-global">
+    <button class="hbtn" onclick="moverFecha('fecha-global',1)" title="Día siguiente">▶</button>
     <div class="badge-count" id="badge-activos">— activos</div>
     <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
     <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
@@ -419,7 +421,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=6"></script>
-<script src="personal-dominio.js?v=7"></script>
+<script src="personal-dominio.js?v=8"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <script type="module">

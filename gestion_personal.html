@@ -91,7 +91,9 @@
     </div>
   </div>
   <div class="header-right">
+    <button class="hbtn" onclick="moverFecha('fecha-global',-1)" title="Día anterior">◀</button>
     <input type="date" id="fecha-global">
+    <button class="hbtn" onclick="moverFecha('fecha-global',1)" title="Día siguiente">▶</button>
     <div class="badge-count" id="badge-activos">— activos</div>
     <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
     <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
@@ -120,7 +122,9 @@
   <div class="toolbar">
     <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--bor);border-radius:0;padding:4px 10px">
       <label style="font-size:11px;font-weight:700;color:#666;white-space:nowrap">📅 Asignando para:</label>
+      <button class="btn btn-gris btn-sm" style="padding:2px 8px" onclick="moverFecha('dist-fecha-asig',-1)" title="Día anterior">◀</button>
       <input type="date" id="dist-fecha-asig" style="border:none;font-size:13px;outline:none;color:var(--azul);font-weight:600" onchange="onCambiarFechaAsig()">
+      <button class="btn btn-gris btn-sm" style="padding:2px 8px" onclick="moverFecha('dist-fecha-asig',1)" title="Día siguiente">▶</button>
     </div>
     <button class="btn btn-verde" onclick="exportarDia()">⬇ Nómina del día</button>
     <a class="btn btn-gris" href="asignacion_zonas.html" style="text-decoration:none;display:inline-block">📍 Ir a Asignación de Zonas →</a>
@@ -210,7 +214,7 @@
 
 <script>window.MODULO_ID='personal';</script>
 <script src="personal-auth.js?v=6"></script>
-<script src="personal-dominio.js?v=7"></script>
+<script src="personal-dominio.js?v=8"></script>
 <script src="personal-datos.js?v=2"></script>
 
 <!-- Firebase module -->
