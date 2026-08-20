@@ -231,6 +231,15 @@ const MODULES = [
     url: 'gestion_personal.html',
   },
   {
+    id: 'relevamientos',
+    icon: '🗂️',
+    title: 'Relevamientos Operativos',
+    desc: 'Carga y consulta de relevamientos de campo para preparar operativos.',
+    tag: 'Activo',
+    roles: ['admin','relevamientos'],
+    url: 'relevamientos_operativos.html',
+  },
+  {
     id: 'expedientes',
     icon: '📋',
     title: 'Gestión de Expedientes',
@@ -410,7 +419,7 @@ async function loadUserTable() {
     tbody.innerHTML = '';
     snap.forEach(d => {
       const { nombre, role, modulos, permisos } = d.data();
-      const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal'];
+      const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal','relevamientos'];
       const modsActuales = modulos || [];
       const permisosActuales = permisos || {};
       const tr = document.createElement('tr');

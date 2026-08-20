@@ -8,6 +8,13 @@ service cloud.firestore {
     match /usuarios/{doc}          { allow read, write: if true; }
     match /personal_config/{doc}   { allow read, write: if true; }
 
+    // Relevamientos Operativos — mismo esquema de chunks que nomina/novedades
+    // (mapa {id: {...datos}} por chunk + doc de índice con numChunks), y un
+    // doc de config aparte (zonas/temáticas) para el desplegable de carga.
+    match /relevamientos_chunks/{doc} { allow read, write: if true; }
+    match /relevamientos_meta/{doc}   { allow read, write: if true; }
+    match /relevamientos_config/{doc} { allow read, write: if true; }
+
     // Antes: un documento por persona (mucho consumo de lecturas). Ahora,
     // chunks de hasta 500 registros con un mapa {personaId: {...datos}}
     // adentro, y un doc de índice con la cantidad de chunks.

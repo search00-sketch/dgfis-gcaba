@@ -9,6 +9,7 @@ const NAV_MODULES=[
   {id:"personal",icon:"👥",title:"Gestión de Personal",url:"gestion_personal.html"},
   {id:"novedades",icon:"📋",title:"Novedades de Personal",url:"novedades_personal.html"},
   {id:"asignacion",icon:"📍",title:"Asignación de Zonas",url:"asignacion_zonas.html"},
+  {id:"relevamientos",icon:"🗂️",title:"Relevamientos Operativos",url:"relevamientos_operativos.html"},
 ];
 function toggleNavMenu(e){
   if(e)e.stopPropagation();

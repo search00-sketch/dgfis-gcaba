@@ -37,6 +37,12 @@ const FIREBASE_CONFIG = {
 // Clave pública de reCAPTCHA v3 para Firebase App Check (no es secreta: está
 // pensada para ir en el cliente, igual que FIREBASE_CONFIG).
 const RECAPTCHA_SITE_KEY = "${vars.RECAPTCHA_SITE_KEY || ''}";
+// Endpoint del Apps Script que sube las fotos de Relevamientos Operativos a
+// Drive (no hay Firebase Storage en este proyecto — plan gratuito). El token
+// es sólo para que no cualquiera que encuentre la URL pueda subir archivos;
+// no es una credencial fuerte, mismo criterio que el resto del proyecto.
+const RELEVAMIENTOS_FOTO_ENDPOINT = "${vars.RELEVAMIENTOS_FOTO_ENDPOINT || ''}";
+const RELEVAMIENTOS_FOTO_TOKEN = "${vars.RELEVAMIENTOS_FOTO_TOKEN || ''}";
 `;
 
 fs.writeFileSync(configPath, config, 'utf8');

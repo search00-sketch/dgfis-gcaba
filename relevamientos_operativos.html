@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA — Relevamientos Operativos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script src="config.js"></script>
+<script src="utils.js?v=3"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="estilo-comun.css?v=9">
+<style>
+:root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
+
+.rlv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:10px}
+.rlv-card{background:#fff;border:1.5px solid var(--bor);padding:10px;cursor:pointer;display:flex;gap:10px}
+.rlv-card:hover{border-color:var(--azul2)}
+.rlv-thumb{width:64px;height:64px;flex-shrink:0;background:var(--gris);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:22px;color:#999}
+.rlv-thumb img{width:100%;height:100%;object-fit:cover}
+.rlv-info{flex:1;min-width:0}
+.rlv-fecha{font-weight:700;font-size:13px}
+.rlv-zona{font-size:12px;color:#666;margin:2px 0 6px}
+.rlv-badges{display:flex;flex-wrap:wrap;gap:4px}
+
+.rc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.rc-grid{grid-template-columns:1fr}}
+
+#rel-mapa{height:520px;border:1.5px solid var(--bor)}
+.rlv-viewbtn{border:1.5px solid var(--bor);background:#fff;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
+.rlv-viewbtn.active{background:var(--azul);color:#fff;border-color:var(--azul)}
+
+.ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.ficha-item{background:#f9f9f9;padding:8px 12px}
+.ficha-key{font-size:11px;color:#888}
+.ficha-val{font-size:13px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<!-- CAMBIAR CONTRASEÑA -->
+<div class="overlay" id="modal-cambiar-pass-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">Cambiar contraseña</div>
+    <div id="cp-err" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Contraseña actual</label>
+      <input class="form-input" type="password" id="cp-actual" autocomplete="current-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva" autocomplete="new-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px">
+      <label class="fl">Repetir nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva2" autocomplete="new-password">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-cambiar-pass-overlay')">Cancelar</button>
+      <button class="btn btn-azul" id="cp-guardar-btn" onclick="guardarCambioPassPropia()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="overlay open" id="loginOverlay" style="z-index:3000">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">🗂️</div>
+    <div class="modal-title" style="text-align:center">Relevamientos Operativos</div>
+    <p style="font-size:.79rem;color:#888;margin-bottom:18px">DGFIS-GCABA</p>
+    <div class="lerr" id="loginErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:0;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px;text-align:left">
+      <label class="fl">Usuario</label>
+      <input class="form-input" type="text" id="lUser" placeholder="usuario" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px;text-align:left">
+      <label class="fl">Contraseña</label>
+      <div style="position:relative">
+        <input class="form-input" type="password" id="lPass" placeholder="••••••" style="padding-right:36px" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" onclick="togglePass()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:#888">👁️</button>
+      </div>
+    </div>
+    <button class="btn btn-azul" style="width:100%;padding:11px" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <p style="margin-top:12px;font-size:.74rem"><a href="index.html" style="color:var(--azul2)">← Volver al portal</a></p>
+  </div>
+</div>
+
+<!-- MODAL DETALLE RELEVAMIENTO -->
+<div class="overlay" id="modal-rel-detalle">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-close" onclick="cerrarModal('modal-rel-detalle')">✕</button>
+    <div class="modal-title" id="rd-title"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <label class="fl" style="margin:0">Estado</label>
+      <select class="form-input" id="rd-estado-sel" style="width:auto" onchange="cambiarEstadoRelDesdeDetalle(this.value)">
+        <option value="Pendiente">Pendiente</option>
+        <option value="Realizado">Realizado</option>
+        <option value="Intimado">Intimado</option>
+      </select>
+    </div>
+    <div id="rd-foto" style="margin-bottom:12px"></div>
+    <div class="ficha-grid" id="rd-ficha"></div>
+    <div style="font-weight:700;font-size:13px;color:var(--azul);margin-bottom:6px">Observaciones</div>
+    <div id="rd-obs" style="font-size:13px;color:#333;white-space:pre-wrap;margin-bottom:6px"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-rojo" id="rd-eliminar-btn" onclick="eliminarRelevamiento()">🗑 Eliminar</button>
+      <button class="btn btn-azul" id="rd-editar-btn" onclick="editarRelevamiento()">✏️ Editar</button>
+      <button class="btn btn-gris" onclick="cerrarModal('modal-rel-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<header class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="nav-drop" style="position:relative">
+      <button onclick="toggleNavMenu(event)" title="Navegar entre módulos" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:0;cursor:pointer">☰</button>
+      <div id="navMenu" class="nav-menu"></div>
+    </div>
+    <div>
+      <div class="header-title">🗂️ Relevamientos Operativos</div>
+      <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
+    <button class="hbtn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<div class="sync-bar">
+  <span><span class="sync-dot sync-loading" id="syncDot"></span><span id="syncTxt">Conectando…</span></span>
+  <button class="sync-refresh" onclick="forzarRecarga()">⟳ Actualizar</button>
+</div>
+
+<div class="layout-row">
+<div class="tabs">
+  <button class="tab active" onclick="window.cambiarTab('dashboard',this)">📊 Dashboard</button>
+  <button class="tab" id="tab-btn-carga" onclick="window.cambiarTab('carga',this)">📥 Carga</button>
+  <button class="tab" onclick="window.cambiarTab('administracion',this)">⚙ Administración</button>
+</div>
+
+<div class="content">
+
+<!-- PANEL DASHBOARD -->
+<div class="panel active" id="panel-dashboard">
+  <div class="toolbar">
+    <input class="search-input" id="rf-buscar" placeholder="🔍 Buscar en observaciones/zona…" oninput="aplicarFiltrosRel()">
+    <select class="ctrl" id="rf-zona" onchange="aplicarFiltrosRel()"><option value="">Todas las zonas</option></select>
+    <select class="ctrl" id="rf-tematica" onchange="aplicarFiltrosRel()"><option value="">Todas las temáticas</option></select>
+    <select class="ctrl" id="rf-estado" onchange="aplicarFiltrosRel()"><option value="">Todos los estados</option></select>
+    <input type="date" class="ctrl" id="rf-desde" onchange="aplicarFiltrosRel()" title="Desde">
+    <input type="date" class="ctrl" id="rf-hasta" onchange="aplicarFiltrosRel()" title="Hasta">
+    <button class="btn btn-gris" onclick="limpiarFiltrosRel()">✕ Limpiar</button>
+    <button class="btn btn-verde" onclick="exportarRelevamientosExcel()">⬇ Exportar Excel</button>
+  </div>
+  <div class="table-info" id="rel-count" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <span id="rel-count-txt"></span>
+    <span>
+      <button class="rlv-viewbtn active" id="rel-view-lista" onclick="cambiarVistaRel('lista')">☰ Lista</button>
+      <button class="rlv-viewbtn" id="rel-view-mapa" onclick="cambiarVistaRel('mapa')">🗺 Mapa</button>
+    </span>
+  </div>
+  <div class="rlv-grid" id="rel-resultados"></div>
+  <div id="rel-mapa" style="display:none"></div>
+</div>
+
+<!-- PANEL CARGA -->
+<div class="panel" id="panel-carga">
+  <div class="gestion-zonas">
+    <div class="gz-title" id="rc-title">📥 Cargar relevamiento</div>
+    <div class="rc-grid">
+      <div class="form-field"><label class="fl">Fecha</label><input type="date" class="form-input" id="rc-fecha"></div>
+      <div class="form-field"><label class="fl">Ubicación / Zona</label><select class="form-input" id="rc-zona"><option value="">Seleccionar…</option></select></div>
+      <div class="form-field full">
+        <label class="fl">Dirección</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" class="form-input" id="rc-direccion" placeholder="Calle y altura, punto de referencia…" style="flex:1">
+          <button type="button" class="btn btn-gris btn-sm" id="rc-ubicacion-btn" onclick="validarDireccionRel()" title="Busca la dirección y confirma sus coordenadas — no depende de dónde estés parado">🔍 Validar dirección</button>
+        </div>
+        <div id="rc-ubicacion-estado" style="font-size:.74rem;color:#888;margin-top:4px"></div>
+      </div>
+      <div class="form-field"><label class="fl">Temática</label><select class="form-input" id="rc-tematica"><option value="">Seleccionar…</option></select></div>
+      <div class="form-field"><label class="fl">Foto</label><input type="file" accept="image/*" class="form-input" id="rc-foto" onchange="previewFotoRel(this)"></div>
+      <div class="form-field"><label class="fl">Foodtruck</label><select class="form-input" id="rc-foodtruck"><option value="No">No</option><option value="Si">Sí</option></select></div>
+      <div class="form-field"><label class="fl">Conexión eléctrica</label><select class="form-input" id="rc-conexion"><option value="No">No</option><option value="Si">Sí</option><option value="Precaria">Precaria</option></select></div>
+      <div class="form-field"><label class="fl">Patente</label><select class="form-input" id="rc-patente"><option value="No">No</option><option value="Si">Sí</option></select></div>
+      <div class="form-field"><label class="fl">Estado</label><select class="form-input" id="rc-estado"><option value="Pendiente">Pendiente</option><option value="Realizado">Realizado</option><option value="Intimado">Intimado</option></select></div>
+    </div>
+    <div id="rc-foto-preview" style="display:none;margin:12px 0"></div>
+    <div class="form-field full" style="margin:14px 0">
+      <label class="fl">Observaciones</label>
+      <textarea class="form-input" id="rc-observaciones" rows="4" placeholder="Detalle libre…"></textarea>
+    </div>
+    <button class="btn btn-verde" id="rc-guardar-btn" onclick="guardarRelevamiento()">💾 Guardar relevamiento</button>
+  </div>
+</div>
+
+<!-- PANEL ADMINISTRACIÓN -->
+<div class="panel" id="panel-administracion">
+  <div class="gestion-zonas">
+    <div class="gz-title">📍 Zonas / Ubicaciones (comunas y villas)</div>
+    <p style="font-size:.8rem;color:#777;margin-bottom:12px">Esta lista alimenta el desplegable "Ubicación / Zona" de la pestaña Carga. Eliminar una zona no borra ni actualiza los relevamientos ya cargados con ella — sólo deja de estar disponible para relevamientos nuevos.</p>
+    <div class="zonas-lista" id="rel-zonas-lista"></div>
+    <div class="gz-add">
+      <input id="rel-nueva-zona" placeholder="Nombre de la zona/ubicación…" onkeydown="if(event.key==='Enter')agregarRelZona()">
+      <button class="btn btn-azul" onclick="agregarRelZona()">+ Agregar</button>
+    </div>
+  </div>
+  <div class="gestion-zonas">
+    <div class="gz-title">🏷 Temáticas / Motivos</div>
+    <p style="font-size:.8rem;color:#777;margin-bottom:12px">Alimenta el desplegable "Temática" de la pestaña Carga. Mismo criterio que las zonas: eliminar una no toca los relevamientos ya cargados.</p>
+    <div class="zonas-lista" id="rel-tematicas-lista"></div>
+    <div class="gz-add">
+      <input id="rel-nueva-tematica" placeholder="Nombre de la temática…" onkeydown="if(event.key==='Enter')agregarRelTematica()">
+      <button class="btn btn-azul" onclick="agregarRelTematica()">+ Agregar</button>
+    </div>
+  </div>
+</div>
+
+</div>
+</div><!-- /layout-row -->
+
+<script>window.MODULO_ID='relevamientos';</script>
+<script src="personal-auth.js?v=6"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
+
+const app = initializeApp(FIREBASE_CONFIG);
+// App Check: si config.js todavía no tiene la clave (no configurada), se
+// sigue funcionando igual — App Check queda simplemente sin inicializar.
+if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
+  initializeAppCheck(app, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+}
+const db = getFirestore(app);
+
+// Exponer para el script clásico de abajo (mismo patrón que el resto del portal)
+window._db      = db;
+window._fDoc    = doc;
+window._fGetDoc = getDoc;
+window._fSetDoc = setDoc;
+// Actualiza campos con notación de punto; si el documento todavía no
+// existe, lo crea vacío y reintenta (updateDoc() sólo falla por
+// "not-found" en ese caso puntual).
+window._fUpdateOrCrear = async function(ref, campos) {
+  try {
+    await updateDoc(ref, campos);
+  } catch (e) {
+    await setDoc(ref, {}, { merge: true });
+    await updateDoc(ref, campos);
+  }
+};
+window._fDeleteField = deleteField;
+
+window.cambiarTab = function(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('panel-' + id);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (window._cambiarTabExtra) window._cambiarTabExtra(id);
+};
+
+// Validar la sesión primero (lectura chica) y recién después disparar la
+// carga de datos — mismo motivo que en el resto del portal: si van en
+// paralelo compiten por la misma conexión y el login queda atascado
+// detrás de la carga pesada. initRelevamientos() vive en el <script>
+// clásico de más abajo — para cuando este script (deferred, type=module)
+// se ejecuta, ese ya corrió y la definió.
+if (window.restaurarSesion) window.restaurarSesion().then(initRelevamientos);
+else initRelevamientos();
+</script>
+
+<script>
+// ============================================================
+//  UTILS
+// ============================================================
+const fmtDate=d=>d?new Date(d+"T12:00:00").toLocaleDateString("es-AR"):"—";
+const ESTADO_REL_BADGE={"Pendiente":"bdg-nov-tar","Realizado":"bdg-activo","Intimado":"bdg-baja"};
+function badgeEstadoRel(e){return "<span class=\"badge "+(ESTADO_REL_BADGE[e]||"bdg-admin")+"\">"+esc(e||"Pendiente")+"</span>";}
+function todayISOSimple(){
+  const d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function toast(msg,ms=2400){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),ms);}
+function cerrarModal(id){document.getElementById(id).classList.remove("open");}
+document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{if(e.target===o&&o.id!=="loginOverlay")o.classList.remove("open");}));
+function setSyncStatusRel(type,msg){
+  const dot=document.getElementById("syncDot"),txt=document.getElementById("syncTxt");
+  if(!dot)return;
+  dot.className="sync-dot sync-"+type;
+  txt.textContent=msg;
+}
+// Redimensiona y comprime una foto en el navegador antes de subirla (una
+// foto de celular sin comprimir puede pesar varios MB — la subimos así de
+// pesada, el Apps Script tarda más y el archivo ocupa espacio de más en
+// Drive sin necesidad, ya que sólo se va a ver en pantalla). Devuelve el
+// data URL en base64 (JPEG).
+function comprimirImagenRel(file,maxDim,calidad){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      let w=img.width,h=img.height;
+      if(w>=h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;}
+      else if(h>w&&h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;}
+      const canvas=document.createElement("canvas");
+      canvas.width=w;canvas.height=h;
+      canvas.getContext("2d").drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL("image/jpeg",calidad||0.8));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("No se pudo leer la imagen."));};
+    img.src=url;
+  });
+}
+// Construye la URL de vista de una foto guardada en Drive a partir de su
+// fileId, en el tamaño pedido (mismo archivo, Drive lo escala al vuelo) —
+// no hay Firebase Storage en este proyecto (plan gratuito), así que las
+// fotos de Relevamientos Operativos se suben a una carpeta de Drive vía un
+// endpoint de Apps Script (ver SubirFoto_relevamientos.gs) en vez de subirse
+// directo desde acá.
+function fotoThumbUrlRel(fileId,ancho){
+  return fileId?("https://drive.google.com/thumbnail?id="+encodeURIComponent(fileId)+"&sz=w"+(ancho||150)):null;
+}
+// Deja rastro de quién creó/modificó un relevamiento (mismo patrón que
+// conAuditoria() en Novedades de Personal).
+function conAuditoriaRel(rel,original){
+  const u=(typeof usuarioActual==="function")?usuarioActual():null;
+  const quien=u?u.nombre:"—";
+  const ahora=new Date().toISOString();
+  if(original&&original.creadoPor){rel.creadoPor=original.creadoPor;rel.creadoEn=original.creadoEn;}
+  else{rel.creadoPor=quien;rel.creadoEn=ahora;}
+  rel.modificadoPor=quien;
+  rel.modificadoEn=ahora;
+  return rel;
+}
+
+// ============================================================
+//  CACHÉ + LECTURA/ESCRITURA "CHUNKED" (self-contained: esta página no es
+//  parte del trío de personal, así que no depende de personal-datos.js —
+//  mismo esquema {coleccion}_chunks/chunk_N con mapa {id:{...datos}} +
+//  {coleccion}_meta/index con numChunks, escrito con notación de punto
+//  para no pisar registros ajenos).
+// ============================================================
+const CACHE_REL={key:"dgf_relevamientos",ts:"dgf_relevamientos_ts",ttl:5*60*1000};
+function getCacheRel(){
+  try{
+    const ts=parseInt(sessionStorage.getItem(CACHE_REL.ts)||"0");
+    const c=sessionStorage.getItem(CACHE_REL.key);
+    if(c&&(Date.now()-ts)<CACHE_REL.ttl) return JSON.parse(c);
+  }catch(e){}
+  return null;
+}
+function setCacheRel(data){
+  try{
+    sessionStorage.setItem(CACHE_REL.key,JSON.stringify(data));
+    sessionStorage.setItem(CACHE_REL.ts,Date.now().toString());
+  }catch(e){}
+}
+function clearCacheRel(){
+  sessionStorage.removeItem(CACHE_REL.key);
+  sessionStorage.removeItem(CACHE_REL.ts);
+}
+const CHUNK_SIZE=500;
+async function leerRelevamientos(){
+  const cached=getCacheRel();
+  if(cached) return cached;
+  const metaSnap=await window._fGetDoc(window._fDoc(window._db,"relevamientos_meta","index")).catch(()=>null);
+  const numChunks=(metaSnap&&metaSnap.exists())?(metaSnap.data().numChunks||0):0;
+  const chunkSnaps=await Promise.all(
+    Array.from({length:numChunks},(_,i)=>window._fGetDoc(window._fDoc(window._db,"relevamientos_chunks","chunk_"+i)))
+  );
+  const recs=[];
+  chunkSnaps.forEach((snap,i)=>{
+    if(!snap||!snap.exists())return;
+    const registros=snap.data().registros||{};
+    Object.entries(registros).forEach(([id,datos])=>recs.push({id,_chunk:i,...datos}));
+  });
+  setCacheRel(recs);
+  return recs;
+}
+async function guardarRelevamientoChunked(registro,coleccionActual){
+  const {id,_chunk,...datos}=registro;
+  let chunkIdx=_chunk;
+  if(chunkIdx===undefined){
+    const metaSnap=await window._fGetDoc(window._fDoc(window._db,"relevamientos_meta","index")).catch(()=>null);
+    const numChunks=(metaSnap&&metaSnap.exists())?(metaSnap.data().numChunks||0):0;
+    chunkIdx=Math.min(Math.floor(coleccionActual.length/CHUNK_SIZE),numChunks);
+    if(chunkIdx>=numChunks){
+      await window._fSetDoc(window._fDoc(window._db,"relevamientos_meta","index"),{numChunks:chunkIdx+1},{merge:true});
+    }
+  }
+  await window._fUpdateOrCrear(window._fDoc(window._db,"relevamientos_chunks","chunk_"+chunkIdx),{["registros."+id]:datos});
+  registro._chunk=chunkIdx;
+  clearCacheRel();
+}
+async function eliminarRelevamientoChunked(registro){
+  if(!registro||registro._chunk===undefined){clearCacheRel();return;}
+  await window._fUpdateOrCrear(window._fDoc(window._db,"relevamientos_chunks","chunk_"+registro._chunk),{["registros."+registro.id]:window._fDeleteField()});
+  clearCacheRel();
+}
+
+// ============================================================
+//  CONFIG: ZONAS / TEMÁTICAS (relevamientos_config)
+// ============================================================
+window.relZonas=[];
+window.relTematicas=[];
+// 15 comunas de CABA como default inicial — el admin suma villas/barrios
+// informales encima desde la pestaña Administración. Sólo se usa mientras
+// el doc todavía no existe en Firestore (primera vez).
+const ZONAS_REL_DEFAULT=Array.from({length:15},(_,i)=>"Comuna "+(i+1));
+async function cargarConfigRel(){
+  const [zSnap,tSnap]=await Promise.all([
+    window._fGetDoc(window._fDoc(window._db,"relevamientos_config","zonas")).catch(()=>null),
+    window._fGetDoc(window._fDoc(window._db,"relevamientos_config","tematicas")).catch(()=>null),
+  ]);
+  window.relZonas=(zSnap&&zSnap.exists())?(zSnap.data().lista||[]):[...ZONAS_REL_DEFAULT];
+  window.relTematicas=(tSnap&&tSnap.exists())?(tSnap.data().lista||[]):[];
+}
+async function guardarRelZonas(){
+  await window._fSetDoc(window._fDoc(window._db,"relevamientos_config","zonas"),{lista:window.relZonas,ts:new Date().toISOString()});
+}
+async function guardarRelTematicas(){
+  await window._fSetDoc(window._fDoc(window._db,"relevamientos_config","tematicas"),{lista:window.relTematicas,ts:new Date().toISOString()});
+}
+function poblarSelectsRel(){
+  const optsZ="<option value=\"\">Seleccionar…</option>"+(window.relZonas||[]).map(z=>"<option value=\""+esc(z)+"\">"+esc(z)+"</option>").join("");
+  const optsT="<option value=\"\">Seleccionar…</option>"+(window.relTematicas||[]).map(t=>"<option value=\""+esc(t)+"\">"+esc(t)+"</option>").join("");
+  const zc=document.getElementById("rc-zona"); if(zc) zc.innerHTML=optsZ;
+  const tc=document.getElementById("rc-tematica"); if(tc) tc.innerHTML=optsT;
+  const zf=document.getElementById("rf-zona");
+  if(zf) zf.innerHTML="<option value=\"\">Todas las zonas</option>"+(window.relZonas||[]).map(z=>"<option value=\""+esc(z)+"\">"+esc(z)+"</option>").join("");
+  const tf=document.getElementById("rf-tematica");
+  if(tf) tf.innerHTML="<option value=\"\">Todas las temáticas</option>"+(window.relTematicas||[]).map(t=>"<option value=\""+esc(t)+"\">"+esc(t)+"</option>").join("");
+}
+
+// -- Administración: Zonas ---------------------------------------------
+function renderRelZonas(){
+  const lista=document.getElementById("rel-zonas-lista"); if(!lista) return;
+  lista.innerHTML=(window.relZonas||[]).map((z,i)=>
+    "<div class=\"zona-tag\"><span contenteditable=\"true\" onblur=\"renombrarRelZona("+i+",this.textContent)\">"+esc(z)+"</span>"
+    +"<button class=\"del-zona\" onclick=\"eliminarRelZona("+i+")\">×</button></div>"
+  ).join("");
+  poblarSelectsRel();
+}
+window.agregarRelZona=async function(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const inp=document.getElementById("rel-nueva-zona");
+  const val=(inp.value||"").trim();
+  if(!val){alert("Ingresá un nombre.");return;}
+  if(window.relZonas.some(z=>z.toLowerCase()===val.toLowerCase())){alert("Esa zona ya existe.");return;}
+  window.relZonas.push(val);inp.value="";renderRelZonas();
+  await guardarRelZonas();toast("✅ Zona agregada: "+val);
+};
+window.eliminarRelZona=async function(idx){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const z=window.relZonas[idx];
+  if(!confirm("¿Eliminar la zona \""+z+"\"?\n\nLos relevamientos ya cargados con esta zona NO se actualizan ni se borran: van a quedar apuntando a una zona que ya no está en la lista."))return;
+  window.relZonas.splice(idx,1);renderRelZonas();
+  await guardarRelZonas();toast("Zona eliminada");
+};
+window.renombrarRelZona=async function(idx,nuevoNombre){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");renderRelZonas();return;}
+  const n=(nuevoNombre||"").trim();
+  if(!n||n===window.relZonas[idx])return;
+  if(window.relZonas.some((z,i)=>i!==idx&&z.toLowerCase()===n.toLowerCase())){alert("Ya existe esa zona.");renderRelZonas();return;}
+  window.relZonas[idx]=n;
+  await guardarRelZonas();renderRelZonas();toast("✅ Zona renombrada");
+};
+
+// -- Administración: Temáticas -------------------------------------------
+function renderRelTematicas(){
+  const lista=document.getElementById("rel-tematicas-lista"); if(!lista) return;
+  lista.innerHTML=(window.relTematicas||[]).map((t,i)=>
+    "<div class=\"zona-tag\"><span contenteditable=\"true\" onblur=\"renombrarRelTematica("+i+",this.textContent)\">"+esc(t)+"</span>"
+    +"<button class=\"del-zona\" onclick=\"eliminarRelTematica("+i+")\">×</button></div>"
+  ).join("");
+  poblarSelectsRel();
+}
+window.agregarRelTematica=async function(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const inp=document.getElementById("rel-nueva-tematica");
+  const val=(inp.value||"").trim();
+  if(!val){alert("Ingresá un nombre.");return;}
+  if(window.relTematicas.some(t=>t.toLowerCase()===val.toLowerCase())){alert("Esa temática ya existe.");return;}
+  window.relTematicas.push(val);inp.value="";renderRelTematicas();
+  await guardarRelTematicas();toast("✅ Temática agregada: "+val);
+};
+window.eliminarRelTematica=async function(idx){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const t=window.relTematicas[idx];
+  if(!confirm("¿Eliminar la temática \""+t+"\"?\n\nLos relevamientos ya cargados con esta temática NO se actualizan ni se borran."))return;
+  window.relTematicas.splice(idx,1);renderRelTematicas();
+  await guardarRelTematicas();toast("Temática eliminada");
+};
+window.renombrarRelTematica=async function(idx,nuevoNombre){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");renderRelTematicas();return;}
+  const n=(nuevoNombre||"").trim();
+  if(!n||n===window.relTematicas[idx])return;
+  if(window.relTematicas.some((t,i)=>i!==idx&&t.toLowerCase()===n.toLowerCase())){alert("Ya existe esa temática.");renderRelTematicas();return;}
+  window.relTematicas[idx]=n;
+  await guardarRelTematicas();renderRelTematicas();toast("✅ Temática renombrada");
+};
+
+// ============================================================
+//  PESTAÑAS
+// ============================================================
+window._cambiarTabExtra=function(id){
+  if(id==="administracion"){renderRelZonas();renderRelTematicas();}
+};
+
+// ============================================================
+//  DASHBOARD (búsqueda + listado + detalle)
+// ============================================================
+window.relevamientos=[];
+let _relVista="lista";
+let _relFiltrados=[];
+function aplicarFiltrosRel(){
+  const desde=document.getElementById("rf-desde").value;
+  const hasta=document.getElementById("rf-hasta").value;
+  const zona=document.getElementById("rf-zona").value;
+  const tematica=document.getElementById("rf-tematica").value;
+  const estado=document.getElementById("rf-estado").value;
+  const q=(document.getElementById("rf-buscar").value||"").toLowerCase();
+  _relFiltrados=window.relevamientos.filter(r=>{
+    if(desde&&r.fecha<desde)return false;
+    if(hasta&&r.fecha>hasta)return false;
+    if(zona&&r.zona!==zona)return false;
+    if(tematica&&r.tematica!==tematica)return false;
+    if(estado&&(r.estado||"Pendiente")!==estado)return false;
+    if(q&&!coincideTexto((r.observaciones||"").toLowerCase(),q)&&!coincideTexto((r.zona||"").toLowerCase(),q))return false;
+    return true;
+  }).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  document.getElementById("rel-count-txt").textContent=_relFiltrados.length+" relevamiento"+(_relFiltrados.length===1?"":"s");
+  if(_relVista==="mapa") renderMapaRel(_relFiltrados);
+  else renderResultadosRel(_relFiltrados);
+}
+window.cambiarVistaRel=function(modo){
+  _relVista=modo;
+  document.getElementById("rel-view-lista").classList.toggle("active",modo==="lista");
+  document.getElementById("rel-view-mapa").classList.toggle("active",modo==="mapa");
+  document.getElementById("rel-resultados").style.display=modo==="lista"?"":"none";
+  document.getElementById("rel-mapa").style.display=modo==="mapa"?"":"none";
+  if(modo==="mapa") renderMapaRel(_relFiltrados);
+  else renderResultadosRel(_relFiltrados);
+};
+function limpiarFiltrosRel(){
+  document.getElementById("rf-buscar").value="";
+  document.getElementById("rf-zona").value="";
+  document.getElementById("rf-tematica").value="";
+  document.getElementById("rf-estado").value="";
+  document.getElementById("rf-desde").value="";
+  document.getElementById("rf-hasta").value="";
+  aplicarFiltrosRel();
+}
+// Exporta respetando los filtros actualmente aplicados en el Dashboard
+// (mismo criterio que exportarHistorialNovedades() en Novedades de
+// Personal) — no sólo lo que está renderizado en pantalla.
+window.exportarRelevamientosExcel=function(){
+  if(!_relFiltrados.length){toast("Sin relevamientos para exportar con estos filtros.");return;}
+  const rows=_relFiltrados.map(r=>({
+    "Fecha":r.fecha||"",
+    "Zona":r.zona||"",
+    "Dirección":r.direccion||"",
+    "Temática":r.tematica||"",
+    "Estado":r.estado||"Pendiente",
+    "Foodtruck":r.foodTruck||"",
+    "Conexión eléctrica":r.conexionElectrica||"",
+    "Patente":r.patente||"",
+    "Observaciones":r.observaciones||"",
+    "Con foto":r.fotoFileId?"Sí":"No",
+    "Cargado por":r.creadoPor||"",
+    "Fecha de carga":r.creadoEn?new Date(r.creadoEn).toLocaleString("es-AR"):"",
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws["!cols"]=[{wch:12},{wch:16},{wch:28},{wch:18},{wch:12},{wch:10},{wch:16},{wch:10},{wch:40},{wch:9},{wch:18},{wch:18}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"RELEVAMIENTOS");
+  XLSX.writeFile(wb,"relevamientos_"+todayISOSimple()+".xlsx");
+  toast("✅ Exportados "+rows.length+" relevamientos.");
+};
+function renderResultadosRel(lista){
+  document.getElementById("rel-resultados").innerHTML=lista.length?lista.map(r=>
+    "<div class=\"rlv-card\" onclick=\"verRelevamiento('"+r.id+"')\">"
+    +"<div class=\"rlv-thumb\">"+(r.fotoFileId?"<img src=\""+esc(fotoThumbUrlRel(r.fotoFileId,150))+"\" alt=\"\" loading=\"lazy\">":"📷")+"</div>"
+    +"<div class=\"rlv-info\">"
+    +"<div class=\"rlv-fecha\">"+fmtDate(r.fecha)+"</div>"
+    +"<div class=\"rlv-zona\">"+esc(r.zona||"—")+"</div>"
+    +"<div class=\"rlv-badges\">"
+    +badgeEstadoRel(r.estado)
+    +(r.tematica?"<span class=\"badge bdg-admin\">"+esc(r.tematica)+"</span>":"")
+    +(r.foodTruck==="Si"?"<span class=\"badge bdg-nov-otro\">🚚 Food truck</span>":"")
+    +(r.conexionElectrica&&r.conexionElectrica!=="No"?"<span class=\"badge bdg-nov-tar\">⚡ "+esc(r.conexionElectrica)+"</span>":"")
+    +(r.patente==="Si"?"<span class=\"badge bdg-activo\">🪪 Patente</span>":"")
+    +"</div></div></div>"
+  ).join(""):"<div style=\"padding:24px;text-align:center;color:#aaa;grid-column:1/-1\">Sin relevamientos para estos filtros.</div>";
+}
+
+// ============================================================
+//  MAPA (misma validación de lat/lng que Estadísticas — Actas: exigir
+//  número finito y dentro de rango real de coordenadas, para que un valor
+//  raro en un solo registro no rompa el mapa entero)
+// ============================================================
+let _relMapInstance=null,_relMarkersGroup=null;
+function initMapaRel(){
+  if(_relMapInstance) return;
+  _relMapInstance=L.map("rel-mapa").setView([-34.6037,-58.3816],11); // CABA
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    attribution:"&copy; OpenStreetMap"
+  }).addTo(_relMapInstance);
+}
+function renderMapaRel(lista){
+  initMapaRel();
+  if(_relMarkersGroup) _relMapInstance.removeLayer(_relMarkersGroup);
+  const conCoords=lista
+    .map(r=>[r,Number(r.lat),Number(r.lng)])
+    .filter(([,lat,lng])=>Number.isFinite(lat)&&Number.isFinite(lng)
+      &&Math.abs(lat)<=90&&Math.abs(lng)<=180&&(lat!==0||lng!==0));
+  _relMarkersGroup=L.layerGroup();
+  conCoords.forEach(([r,lat,lng])=>{
+    const m=L.marker([lat,lng]);
+    m.bindPopup(
+      (r.fotoFileId?"<img src=\""+esc(fotoThumbUrlRel(r.fotoFileId,220))+"\" style=\"width:100%;max-width:220px;display:block;margin-bottom:6px\">":"")
+      +badgeEstadoRel(r.estado)+"<br>"
+      +"<strong>"+esc(r.zona||"—")+"</strong><br>"
+      +(r.tematica?esc(r.tematica)+"<br>":"")
+      +(r.direccion?esc(r.direccion)+"<br>":"")
+      +"<i>"+fmtDate(r.fecha)+"</i><br>"
+      +"<a href=\"#\" onclick=\"verRelevamiento('"+r.id+"');return false\">Ver detalle →</a>"
+    );
+    _relMarkersGroup.addLayer(m);
+  });
+  _relMarkersGroup.addTo(_relMapInstance);
+  setTimeout(()=>_relMapInstance.invalidateSize(),100);
+}
+let _relDetalleId=null;
+window.verRelevamiento=function(id){
+  const r=window.relevamientos.find(x=>x.id===id);
+  if(!r)return;
+  _relDetalleId=id;
+  document.getElementById("rd-title").textContent="Relevamiento — "+fmtDate(r.fecha);
+  document.getElementById("rd-estado-sel").value=r.estado||"Pendiente";
+  document.getElementById("rd-foto").innerHTML=r.fotoFileId?"<img src=\""+esc(fotoThumbUrlRel(r.fotoFileId,1000))+"\" style=\"width:100%;max-height:320px;object-fit:cover\">":"";
+  const filas=[
+    ["Fecha",fmtDate(r.fecha)],
+    ["Zona",esc(r.zona||"—")],
+    ["Dirección",esc(r.direccion||"—")],
+    ["Temática",esc(r.tematica||"—")],
+    ["Food truck",esc(r.foodTruck||"—")],
+    ["Conexión eléctrica",esc(r.conexionElectrica||"—")],
+    ["Patente",esc(r.patente||"—")],
+    ["Cargado por",esc(r.creadoPor||"—")+(r.creadoEn?(" · "+new Date(r.creadoEn).toLocaleString("es-AR")):"")],
+  ];
+  document.getElementById("rd-ficha").innerHTML=filas.map(([k,v])=>
+    "<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>"
+  ).join("");
+  document.getElementById("rd-obs").textContent=r.observaciones||"—";
+  document.getElementById("modal-rel-detalle").classList.add("open");
+};
+// Cambio rápido de estado desde el detalle, sin pasar por el formulario
+// completo de Carga (es lo que más va a cambiar día a día en un
+// relevamiento ya cargado).
+window.cambiarEstadoRelDesdeDetalle=async function(nuevoEstado){
+  const sel=document.getElementById("rd-estado-sel");
+  const r=window.relevamientos.find(x=>x.id===_relDetalleId);
+  if(!r)return;
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");sel.value=r.estado||"Pendiente";return;}
+  const anterior=r.estado||"Pendiente";
+  try{
+    const actualizado={...r,estado:nuevoEstado};
+    conAuditoriaRel(actualizado,r);
+    await guardarRelevamientoChunked(actualizado,window.relevamientos);
+    const idx=window.relevamientos.findIndex(x=>x.id===r.id);
+    if(idx>=0) window.relevamientos[idx]=actualizado;
+    toast("✅ Estado actualizado a "+nuevoEstado+".");
+    aplicarFiltrosRel();
+  }catch(e){
+    sel.value=anterior;
+    toast("❌ Error al actualizar el estado: "+e.message,4000);
+  }
+};
+
+// ============================================================
+//  CARGA (alta de un relevamiento)
+// ============================================================
+let _rcLat=null,_rcLng=null,_editRelId=null,_editRelFotoFileId=null;
+function limpiarFormCarga(){
+  _editRelId=null;_editRelFotoFileId=null;
+  document.getElementById("rc-title").textContent="📥 Cargar relevamiento";
+  document.getElementById("rc-guardar-btn").textContent="💾 Guardar relevamiento";
+  document.getElementById("rc-fecha").value=todayISOSimple();
+  document.getElementById("rc-zona").value="";
+  document.getElementById("rc-direccion").value="";
+  document.getElementById("rc-tematica").value="";
+  document.getElementById("rc-foto").value="";
+  document.getElementById("rc-foto-preview").style.display="none";
+  document.getElementById("rc-foto-preview").innerHTML="";
+  document.getElementById("rc-foodtruck").value="No";
+  document.getElementById("rc-conexion").value="No";
+  document.getElementById("rc-patente").value="No";
+  document.getElementById("rc-estado").value="Pendiente";
+  document.getElementById("rc-observaciones").value="";
+  _rcLat=null;_rcLng=null;
+  document.getElementById("rc-ubicacion-estado").textContent="";
+}
+// Carga el formulario de Carga con los datos de un relevamiento existente
+// (mismo panel que el alta — así no hay que mantener dos formularios). Si
+// se elige una foto nueva, reemplaza a la anterior; si no, se conserva la
+// que ya tenía.
+window.editarRelevamiento=function(){
+  const r=window.relevamientos.find(x=>x.id===_relDetalleId);
+  if(!r)return;
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  limpiarFormCarga();
+  _editRelId=r.id;
+  _editRelFotoFileId=r.fotoFileId||null;
+  document.getElementById("rc-title").textContent="✏️ Editar relevamiento";
+  document.getElementById("rc-guardar-btn").textContent="💾 Guardar cambios";
+  document.getElementById("rc-fecha").value=r.fecha||todayISOSimple();
+  document.getElementById("rc-zona").value=r.zona||"";
+  document.getElementById("rc-direccion").value=r.direccion||"";
+  document.getElementById("rc-tematica").value=r.tematica||"";
+  document.getElementById("rc-foodtruck").value=r.foodTruck||"No";
+  document.getElementById("rc-conexion").value=r.conexionElectrica||"No";
+  document.getElementById("rc-patente").value=r.patente||"No";
+  document.getElementById("rc-estado").value=r.estado||"Pendiente";
+  document.getElementById("rc-observaciones").value=r.observaciones||"";
+  _rcLat=r.lat!=null?r.lat:null;
+  _rcLng=r.lng!=null?r.lng:null;
+  document.getElementById("rc-ubicacion-estado").textContent=(_rcLat!=null&&_rcLng!=null)?"✅ Ya tiene ubicación guardada (validá la dirección de nuevo si cambió).":"";
+  if(r.fotoFileId){
+    const prev=document.getElementById("rc-foto-preview");
+    prev.innerHTML="<div style=\"font-size:.74rem;color:#888;margin-bottom:4px\">Foto actual (elegí un archivo nuevo para reemplazarla):</div><img src=\""+esc(fotoThumbUrlRel(r.fotoFileId,300))+"\" style=\"max-height:160px\">";
+    prev.style.display="block";
+  }
+  cerrarModal("modal-rel-detalle");
+  window.cambiarTab("carga",document.getElementById("tab-btn-carga"));
+};
+// Elimina el relevamiento que está abierto en el modal de detalle. La foto
+// en Drive no se borra (podría reutilizarse, y no vale la pena la
+// complejidad de coordinar el borrado con el Apps Script para un caso poco
+// frecuente) — sólo el registro en Firestore.
+window.eliminarRelevamiento=async function(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const r=window.relevamientos.find(x=>x.id===_relDetalleId);
+  if(!r)return;
+  if(!confirm("¿Eliminar este relevamiento ("+fmtDate(r.fecha)+" — "+(r.zona||"—")+")?\n\nNo se puede deshacer."))return;
+  const btn=document.getElementById("rd-eliminar-btn");
+  btn.disabled=true;btn.textContent="Eliminando…";
+  try{
+    await eliminarRelevamientoChunked(r);
+    window.relevamientos=window.relevamientos.filter(x=>x.id!==r.id);
+    cerrarModal("modal-rel-detalle");
+    toast("Relevamiento eliminado.");
+    aplicarFiltrosRel();
+  }catch(e){
+    toast("❌ Error al eliminar: "+e.message,4000);
+    console.error(e);
+  }finally{
+    btn.disabled=false;btn.textContent="🗑 Eliminar";
+  }
+};
+window.previewFotoRel=function(input){
+  const prev=document.getElementById("rc-foto-preview");
+  const file=input.files[0];
+  if(!file){prev.style.display="none";prev.innerHTML="";return;}
+  const url=URL.createObjectURL(file);
+  prev.innerHTML="<img src=\""+url+"\" style=\"max-height:160px\">";
+  prev.style.display="block";
+};
+// Geocodifica la dirección tipeada (no usa el GPS del dispositivo: la carga
+// de un relevamiento no siempre se hace parado en el lugar, así que la
+// ubicación del navegador no sirve). Usa Nominatim (OpenStreetMap), gratuito
+// y sin API key — devuelve la dirección "normalizada" tal como la interpretó
+// para que se pueda confirmar a simple vista antes de guardar.
+window.validarDireccionRel=async function(){
+  const estado=document.getElementById("rc-ubicacion-estado");
+  const direccion=(document.getElementById("rc-direccion").value||"").trim();
+  if(!direccion){estado.textContent="⚠️ Escribí una dirección primero.";return;}
+  _rcLat=null;_rcLng=null;
+  estado.textContent="Buscando…";
+  try{
+    const q=encodeURIComponent(direccion+", CABA, Argentina");
+    const resp=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q="+q,{headers:{"Accept-Language":"es"}});
+    if(!resp.ok) throw new Error("HTTP "+resp.status);
+    const data=await resp.json();
+    if(!data||!data.length){
+      estado.textContent="⚠️ No se encontró esa dirección. Se puede guardar igual, sólo que no va a aparecer en el mapa.";
+      return;
+    }
+    _rcLat=parseFloat(data[0].lat);
+    _rcLng=parseFloat(data[0].lon);
+    estado.innerHTML="✅ "+esc(data[0].display_name);
+  }catch(e){
+    estado.textContent="⚠️ Error al validar la dirección: "+e.message;
+  }
+};
+window.guardarRelevamiento=async function(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const fecha=document.getElementById("rc-fecha").value;
+  const zona=document.getElementById("rc-zona").value;
+  const tematica=document.getElementById("rc-tematica").value;
+  if(!fecha||!zona||!tematica){toast("Completá fecha, zona y temática.");return;}
+  const editando=!!_editRelId;
+  const original=editando?window.relevamientos.find(x=>x.id===_editRelId):null;
+  const btn=document.getElementById("rc-guardar-btn");
+  const textoBtnListo=editando?"💾 Guardar cambios":"💾 Guardar relevamiento";
+  btn.disabled=true;btn.textContent="Guardando…";
+  try{
+    const id=editando?_editRelId:Date.now().toString();
+    let fotoFileId=_editRelFotoFileId; // conserva la foto anterior si no se elige una nueva
+    const file=document.getElementById("rc-foto").files[0];
+    if(file){
+      if(typeof RELEVAMIENTOS_FOTO_ENDPOINT==="undefined"||!RELEVAMIENTOS_FOTO_ENDPOINT){
+        throw new Error("La subida de fotos todavía no está configurada.");
+      }
+      const dataUrl=await comprimirImagenRel(file,1200,0.8);
+      const base64=dataUrl.split(",")[1];
+      const resp=await fetch(RELEVAMIENTOS_FOTO_ENDPOINT,{
+        method:"POST",
+        headers:{"Content-Type":"text/plain;charset=utf-8"}, // evita preflight CORS contra Apps Script
+        body:JSON.stringify({token:RELEVAMIENTOS_FOTO_TOKEN,id,base64,mimeType:"image/jpeg"}),
+      });
+      const data=await resp.json();
+      if(!data.ok) throw new Error(data.error||"Error al subir la foto.");
+      fotoFileId=data.fileId;
+    }
+    const rel={
+      fecha,zona,tematica,fotoFileId,
+      direccion:(document.getElementById("rc-direccion").value||"").trim(),
+      lat:_rcLat,lng:_rcLng,
+      foodTruck:document.getElementById("rc-foodtruck").value,
+      conexionElectrica:document.getElementById("rc-conexion").value,
+      patente:document.getElementById("rc-patente").value,
+      estado:document.getElementById("rc-estado").value,
+      observaciones:(document.getElementById("rc-observaciones").value||"").trim(),
+    };
+    conAuditoriaRel(rel,original);
+    rel.id=id;
+    if(original&&original._chunk!==undefined) rel._chunk=original._chunk;
+    await guardarRelevamientoChunked(rel,window.relevamientos);
+    if(editando){
+      const idx=window.relevamientos.findIndex(x=>x.id===id);
+      if(idx>=0) window.relevamientos[idx]=rel; else window.relevamientos.push(rel);
+    } else {
+      window.relevamientos.push(rel);
+    }
+    limpiarFormCarga();
+    toast(editando?"✅ Relevamiento actualizado.":"✅ Relevamiento guardado.");
+    aplicarFiltrosRel();
+  }catch(e){
+    toast("❌ Error al guardar: "+e.message,4000);
+    console.error(e);
+    btn.textContent=textoBtnListo;
+  }finally{
+    btn.disabled=false;
+  }
+};
+
+// ============================================================
+//  RECARGA
+// ============================================================
+window.forzarRecarga=async function(){
+  clearCacheRel();
+  setSyncStatusRel("loading","Recargando…");
+  try{
+    window.relevamientos=await leerRelevamientos();
+    aplicarFiltrosRel();
+    setSyncStatusRel("ok","✅ "+window.relevamientos.length+" relevamientos");
+  }catch(e){
+    setSyncStatusRel("err","⚠️ Error: "+e.message);
+  }
+};
+
+// ============================================================
+//  INIT
+// ============================================================
+async function initRelevamientos(){
+  limpiarFormCarga();
+  setSyncStatusRel("loading","Cargando…");
+  try{
+    await cargarConfigRel();
+    poblarSelectsRel();
+    window.relevamientos=await leerRelevamientos();
+    aplicarFiltrosRel();
+    setSyncStatusRel("ok","✅ "+window.relevamientos.length+" relevamientos");
+  }catch(e){
+    setSyncStatusRel("err","⚠️ Error: "+e.message);
+    console.error(e);
+  }
+}
+</script>
+<script src="personal-nav.js?v=2"></script>
+</body>
+</html>
