@@ -753,6 +753,7 @@ var NAV_MODULES=[
   {id:'personal',icon:'👥',title:'Gestión de Personal',url:'gestion_personal.html'},
   {id:'novedades',icon:'📋',title:'Novedades de Personal',url:'novedades_personal.html'},
   {id:'asignacion',icon:'📍',title:'Asignación de Zonas',url:'asignacion_zonas.html'},
+  {id:'relevamientos',icon:'🗂️',title:'Relevamientos Operativos',url:'relevamientos_operativos.html'},
 ];
 function toggleNavMenu(e){
   if(e)e.stopPropagation();
@@ -765,12 +766,11 @@ function toggleNavMenu(e){
 function renderNavMenu(){
   var m=document.getElementById('navMenu');
   if(!m)return;
-  var sess=null;
-  try{sess=JSON.parse(localStorage.getItem('dgf_session')||'null');}catch(e){}
-  var role=sess&&sess.role;
-  var modulos=(sess&&sess.modulos)||[];
+  // Se muestran todos los módulos siempre (no sólo los habilitados para el
+  // usuario actual) para poder viajar rápido entre páginas — cada página de
+  // destino ya valida su propio acceso al cargar.
   var current=location.pathname.split('/').pop();
-  var items=NAV_MODULES.filter(function(x){return role==='admin'||modulos.indexOf(x.id)!==-1;});
+  var items=NAV_MODULES;
   m.innerHTML=(items.length?items.map(function(x){
     return '<a href="'+x.url+'" class="'+(x.url===current?'current':'')+'"><span>'+x.icon+'</span><span>'+x.title+'</span></a>';
   }).join(''):'<div class="nav-empty">Sin otros módulos habilitados</div>')+

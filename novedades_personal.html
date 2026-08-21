@@ -128,6 +128,7 @@
   <button class="tab active" onclick="window.cambiarTab('novedades',this)">📋 Novedades del día</button>
   <button class="tab" onclick="window.cambiarTab('nomina',this)">👥 Nómina</button>
   <button class="tab" onclick="window.cambiarTab('historial',this)">📅 Historial</button>
+  <button class="tab" onclick="window.cambiarTab('ranking',this)">🏆 Ranking</button>
   <button class="tab" id="tabCargaNomina" style="display:none" onclick="window.cambiarTab('carga',this)">📥 Cargar Nómina</button>
   <button class="tab" id="tabImportAsistencia" style="display:none" onclick="window.cambiarTab('asistencia',this)">📊 Importar Asistencia</button>
   <button class="tab" id="tabTiposNovedad" style="display:none" onclick="window.cambiarTab('tiposnovedad',this)">⚙ Tipos de novedad</button>
@@ -222,6 +223,32 @@
   <div class="table-wrap">
     <div class="table-head grid-hist" id="hist-head"></div>
     <div class="table-body" id="hist-body"></div>
+  </div>
+</div>
+
+<!-- PANEL RANKING -->
+<div class="panel" id="panel-ranking">
+  <div class="toolbar">
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Desde<input type="date" class="pinput" id="rank-desde" onchange="renderRanking()"></label>
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Hasta<input type="date" class="pinput" id="rank-hasta" onchange="renderRanking()"></label>
+    <select class="ctrl" id="rank-turno" onchange="renderRanking()"><option value="">Todos los turnos</option></select>
+    <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosRanking()">✕ Limpiar filtros</button>
+    <button class="btn btn-verde" onclick="exportarRankingExcel()">⬇ Exportar Excel</button>
+  </div>
+  <p style="font-size:.8rem;color:#777;margin-bottom:10px">Cantidad de novedades por persona en el rango elegido (no cuenta "Presente"). Hacé clic en cualquier columna para ordenar por esa cantidad.</p>
+  <div class="table-info" id="rank-info"></div>
+  <div class="table-wrap" style="overflow-x:auto">
+    <!-- Cabecera y filas comparten el MISMO contenedor con scroll (en vez de
+    una cabecera fija afuera del cuerpo con scroll propio) para que nunca se
+    desalineen: si cada uno tuviera su ancho disponible distinto (el cuerpo
+    pierde el ancho de su propia scrollbar, la cabecera no), las columnas
+    quedan corridas entre sí — con pocas columnas anchas no se nota, con
+    muchas columnas angostas como acá, sí. La cabecera queda "pegada" arriba
+    con position:sticky en vez de ser un elemento aparte. -->
+    <div id="rank-scroll" style="max-height:560px;overflow-y:auto">
+      <div class="table-head" id="rank-head" style="position:sticky;top:0;z-index:2"></div>
+      <div id="rank-body"></div>
+    </div>
   </div>
 </div>
 
@@ -540,6 +567,7 @@ function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filte
 // ============================================================
 window._cambiarTabExtra = function(id) {
   if(id==="historial") renderHistorial();
+  else if(id==="ranking") renderRanking();
   else if(id==="asistencia") cargarSelectHojasAsistencia();
   else if(id==="tiposnovedad") renderTiposNovedad();
   else if(id!=="carga") { renderNovedades(); renderCargaDiaria(); }
@@ -564,6 +592,8 @@ function poblarSelects(){
   const opts=TURNOS.map(t=>"<option value=\""+t+"\">"+t+"</option>").join("");
   const tn=document.getElementById("nom-turno");
   if(tn) tn.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
+  const rt=document.getElementById("rank-turno");
+  if(rt) rt.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   const ct=document.getElementById("carga-turno");
   // Administrativo/Gerencia no aparecen en Carga diaria (ver renderCargaDiaria),
   // así que tampoco tiene sentido ofrecerlos como opción de filtro acá.
@@ -1195,6 +1225,102 @@ function exportarHistorialNovedades(){
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"NOVEDADES");
   XLSX.writeFile(wb,"historial_novedades_"+todayISO()+".xlsx");
   toast("✅ Historial exportado ("+rows.length+" registros)");
+}
+
+// ============================================================
+//  RANKING (top de personas por cantidad de cada tipo de novedad)
+// ============================================================
+// Agrupa window.novedades por persona, contando cuántas tiene de cada tipo
+// (no cuenta "Presente": es el estado normal, no una incidencia). Cada
+// registro cuenta 1 vez sin importar si es de un solo día o un rango
+// (licencia) — mismo criterio que el resto de la app (Historial también
+// lista un renglón por registro, no uno por día cubierto).
+function calcularRanking(){
+  const desde=document.getElementById("rank-desde").value;
+  const hasta=document.getElementById("rank-hasta").value;
+  const turnoFiltro=document.getElementById("rank-turno").value;
+  const tipos=(window.tiposNovedad||[]).filter(t=>t!=="Presente");
+  const porPersona={};
+  window.novedades.forEach(n=>{
+    if(n.tipo==="Presente")return;
+    if(!tipos.includes(n.tipo))return; // tipo viejo ya sacado de la config
+    if(desde&&n.fecha<desde)return;
+    if(hasta&&n.fecha>hasta)return;
+    const p=window.nomina.find(x=>x.id===n.personaId);
+    if(turnoFiltro&&(!p||p.turno!==turnoFiltro))return;
+    if(!porPersona[n.personaId]){
+      porPersona[n.personaId]={personaId:n.personaId,nombre:p?p.nombre:n.personaId,turno:p?p.turno:"",counts:{},total:0};
+    }
+    const reg=porPersona[n.personaId];
+    reg.counts[n.tipo]=(reg.counts[n.tipo]||0)+1;
+    reg.total++;
+  });
+  return {tipos,filas:Object.values(porPersona)};
+}
+function limpiarFiltrosRanking(){
+  document.getElementById("rank-desde").value="";
+  document.getElementById("rank-hasta").value="";
+  document.getElementById("rank-turno").value="";
+  renderRanking();
+}
+function renderRanking(){
+  const {tipos,filas}=calcularRanking();
+  const st=ordenEstado("rank");
+  // thOrden()/ordenClick() meten "campo" tal cual dentro de un onclick="..."
+  // sin escapar (todos los demás usos en el proyecto son literales fijos
+  // como "nombre"/"turno", nunca texto configurable) — para no depender de
+  // que un tipo de novedad no tenga una comilla, se usa un índice numérico
+  // ("tipo0","tipo1"...) como campo en vez del nombre real del tipo.
+  const getter=(item,campo)=>{
+    if(campo==="nombre")return item.nombre||"";
+    if(campo==="turno")return item.turno||"";
+    if(campo==="total")return item.total;
+    const m=/^tipo(\d+)$/.exec(campo);
+    if(m)return item.counts[tipos[+m[1]]]||0;
+    return 0;
+  };
+  // Sin columna clickeada todavía: default por Total descendente (no el
+  // orden "tal cual venía" que usa ordenarLista() por defecto en otras tablas).
+  const finales=st.campo?ordenarLista(filas,"rank",getter):[...filas].sort((a,b)=>b.total-a.total);
+
+  // Ancho explícito por columna (con piso en px vía minmax) — la cabecera y
+  // cada fila usan exactamente el mismo valor, así nunca se desalinean.
+  const gridCols="40px minmax(140px,2fr) minmax(90px,1fr) "
+    +tipos.map(()=>"minmax(70px,0.8fr)").join(" ")+" minmax(70px,0.8fr)";
+
+  document.getElementById("rank-head").style.gridTemplateColumns=gridCols;
+  document.getElementById("rank-head").innerHTML=
+    "<span>#</span>"
+    +thOrden("rank","nombre","Nombre","renderRanking")
+    +thOrden("rank","turno","Turno","renderRanking")
+    +tipos.map((t,i)=>"<span style=\"text-align:center\">"+thOrden("rank","tipo"+i,t,"renderRanking")+"</span>").join("")
+    +"<span style=\"text-align:center\">"+thOrden("rank","total","Total","renderRanking")+"</span>";
+
+  document.getElementById("rank-info").textContent=finales.length+" persona"+(finales.length===1?"":"s")+" con novedades en este rango";
+  document.getElementById("rank-body").innerHTML=finales.length?finales.map((f,i)=>
+    "<div class=\"table-row\" style=\"grid-template-columns:"+gridCols+"\">"
+    +"<span style=\"color:#aaa\">"+(i+1)+"</span>"
+    +"<span style=\"font-weight:600;overflow-wrap:anywhere\">"+esc(f.nombre)+"</span>"
+    +badgeTurno(f.turno)
+    +tipos.map(t=>"<span style=\"text-align:center\">"+(f.counts[t]||0)+"</span>").join("")
+    +"<span style=\"font-weight:700;text-align:center\">"+f.total+"</span>"
+    +"</div>"
+  ).join(""):"<div style=\"padding:16px;color:#aaa;text-align:center\">Sin novedades para este rango.</div>";
+}
+function exportarRankingExcel(){
+  const {tipos,filas}=calcularRanking();
+  if(!filas.length){toast("Sin novedades para exportar en este rango.");return;}
+  const ordenadas=[...filas].sort((a,b)=>b.total-a.total);
+  const rows=ordenadas.map(f=>{
+    const row={"Nombre":f.nombre,"Turno":f.turno};
+    tipos.forEach(t=>{row[t]=f.counts[t]||0;});
+    row["Total"]=f.total;
+    return row;
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"RANKING");
+  XLSX.writeFile(wb,"ranking_novedades_"+todayISO()+".xlsx");
+  toast("✅ Ranking exportado ("+rows.length+" personas)");
 }
 
 const TURNO_DESC={"Turno Mañana":"Lun-Vie 07-14h","Turno Tarde":"Lun-Vie 13-20h","Turno Noche":"Lun-Jue 19-01h","SADOFE Diurno":"Sab-Dom-Fer 07-19h","SADOFE Noche":"Vie-Sab-Dom 19-01h","Administrativo":"Administrativo","Gerencia":"Gerencia"};

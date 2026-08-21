@@ -22,12 +22,12 @@ function toggleNavMenu(e){
 function renderNavMenu(){
   const m=document.getElementById("navMenu");
   if(!m)return;
-  let sess=null;
-  try{sess=JSON.parse(localStorage.getItem("dgf_session")||"null");}catch(e){}
-  const role=sess&&sess.role;
-  const modulos=(sess&&sess.modulos)||[];
+  // Se muestran todos los módulos siempre (no sólo los habilitados para el
+  // usuario actual) para poder viajar rápido entre páginas — cada página de
+  // destino ya valida su propio acceso al cargar (restaurarSesion en
+  // personal-auth.js), así que esto no abre nada que esa página no controle.
   const current=location.pathname.split("/").pop();
-  const items=NAV_MODULES.filter(x=>role==="admin"||modulos.includes(x.id));
+  const items=NAV_MODULES;
   m.innerHTML=(items.length?items.map(x=>
     '<a href="'+x.url+'" class="'+(x.url===current?"current":"")+'"><span>'+x.icon+'</span><span>'+x.title+'</span></a>'
   ).join(""):'<div class="nav-empty">Sin otros módulos habilitados</div>')+
