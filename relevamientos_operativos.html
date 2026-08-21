@@ -330,6 +330,11 @@ function comprimirImagenRel(file,maxDim,calidad){
 function fotoThumbUrlRel(fileId,ancho){
   return fileId?("https://drive.google.com/thumbnail?id="+encodeURIComponent(fileId)+"&sz=w"+(ancho||150)):null;
 }
+// Link para abrir la foto directamente en Drive (fuera de la app) — distinto
+// del thumbnail de arriba, que sólo sirve para embeberla en un <img>.
+function fotoLinkRel(fileId){
+  return fileId?("https://drive.google.com/file/d/"+encodeURIComponent(fileId)+"/view"):null;
+}
 // Deja rastro de quién creó/modificó un relevamiento (mismo patrón que
 // conAuditoria() en Novedades de Personal).
 function conAuditoriaRel(rel,original){
@@ -576,7 +581,7 @@ window.exportarRelevamientosExcel=function(){
     "Conexión eléctrica":r.conexionElectrica||"",
     "Patente":r.patente||"",
     "Observaciones":r.observaciones||"",
-    "Con foto":r.fotoFileId?"Sí":"No",
+    "Foto":fotoLinkRel(r.fotoFileId)||"",
     "Cargado por":r.creadoPor||"",
     "Fecha de carga":r.creadoEn?new Date(r.creadoEn).toLocaleString("es-AR"):"",
   }));
@@ -648,7 +653,10 @@ window.verRelevamiento=function(id){
   _relDetalleId=id;
   document.getElementById("rd-title").textContent="Relevamiento — "+fmtDate(r.fecha);
   document.getElementById("rd-estado-sel").value=r.estado||"Pendiente";
-  document.getElementById("rd-foto").innerHTML=r.fotoFileId?"<img src=\""+esc(fotoThumbUrlRel(r.fotoFileId,1000))+"\" style=\"width:100%;max-height:320px;object-fit:cover\">":"";
+  document.getElementById("rd-foto").innerHTML=r.fotoFileId?(
+    "<img src=\""+esc(fotoThumbUrlRel(r.fotoFileId,1000))+"\" style=\"width:100%;max-height:320px;object-fit:cover\">"
+    +"<a href=\""+esc(fotoLinkRel(r.fotoFileId))+"\" target=\"_blank\" rel=\"noopener\" style=\"display:block;margin-top:4px;font-size:.78rem\">🔗 Abrir foto original en Drive</a>"
+  ):"";
   const filas=[
     ["Fecha",fmtDate(r.fecha)],
     ["Zona",esc(r.zona||"—")],
