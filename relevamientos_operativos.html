@@ -34,7 +34,7 @@
 .rel-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.72rem;color:#666}
 .rel-litem{display:flex;align-items:center}
 .rel-ldot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;flex-shrink:0}
-.rel-marker-dot{background:transparent!important;border:none!important}
+.rel-marker-pin{background:transparent!important;border:none!important}
 .rlv-viewbtn{border:1.5px solid var(--bor);background:#fff;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
 .rlv-viewbtn.active{background:var(--azul);color:#fff;border-color:var(--azul)}
 
@@ -647,10 +647,15 @@ function colorTematicaRel(tematica){
   return REL_PALETTE[h%REL_PALETTE.length];
 }
 function iconoTematicaRel(tematica){
+  const color=colorTematicaRel(tematica);
+  const w=28,h=40;
   return L.divIcon({
-    className:"rel-marker-dot",
-    html:"<div style=\"width:14px;height:14px;border-radius:50%;background:"+colorTematicaRel(tematica)+";border:2px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.6)\"></div>",
-    iconSize:[14,14],iconAnchor:[7,7],popupAnchor:[0,-9]
+    className:"rel-marker-pin",
+    html:"<svg width=\""+w+"\" height=\""+h+"\" viewBox=\"0 0 28 40\" xmlns=\"http://www.w3.org/2000/svg\">"
+      +"<path d=\"M14 0C6.3 0 0 6.3 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.3 21.7 0 14 0z\" fill=\""+color+"\" stroke=\"#fff\" stroke-width=\"1.5\"/>"
+      +"<circle cx=\"14\" cy=\"14\" r=\"5.5\" fill=\"#fff\"/>"
+      +"</svg>",
+    iconSize:[w,h],iconAnchor:[w/2,h],popupAnchor:[0,-h+6]
   });
 }
 function renderLeyendaMapaRel(){
@@ -677,7 +682,11 @@ function renderMapaRel(lista){
   const cnt=document.getElementById("rel-mapa-count");
   if(cnt) cnt.textContent=conCoords.length+" de "+lista.length+" relevamiento"+(lista.length===1?"":"s")+" con ubicación en el mapa"
     +(conCoords.length<lista.length?" ("+(lista.length-conCoords.length)+" sin dirección validada, no se muestran)":"");
-  _relMarkersGroup=L.markerClusterGroup({maxClusterRadius:45,spiderfyOnMaxZoom:true,showCoverageOnHover:false});
+  // maxClusterRadius chico a propósito: sólo agrupa puntos prácticamente
+  // superpuestos (misma esquina, visitas repetidas); dos relevamientos en
+  // esquinas distintas tienen que verse como pines separados, no como un
+  // cluster que obligue a hacer zoom para diferenciarlos.
+  _relMarkersGroup=L.markerClusterGroup({maxClusterRadius:18,spiderfyOnMaxZoom:true,showCoverageOnHover:false,disableClusteringAtZoom:17});
   conCoords.forEach(([r,lat,lng])=>{
     const m=L.marker([lat,lng],{icon:iconoTematicaRel(r.tematica)});
     m.bindPopup(
@@ -838,6 +847,14 @@ window.previewFotoRel=function(input){
 // ubicación del navegador no sirve). Usa Nominatim (OpenStreetMap), gratuito
 // y sin API key — devuelve la dirección "normalizada" tal como la interpretó
 // para que se pueda confirmar a simple vista antes de guardar.
+async function geocodificarDireccionRel(direccion){
+  const q=encodeURIComponent(direccion+", CABA, Argentina");
+  const resp=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q="+q,{headers:{"Accept-Language":"es"}});
+  if(!resp.ok) throw new Error("HTTP "+resp.status);
+  const data=await resp.json();
+  if(!data||!data.length) return null;
+  return {lat:parseFloat(data[0].lat),lng:parseFloat(data[0].lon),display:data[0].display_name};
+}
 window.validarDireccionRel=async function(){
   const estado=document.getElementById("rc-ubicacion-estado");
   const direccion=(document.getElementById("rc-direccion").value||"").trim();
@@ -845,17 +862,13 @@ window.validarDireccionRel=async function(){
   _rcLat=null;_rcLng=null;
   estado.textContent="Buscando…";
   try{
-    const q=encodeURIComponent(direccion+", CABA, Argentina");
-    const resp=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q="+q,{headers:{"Accept-Language":"es"}});
-    if(!resp.ok) throw new Error("HTTP "+resp.status);
-    const data=await resp.json();
-    if(!data||!data.length){
+    const r=await geocodificarDireccionRel(direccion);
+    if(!r){
       estado.textContent="⚠️ No se encontró esa dirección. Se puede guardar igual, sólo que no va a aparecer en el mapa.";
       return;
     }
-    _rcLat=parseFloat(data[0].lat);
-    _rcLng=parseFloat(data[0].lon);
-    estado.innerHTML="✅ "+esc(data[0].display_name);
+    _rcLat=r.lat;_rcLng=r.lng;
+    estado.innerHTML="✅ "+esc(r.display);
   }catch(e){
     estado.textContent="⚠️ Error al validar la dirección: "+e.message;
   }
@@ -872,6 +885,19 @@ window.guardarRelevamiento=async function(){
   const textoBtnListo=editando?"💾 Guardar cambios":"💾 Guardar relevamiento";
   btn.disabled=true;btn.textContent="Guardando…";
   try{
+    const direccionTxt=(document.getElementById("rc-direccion").value||"").trim();
+    // Si se tipeó una dirección pero nunca se tocó "Validar dirección" (paso
+    // manual y fácil de saltear), se intenta geocodificar igual acá: la
+    // alternativa era guardar sin lat/lng y el relevamiento quedaba
+    // invisible en el mapa sin que nadie se diera cuenta. Si Nominatim
+    // falla o no encuentra nada, se guarda igual sin coordenadas — mismo
+    // comportamiento que ya tenía el botón manual.
+    if(direccionTxt&&(_rcLat==null||_rcLng==null)){
+      try{
+        const geo=await geocodificarDireccionRel(direccionTxt);
+        if(geo){_rcLat=geo.lat;_rcLng=geo.lng;}
+      }catch(e){}
+    }
     const id=editando?_editRelId:Date.now().toString();
     let fotoFileId=_editRelFotoFileId; // conserva la foto anterior si no se elige una nueva
     const file=document.getElementById("rc-foto").files[0];
