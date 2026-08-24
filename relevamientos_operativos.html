@@ -9,6 +9,9 @@
 <script src="utils.js?v=3"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=9">
 <style>
@@ -28,6 +31,10 @@
 @media(max-width:700px){.rc-grid{grid-template-columns:1fr}}
 
 #rel-mapa{height:520px;border:1.5px solid var(--bor)}
+.rel-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.72rem;color:#666}
+.rel-litem{display:flex;align-items:center}
+.rel-ldot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;flex-shrink:0}
+.rel-marker-dot{background:transparent!important;border:none!important}
 .rlv-viewbtn{border:1.5px solid var(--bor);background:#fff;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
 .rlv-viewbtn.active{background:var(--azul);color:#fff;border-color:var(--azul)}
 
@@ -164,7 +171,13 @@
     </span>
   </div>
   <div class="rlv-grid" id="rel-resultados"></div>
-  <div id="rel-mapa" style="display:none"></div>
+  <div id="rel-mapa-panel" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:2px 0 6px">
+      <span id="rel-mapa-count" style="font-size:.78rem;color:#888"></span>
+      <div class="rel-legend" id="rel-mapa-legend"></div>
+    </div>
+    <div id="rel-mapa"></div>
+  </div>
 </div>
 
 <!-- PANEL CARGA -->
@@ -445,6 +458,7 @@ function poblarSelectsRel(){
   if(zf) zf.innerHTML="<option value=\"\">Todas las zonas</option>"+(window.relZonas||[]).map(z=>"<option value=\""+esc(z)+"\">"+esc(z)+"</option>").join("");
   const tf=document.getElementById("rf-tematica");
   if(tf) tf.innerHTML="<option value=\"\">Todas las temáticas</option>"+(window.relTematicas||[]).map(t=>"<option value=\""+esc(t)+"\">"+esc(t)+"</option>").join("");
+  renderLeyendaMapaRel();
 }
 
 // -- Administración: Zonas ---------------------------------------------
@@ -553,7 +567,7 @@ window.cambiarVistaRel=function(modo){
   document.getElementById("rel-view-lista").classList.toggle("active",modo==="lista");
   document.getElementById("rel-view-mapa").classList.toggle("active",modo==="mapa");
   document.getElementById("rel-resultados").style.display=modo==="lista"?"":"none";
-  document.getElementById("rel-mapa").style.display=modo==="mapa"?"":"none";
+  document.getElementById("rel-mapa-panel").style.display=modo==="mapa"?"":"none";
   if(modo==="mapa") renderMapaRel(_relFiltrados);
   else renderResultadosRel(_relFiltrados);
 };
@@ -613,7 +627,38 @@ function renderResultadosRel(lista){
 //  MAPA (misma validación de lat/lng que Estadísticas — Actas: exigir
 //  número finito y dentro de rango real de coordenadas, para que un valor
 //  raro en un solo registro no rompa el mapa entero)
+//
+//  Agrupa marcadores cercanos (leaflet.markercluster): un relevamiento de
+//  seguimiento revisita las mismas direcciones en fechas distintas, así que
+//  es común que varios registros compartan las mismas coordenadas — sin
+//  agrupamiento, un marcador queda tapado exactamente detrás de otro y
+//  parece que el mapa "no cargó" ese punto. El grupo también hace
+//  fitBounds a los puntos visibles en vez de dejar la vista fija en CABA,
+//  para que un relevamiento fuera del encuadre inicial no quede oculto.
 // ============================================================
+const REL_PALETTE=["#2563a8","#dc2626","#16a34a","#f59e0b","#7c3aed","#db2777","#0891b2","#65a30d","#ea580c","#4338ca","#0d9488","#be123c"];
+function colorTematicaRel(tematica){
+  if(!tematica) return "#888";
+  const lista=window.relTematicas||[];
+  const idx=lista.indexOf(tematica);
+  if(idx>=0) return REL_PALETTE[idx%REL_PALETTE.length];
+  let h=0;
+  for(let i=0;i<tematica.length;i++) h=(h*31+tematica.charCodeAt(i))>>>0;
+  return REL_PALETTE[h%REL_PALETTE.length];
+}
+function iconoTematicaRel(tematica){
+  return L.divIcon({
+    className:"rel-marker-dot",
+    html:"<div style=\"width:14px;height:14px;border-radius:50%;background:"+colorTematicaRel(tematica)+";border:2px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.6)\"></div>",
+    iconSize:[14,14],iconAnchor:[7,7],popupAnchor:[0,-9]
+  });
+}
+function renderLeyendaMapaRel(){
+  const el=document.getElementById("rel-mapa-legend"); if(!el) return;
+  el.innerHTML=(window.relTematicas||[]).map(t=>
+    "<span class=\"rel-litem\"><span class=\"rel-ldot\" style=\"background:"+colorTematicaRel(t)+"\"></span>"+esc(t)+"</span>"
+  ).join("");
+}
 let _relMapInstance=null,_relMarkersGroup=null;
 function initMapaRel(){
   if(_relMapInstance) return;
@@ -629,9 +674,12 @@ function renderMapaRel(lista){
     .map(r=>[r,Number(r.lat),Number(r.lng)])
     .filter(([,lat,lng])=>Number.isFinite(lat)&&Number.isFinite(lng)
       &&Math.abs(lat)<=90&&Math.abs(lng)<=180&&(lat!==0||lng!==0));
-  _relMarkersGroup=L.layerGroup();
+  const cnt=document.getElementById("rel-mapa-count");
+  if(cnt) cnt.textContent=conCoords.length+" de "+lista.length+" relevamiento"+(lista.length===1?"":"s")+" con ubicación en el mapa"
+    +(conCoords.length<lista.length?" ("+(lista.length-conCoords.length)+" sin dirección validada, no se muestran)":"");
+  _relMarkersGroup=L.markerClusterGroup({maxClusterRadius:45,spiderfyOnMaxZoom:true,showCoverageOnHover:false});
   conCoords.forEach(([r,lat,lng])=>{
-    const m=L.marker([lat,lng]);
+    const m=L.marker([lat,lng],{icon:iconoTematicaRel(r.tematica)});
     m.bindPopup(
       (r.fotoFileId?"<img src=\""+esc(fotoThumbUrlRel(r.fotoFileId,220))+"\" style=\"width:100%;max-width:220px;display:block;margin-bottom:6px\">":"")
       +badgeEstadoRel(r.estado)+"<br>"
@@ -643,7 +691,8 @@ function renderMapaRel(lista){
     );
     _relMarkersGroup.addLayer(m);
   });
-  _relMarkersGroup.addTo(_relMapInstance);
+  _relMapInstance.addLayer(_relMarkersGroup);
+  if(conCoords.length) _relMapInstance.fitBounds(_relMarkersGroup.getBounds(),{padding:[30,30],maxZoom:15});
   setTimeout(()=>_relMapInstance.invalidateSize(),100);
 }
 let _relDetalleId=null;
