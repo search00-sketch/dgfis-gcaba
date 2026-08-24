@@ -923,16 +923,39 @@ window.previewFotoRel=function(input){
   prev.innerHTML="<img src=\""+url+"\" style=\"max-height:160px\">";
   prev.style.display="block";
 };
+// Nominatim expande "Av." a "Avenida" para calles muy conocidas ("Av.
+// Corrientes" anda bien) pero no de forma confiable en general — probado a
+// mano: "Av. Gral. Francisco Fernández de la Cruz" no devuelve nada,
+// "Avenida General Francisco Fernández de la Cruz" (mismo nombre, sin
+// abreviar) sí encuentra la calle. "Gral." en particular no está en su
+// diccionario de sinónimos. Por eso se expanden las abreviaturas típicas de
+// nomenclatura argentina antes de geocodificar, en vez de mandar el texto
+// tal cual lo tipeó el usuario.
+const REL_ABREV_DIR=[
+  [/\bAvda\./gi,"Avenida"],[/\bAv\./gi,"Avenida"],
+  [/\bGral\./gi,"General"],[/\bCnel\./gi,"Coronel"],[/\bTte\./gi,"Teniente"],
+  [/\bAlmte\./gi,"Almirante"],[/\bCmdte\./gi,"Comandante"],[/\bCap\./gi,"Capitán"],
+  [/\bSgto\./gi,"Sargento"],[/\bDra\./gi,"Doctora"],[/\bDr\./gi,"Doctor"],
+  [/\bIng\./gi,"Ingeniero"],[/\bPres\./gi,"Presidente"],
+];
+function expandirAbreviaturasRel(direccion){
+  return REL_ABREV_DIR.reduce((d,[re,full])=>d.replace(re,full),direccion);
+}
 // Geocodifica la dirección tipeada (no usa el GPS del dispositivo: la carga
 // de un relevamiento no siempre se hace parado en el lugar, así que la
 // ubicación del navegador no sirve). Usa Nominatim (OpenStreetMap), gratuito
 // y sin API key — devuelve la dirección "normalizada" tal como la interpretó
 // para que se pueda confirmar a simple vista antes de guardar.
-async function geocodificarDireccionRel(direccion){
-  const q=encodeURIComponent(direccion+", CABA, Argentina");
+async function buscarNominatimRel(texto){
+  const q=encodeURIComponent(texto+", CABA, Argentina");
   const resp=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q="+q,{headers:{"Accept-Language":"es"}});
   if(!resp.ok) throw new Error("HTTP "+resp.status);
-  const data=await resp.json();
+  return resp.json();
+}
+async function geocodificarDireccionRel(direccion){
+  const expandida=expandirAbreviaturasRel(direccion);
+  let data=await buscarNominatimRel(expandida);
+  if((!data||!data.length)&&expandida!==direccion) data=await buscarNominatimRel(direccion);
   if(!data||!data.length) return null;
   return {lat:parseFloat(data[0].lat),lng:parseFloat(data[0].lon),display:data[0].display_name};
 }
