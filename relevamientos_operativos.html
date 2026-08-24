@@ -35,6 +35,10 @@
 .rel-litem{display:flex;align-items:center}
 .rel-ldot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;flex-shrink:0}
 .rel-marker-pin{background:transparent!important;border:none!important}
+.rel-pend-list{max-height:320px;overflow-y:auto;border:1.5px solid var(--bor);margin-top:10px}
+.rel-pend-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--bor);font-size:.8rem}
+.rel-pend-item:last-child{border-bottom:none}
+.rel-pend-info{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rlv-viewbtn{border:1.5px solid var(--bor);background:#fff;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
 .rlv-viewbtn.active{background:var(--azul);color:#fff;border-color:var(--azul)}
 
@@ -236,6 +240,7 @@
     <p style="font-size:.8rem;color:#777;margin-bottom:12px">Relevamientos que tienen una dirección cargada pero nunca se validó (por eso no aparecen en el mapa). Este botón intenta geocodificar automáticamente todos los pendientes, uno por uno — los que no se encuentren en el buscador de direcciones van a seguir figurando acá para corregirlos a mano desde "✏️ Editar".</p>
     <div id="rel-geo-pend-txt" style="font-size:.82rem;color:#555;margin-bottom:10px"></div>
     <button class="btn btn-azul" id="rel-geo-pend-btn" onclick="regeocodificarPendientesRel()">📍 Geocodificar pendientes</button>
+    <div class="rel-pend-list" id="rel-geo-pend-lista" style="display:none"></div>
   </div>
 </div>
 
@@ -545,11 +550,27 @@ function relPendientesGeo(){
 }
 function renderPendientesGeoRel(){
   const el=document.getElementById("rel-geo-pend-txt"); if(!el) return;
-  const n=relPendientesGeo().length;
+  const pendientes=relPendientesGeo().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const n=pendientes.length;
   el.textContent=n?(n+" relevamiento"+(n===1?"":"s")+" con dirección cargada pero sin validar."):"No hay relevamientos pendientes de geocodificar. ✅";
   const btn=document.getElementById("rel-geo-pend-btn");
   if(btn) btn.disabled=n===0;
+  const lista=document.getElementById("rel-geo-pend-lista");
+  if(!lista) return;
+  lista.style.display=n?"":"none";
+  lista.innerHTML=pendientes.map(r=>
+    "<div class=\"rel-pend-item\">"
+    +"<span class=\"rel-pend-info\">"+fmtDate(r.fecha)+" — "+esc(r.zona||"—")+" — "+esc(r.direccion||"(sin dirección)")+"</span>"
+    +"<button class=\"btn btn-gris btn-sm\" onclick=\"editarRelevamientoDesdeId('"+r.id+"')\">✏️ Corregir y guardar</button>"
+    +"</div>"
+  ).join("");
 }
+// Salto directo a "Editar" desde la lista de pendientes, sin pasar por el
+// modal de detalle (ahí es donde editarRelevamiento() busca el registro).
+window.editarRelevamientoDesdeId=function(id){
+  _relDetalleId=id;
+  editarRelevamiento();
+};
 // Reintenta geocodificar, de a uno, los relevamientos que tienen dirección
 // cargada pero se guardaron sin lat/lng (sobre todo los que ya existían
 // antes de que guardarRelevamiento() empezara a geocodificar solo).
