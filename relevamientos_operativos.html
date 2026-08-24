@@ -941,11 +941,31 @@ const REL_ABREV_DIR=[
 function expandirAbreviaturasRel(direccion){
   return REL_ABREV_DIR.reduce((d,[re,full])=>d.replace(re,full),direccion);
 }
+// USIG es el normalizador de direcciones oficial del GCABA (base de datos
+// propia de la ciudad, con altura interpolada de verdad) — probado a mano
+// contra la avenida que fallaba en Nominatim: ahí donde Nominatim caía
+// siempre al mismo punto genérico de la calle sin importar la altura, USIG
+// devuelve la coordenada específica correcta. CORS abierto, HTTPS, sin API
+// key. Se intenta primero acá; Nominatim queda como red de contención por
+// si USIG no encuentra algo o el servicio está caído.
+async function geocodificarUsigRel(direccion){
+  const q=encodeURIComponent(direccion+", CABA");
+  const resp=await fetch("https://servicios.usig.buenosaires.gob.ar/normalizar/?geocodificar=true&direccion="+q);
+  if(!resp.ok) throw new Error("HTTP "+resp.status);
+  const data=await resp.json();
+  const opciones=(data&&data.direccionesNormalizadas)||[];
+  // "solo nombre de calle" (sin altura ni cruce) viene sin coordenadas
+  // aunque geocodificar=true — USIG prefiere no inventar un punto en vez de
+  // devolver algo ambiguo, así que se descarta como "no encontrado".
+  const hit=opciones.find(o=>o.cod_partido==="caba"&&o.coordenadas);
+  if(!hit) return null;
+  return {lat:Number(hit.coordenadas.y),lng:Number(hit.coordenadas.x),display:hit.direccion};
+}
 // Geocodifica la dirección tipeada (no usa el GPS del dispositivo: la carga
 // de un relevamiento no siempre se hace parado en el lugar, así que la
-// ubicación del navegador no sirve). Usa Nominatim (OpenStreetMap), gratuito
-// y sin API key — devuelve la dirección "normalizada" tal como la interpretó
-// para que se pueda confirmar a simple vista antes de guardar.
+// ubicación del navegador no sirve). Devuelve la dirección "normalizada"
+// tal como la interpretó, para que se pueda confirmar a simple vista antes
+// de guardar.
 async function buscarNominatimRel(texto){
   const q=encodeURIComponent(texto+", CABA, Argentina");
   const resp=await fetch("https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&countrycodes=ar&q="+q,{headers:{"Accept-Language":"es"}});
@@ -953,14 +973,14 @@ async function buscarNominatimRel(texto){
   return resp.json();
 }
 async function geocodificarDireccionRel(direccion){
-  // Cuando Nominatim no puede ubicar el número de altura pedido, en vez de
-  // devolver "no encontrado" cae silenciosamente al punto genérico de la
-  // calle (mismo centroide para cualquier altura de esa avenida) — así fue
-  // como varios relevamientos en alturas distintas terminaron todos
-  // clavados en la misma coordenada. Si la dirección tenía un número y el
-  // resultado no trae house_number, se descarta ese resultado como si no
-  // se hubiera encontrado nada, en vez de aceptar un pin en el lugar
-  // equivocado.
+  const usig=await geocodificarUsigRel(direccion).catch(()=>null);
+  if(usig) return usig;
+  // Nominatim (OpenStreetMap) como respaldo. Mismo problema que motivó
+  // preferir USIG: cuando no puede ubicar el número de altura pedido, en
+  // vez de devolver "no encontrado" cae silenciosamente al punto genérico
+  // de la calle. Si la dirección tenía un número y el resultado no trae
+  // house_number, se descarta ese resultado en vez de aceptar un pin en el
+  // lugar equivocado.
   const tieneNumero=/\d/.test(direccion);
   const intentar=async(texto)=>{
     const data=await buscarNominatimRel(texto);
