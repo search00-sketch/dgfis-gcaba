@@ -237,7 +237,7 @@
   </div>
   <div class="gestion-zonas">
     <div class="gz-title">📌 Ubicaciones pendientes</div>
-    <p style="font-size:.8rem;color:#777;margin-bottom:12px">Relevamientos que tienen una dirección cargada pero nunca se validó (por eso no aparecen en el mapa). Este botón intenta geocodificar automáticamente todos los pendientes, uno por uno — los que no se encuentren en el buscador de direcciones van a seguir figurando acá para corregirlos a mano desde "✏️ Editar".</p>
+    <p style="font-size:.8rem;color:#777;margin-bottom:12px">Relevamientos con dirección cargada que nunca se validaron, o cuya ubicación coincide exactamente con la de otro relevamiento con dirección distinta (⚠️ — señal de que cayeron en el punto genérico de la calle en vez del correcto). Este botón intenta geocodificar automáticamente todos los pendientes, uno por uno — los que no se encuentren van a seguir figurando acá para corregirlos a mano desde "✏️ Editar".</p>
     <div id="rel-geo-pend-txt" style="font-size:.82rem;color:#555;margin-bottom:10px"></div>
     <button class="btn btn-azul" id="rel-geo-pend-btn" onclick="regeocodificarPendientesRel()">📍 Geocodificar pendientes</button>
     <div class="rel-pend-list" id="rel-geo-pend-lista" style="display:none"></div>
@@ -541,18 +541,44 @@ window.renombrarRelTematica=async function(idx,nuevoNombre){
 };
 
 // -- Administración: Ubicaciones pendientes (geocodificado en lote) ------
+// Además de "sin coordenadas", detecta coordenadas sospechosas: si dos o
+// más relevamientos con direcciones DISTINTAS terminaron con exactamente
+// la misma lat/lng, no es casualidad — es la firma del bug de geocodificado
+// que caía en el punto genérico de la calle (ver commits de USIG/altura).
+// Esos registros ya tienen "coordenadas" guardadas, así que sin este chequeo
+// el botón de regeocodificado los salteaba para siempre.
+function relCoordsSospechosas(lista){
+  const porCoord={};
+  lista.forEach(r=>{
+    const lat=Number(r.lat),lng=Number(r.lng);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
+    const key=lat.toFixed(6)+","+lng.toFixed(6);
+    (porCoord[key]=porCoord[key]||[]).push(r);
+  });
+  const sospechosos=new Set();
+  Object.values(porCoord).forEach(grupo=>{
+    if(grupo.length<2) return;
+    const direcciones=new Set(grupo.map(r=>(r.direccion||"").trim().toLowerCase()));
+    if(direcciones.size>1) grupo.forEach(r=>sospechosos.add(r.id));
+  });
+  return sospechosos;
+}
 function relPendientesGeo(){
-  return (window.relevamientos||[]).filter(r=>{
+  const lista=window.relevamientos||[];
+  const sospechosos=relCoordsSospechosas(lista);
+  return lista.filter(r=>{
+    if(!(r.direccion||"").trim()) return false;
     const lat=Number(r.lat),lng=Number(r.lng);
     const tieneCoords=Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180&&(lat!==0||lng!==0);
-    return !tieneCoords&&(r.direccion||"").trim();
+    return !tieneCoords||sospechosos.has(r.id);
   });
 }
 function renderPendientesGeoRel(){
   const el=document.getElementById("rel-geo-pend-txt"); if(!el) return;
   const pendientes=relPendientesGeo().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const sospechosos=relCoordsSospechosas(window.relevamientos||[]);
   const n=pendientes.length;
-  el.textContent=n?(n+" relevamiento"+(n===1?"":"s")+" con dirección cargada pero sin validar."):"No hay relevamientos pendientes de geocodificar. ✅";
+  el.textContent=n?(n+" relevamiento"+(n===1?"":"s")+" sin validar o con coordenadas sospechosas (compartidas con otra dirección distinta)."):"No hay relevamientos pendientes de geocodificar. ✅";
   const btn=document.getElementById("rel-geo-pend-btn");
   if(btn) btn.disabled=n===0;
   const lista=document.getElementById("rel-geo-pend-lista");
@@ -560,7 +586,7 @@ function renderPendientesGeoRel(){
   lista.style.display=n?"":"none";
   lista.innerHTML=pendientes.map(r=>
     "<div class=\"rel-pend-item\">"
-    +"<span class=\"rel-pend-info\">"+fmtDate(r.fecha)+" — "+esc(r.zona||"—")+" — "+esc(r.direccion||"(sin dirección)")+"</span>"
+    +"<span class=\"rel-pend-info\">"+(sospechosos.has(r.id)?"⚠️ ":"")+fmtDate(r.fecha)+" — "+esc(r.zona||"—")+" — "+esc(r.direccion||"(sin dirección)")+"</span>"
     +"<button class=\"btn btn-gris btn-sm\" onclick=\"editarRelevamientoDesdeId('"+r.id+"')\">✏️ Corregir y guardar</button>"
     +"</div>"
   ).join("");
