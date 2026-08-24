@@ -948,16 +948,31 @@ function expandirAbreviaturasRel(direccion){
 // para que se pueda confirmar a simple vista antes de guardar.
 async function buscarNominatimRel(texto){
   const q=encodeURIComponent(texto+", CABA, Argentina");
-  const resp=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q="+q,{headers:{"Accept-Language":"es"}});
+  const resp=await fetch("https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&countrycodes=ar&q="+q,{headers:{"Accept-Language":"es"}});
   if(!resp.ok) throw new Error("HTTP "+resp.status);
   return resp.json();
 }
 async function geocodificarDireccionRel(direccion){
+  // Cuando Nominatim no puede ubicar el número de altura pedido, en vez de
+  // devolver "no encontrado" cae silenciosamente al punto genérico de la
+  // calle (mismo centroide para cualquier altura de esa avenida) — así fue
+  // como varios relevamientos en alturas distintas terminaron todos
+  // clavados en la misma coordenada. Si la dirección tenía un número y el
+  // resultado no trae house_number, se descarta ese resultado como si no
+  // se hubiera encontrado nada, en vez de aceptar un pin en el lugar
+  // equivocado.
+  const tieneNumero=/\d/.test(direccion);
+  const intentar=async(texto)=>{
+    const data=await buscarNominatimRel(texto);
+    if(!data||!data.length) return null;
+    const hit=data[0];
+    if(tieneNumero&&!(hit.address&&hit.address.house_number)) return null;
+    return {lat:parseFloat(hit.lat),lng:parseFloat(hit.lon),display:hit.display_name};
+  };
   const expandida=expandirAbreviaturasRel(direccion);
-  let data=await buscarNominatimRel(expandida);
-  if((!data||!data.length)&&expandida!==direccion) data=await buscarNominatimRel(direccion);
-  if(!data||!data.length) return null;
-  return {lat:parseFloat(data[0].lat),lng:parseFloat(data[0].lon),display:data[0].display_name};
+  let r=await intentar(expandida);
+  if(!r&&expandida!==direccion) r=await intentar(direccion);
+  return r;
 }
 window.validarDireccionRel=async function(){
   const estado=document.getElementById("rc-ubicacion-estado");
@@ -968,7 +983,7 @@ window.validarDireccionRel=async function(){
   try{
     const r=await geocodificarDireccionRel(direccion);
     if(!r){
-      estado.textContent="⚠️ No se encontró esa dirección. Se puede guardar igual, sólo que no va a aparecer en el mapa.";
+      estado.textContent="⚠️ No se encontró una ubicación precisa para esa dirección (probá agregar el número de altura o una referencia, como la esquina). Se puede guardar igual, sólo que no va a aparecer en el mapa.";
       return;
     }
     _rcLat=r.lat;_rcLng=r.lng;
