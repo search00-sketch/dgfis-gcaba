@@ -231,6 +231,12 @@
       <button class="btn btn-azul" onclick="agregarRelTematica()">+ Agregar</button>
     </div>
   </div>
+  <div class="gestion-zonas">
+    <div class="gz-title">📌 Ubicaciones pendientes</div>
+    <p style="font-size:.8rem;color:#777;margin-bottom:12px">Relevamientos que tienen una dirección cargada pero nunca se validó (por eso no aparecen en el mapa). Este botón intenta geocodificar automáticamente todos los pendientes, uno por uno — los que no se encuentren en el buscador de direcciones van a seguir figurando acá para corregirlos a mano desde "✏️ Editar".</p>
+    <div id="rel-geo-pend-txt" style="font-size:.82rem;color:#555;margin-bottom:10px"></div>
+    <button class="btn btn-azul" id="rel-geo-pend-btn" onclick="regeocodificarPendientesRel()">📍 Geocodificar pendientes</button>
+  </div>
 </div>
 
 </div>
@@ -529,11 +535,65 @@ window.renombrarRelTematica=async function(idx,nuevoNombre){
   await guardarRelTematicas();renderRelTematicas();toast("✅ Temática renombrada");
 };
 
+// -- Administración: Ubicaciones pendientes (geocodificado en lote) ------
+function relPendientesGeo(){
+  return (window.relevamientos||[]).filter(r=>{
+    const lat=Number(r.lat),lng=Number(r.lng);
+    const tieneCoords=Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180&&(lat!==0||lng!==0);
+    return !tieneCoords&&(r.direccion||"").trim();
+  });
+}
+function renderPendientesGeoRel(){
+  const el=document.getElementById("rel-geo-pend-txt"); if(!el) return;
+  const n=relPendientesGeo().length;
+  el.textContent=n?(n+" relevamiento"+(n===1?"":"s")+" con dirección cargada pero sin validar."):"No hay relevamientos pendientes de geocodificar. ✅";
+  const btn=document.getElementById("rel-geo-pend-btn");
+  if(btn) btn.disabled=n===0;
+}
+// Reintenta geocodificar, de a uno, los relevamientos que tienen dirección
+// cargada pero se guardaron sin lat/lng (sobre todo los que ya existían
+// antes de que guardarRelevamiento() empezara a geocodificar solo).
+// Secuencial y con pausa entre pedidos por la política de uso de Nominatim
+// (máximo ~1 request/segundo) — no se puede disparar todo en paralelo.
+window.regeocodificarPendientesRel=async function(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const pendientes=relPendientesGeo();
+  if(!pendientes.length){toast("No hay pendientes para geocodificar.");return;}
+  const btn=document.getElementById("rel-geo-pend-btn");
+  const txt=document.getElementById("rel-geo-pend-txt");
+  btn.disabled=true;
+  let ok=0,fallidos=0;
+  for(let i=0;i<pendientes.length;i++){
+    const r=pendientes[i];
+    txt.textContent="Procesando "+(i+1)+" de "+pendientes.length+"… ("+r.direccion+")";
+    try{
+      const geo=await geocodificarDireccionRel(r.direccion);
+      if(geo){
+        const actualizado={...r,lat:geo.lat,lng:geo.lng};
+        conAuditoriaRel(actualizado,r);
+        await guardarRelevamientoChunked(actualizado,window.relevamientos);
+        const idx=window.relevamientos.findIndex(x=>x.id===r.id);
+        if(idx>=0) window.relevamientos[idx]=actualizado;
+        ok++;
+      } else {
+        fallidos++;
+      }
+    }catch(e){
+      fallidos++;
+    }
+    if(i<pendientes.length-1) await new Promise(res=>setTimeout(res,1100));
+  }
+  btn.disabled=false;
+  renderPendientesGeoRel();
+  aplicarFiltrosRel();
+  toast("✅ Geocodificados "+ok+(fallidos?(", "+fallidos+" no se encontraron (corregir la dirección a mano desde ✏️ Editar)."):"."),5000);
+};
+
 // ============================================================
 //  PESTAÑAS
 // ============================================================
 window._cambiarTabExtra=function(id){
-  if(id==="administracion"){renderRelZonas();renderRelTematicas();}
+  if(id==="administracion"){renderRelZonas();renderRelTematicas();renderPendientesGeoRel();}
 };
 
 // ============================================================
