@@ -1,6 +1,9 @@
 # Git worktrees (aislamiento temporal para tareas de agentes)
 .worktrees/
 
+# Scratch state de subagent-driven-development (planes/reportes/reviews temporales)
+.superpowers/
+
 # Logs
 logs
 *.log

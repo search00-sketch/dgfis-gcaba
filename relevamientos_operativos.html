@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=9">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
@@ -41,6 +42,12 @@
 .rel-pend-info{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rlv-viewbtn{border:1.5px solid var(--bor);background:#fff;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
 .rlv-viewbtn.active{background:var(--azul);color:#fff;border-color:var(--azul)}
+
+.rcw-row{display:grid;grid-template-columns:28px 56px 150px 1fr 220px;gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--bor);font-size:.8rem}
+.rcw-row:last-child{border-bottom:none}
+.rcw-thumb{width:48px;height:48px;object-fit:cover;background:var(--gris);display:block}
+.rcw-tabla{max-height:520px;overflow-y:auto;overflow-x:auto;border:1.5px solid var(--bor);margin-top:2px}
+.rcw-origen{font-size:.7rem;color:#888;line-height:1.3}
 
 .ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
 .ficha-item{background:#f9f9f9;padding:8px 12px}
@@ -188,30 +195,56 @@
 <div class="panel" id="panel-carga">
   <div class="gestion-zonas">
     <div class="gz-title" id="rc-title">📥 Cargar relevamiento</div>
-    <div class="rc-grid">
-      <div class="form-field"><label class="fl">Fecha</label><input type="date" class="form-input" id="rc-fecha"></div>
-      <div class="form-field"><label class="fl">Ubicación / Zona</label><select class="form-input" id="rc-zona"><option value="">Seleccionar…</option></select></div>
-      <div class="form-field full">
-        <label class="fl">Dirección</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" class="form-input" id="rc-direccion" placeholder="Calle y altura, punto de referencia…" style="flex:1">
-          <button type="button" class="btn btn-gris btn-sm" id="rc-ubicacion-btn" onclick="validarDireccionRel()" title="Busca la dirección y confirma sus coordenadas — no depende de dónde estés parado">🔍 Validar dirección</button>
+    <div style="margin-bottom:14px">
+      <button class="rlv-viewbtn active" id="rc-view-btn-individual" onclick="cambiarVistaCargaRel('individual')">📝 Individual</button>
+      <button class="rlv-viewbtn" id="rc-view-btn-whatsapp" onclick="cambiarVistaCargaRel('whatsapp')">📦 Importar desde WhatsApp</button>
+    </div>
+    <div id="rc-panel-individual">
+      <div class="rc-grid">
+        <div class="form-field"><label class="fl">Fecha</label><input type="date" class="form-input" id="rc-fecha"></div>
+        <div class="form-field"><label class="fl">Ubicación / Zona</label><select class="form-input" id="rc-zona"><option value="">Seleccionar…</option></select></div>
+        <div class="form-field full">
+          <label class="fl">Dirección</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" class="form-input" id="rc-direccion" placeholder="Calle y altura, punto de referencia…" style="flex:1">
+            <button type="button" class="btn btn-gris btn-sm" id="rc-ubicacion-btn" onclick="validarDireccionRel()" title="Busca la dirección y confirma sus coordenadas — no depende de dónde estés parado">🔍 Validar dirección</button>
+          </div>
+          <div id="rc-ubicacion-estado" style="font-size:.74rem;color:#888;margin-top:4px"></div>
         </div>
-        <div id="rc-ubicacion-estado" style="font-size:.74rem;color:#888;margin-top:4px"></div>
+        <div class="form-field"><label class="fl">Temática</label><select class="form-input" id="rc-tematica"><option value="">Seleccionar…</option></select></div>
+        <div class="form-field"><label class="fl">Foto</label><input type="file" accept="image/*" class="form-input" id="rc-foto" onchange="previewFotoRel(this)"></div>
+        <div class="form-field"><label class="fl">Foodtruck</label><select class="form-input" id="rc-foodtruck"><option value="No">No</option><option value="Si">Sí</option></select></div>
+        <div class="form-field"><label class="fl">Conexión eléctrica</label><select class="form-input" id="rc-conexion"><option value="No">No</option><option value="Si">Sí</option><option value="Precaria">Precaria</option></select></div>
+        <div class="form-field"><label class="fl">Patente</label><select class="form-input" id="rc-patente"><option value="No">No</option><option value="Si">Sí</option></select></div>
+        <div class="form-field"><label class="fl">Estado</label><select class="form-input" id="rc-estado"><option value="Pendiente">Pendiente</option><option value="Realizado">Realizado</option><option value="Intimado">Intimado</option></select></div>
       </div>
-      <div class="form-field"><label class="fl">Temática</label><select class="form-input" id="rc-tematica"><option value="">Seleccionar…</option></select></div>
-      <div class="form-field"><label class="fl">Foto</label><input type="file" accept="image/*" class="form-input" id="rc-foto" onchange="previewFotoRel(this)"></div>
-      <div class="form-field"><label class="fl">Foodtruck</label><select class="form-input" id="rc-foodtruck"><option value="No">No</option><option value="Si">Sí</option></select></div>
-      <div class="form-field"><label class="fl">Conexión eléctrica</label><select class="form-input" id="rc-conexion"><option value="No">No</option><option value="Si">Sí</option><option value="Precaria">Precaria</option></select></div>
-      <div class="form-field"><label class="fl">Patente</label><select class="form-input" id="rc-patente"><option value="No">No</option><option value="Si">Sí</option></select></div>
-      <div class="form-field"><label class="fl">Estado</label><select class="form-input" id="rc-estado"><option value="Pendiente">Pendiente</option><option value="Realizado">Realizado</option><option value="Intimado">Intimado</option></select></div>
+      <div id="rc-foto-preview" style="display:none;margin:12px 0"></div>
+      <div class="form-field full" style="margin:14px 0">
+        <label class="fl">Observaciones</label>
+        <textarea class="form-input" id="rc-observaciones" rows="4" placeholder="Detalle libre…"></textarea>
+      </div>
+      <button class="btn btn-verde" id="rc-guardar-btn" onclick="guardarRelevamiento()">💾 Guardar relevamiento</button>
     </div>
-    <div id="rc-foto-preview" style="display:none;margin:12px 0"></div>
-    <div class="form-field full" style="margin:14px 0">
-      <label class="fl">Observaciones</label>
-      <textarea class="form-input" id="rc-observaciones" rows="4" placeholder="Detalle libre…"></textarea>
+    <div id="rc-panel-whatsapp" style="display:none">
+      <p style="font-size:.8rem;color:#777;margin-bottom:12px">Subí la exportación de WhatsApp del chat de relevamiento (<code>.zip</code>, con la opción "Incluir medios" activada al exportar). Se genera un relevamiento por cada foto encontrada, con la dirección que tenía escrita debajo en el chat — vas a poder revisar y corregir todo antes de guardar nada.</p>
+      <div class="rc-grid">
+        <div class="form-field"><label class="fl">Ubicación / Zona (para toda la tanda)</label><select class="form-input" id="rcw-zona"><option value="">Seleccionar…</option></select></div>
+        <div class="form-field"><label class="fl">Temática (para toda la tanda)</label><select class="form-input" id="rcw-tematica"><option value="">Seleccionar…</option></select></div>
+        <div class="form-field full">
+          <label class="fl">Chat exportado de WhatsApp (.zip)</label>
+          <input type="file" accept=".zip" class="form-input" id="rcw-zip">
+        </div>
+      </div>
+      <button class="btn btn-azul" id="rcw-analizar-btn" onclick="analizarChatWhatsappRel()" style="margin-top:10px">🔍 Analizar chat</button>
+      <div id="rcw-resultado" style="display:none;margin-top:16px">
+        <div id="rcw-resumen" style="font-size:.85rem;color:#555;margin-bottom:8px"></div>
+        <div class="rcw-row" style="font-weight:700;font-size:.72rem;color:#888;border-bottom:2px solid var(--bor)">
+          <span></span><span>Foto</span><span>Fecha</span><span>Dirección</span><span>Origen</span>
+        </div>
+        <div class="rcw-tabla" id="rcw-tabla"></div>
+        <button class="btn btn-verde" id="rcw-guardar-btn" onclick="guardarImportWhatsappRel()" style="margin-top:12px" disabled>💾 Guardar seleccionados (0)</button>
+      </div>
     </div>
-    <button class="btn btn-verde" id="rc-guardar-btn" onclick="guardarRelevamiento()">💾 Guardar relevamiento</button>
   </div>
 </div>
 
@@ -465,6 +498,8 @@ function poblarSelectsRel(){
   const optsT="<option value=\"\">Seleccionar…</option>"+(window.relTematicas||[]).map(t=>"<option value=\""+esc(t)+"\">"+esc(t)+"</option>").join("");
   const zc=document.getElementById("rc-zona"); if(zc) zc.innerHTML=optsZ;
   const tc=document.getElementById("rc-tematica"); if(tc) tc.innerHTML=optsT;
+  const zcw=document.getElementById("rcw-zona"); if(zcw) zcw.innerHTML=optsZ;
+  const tcw=document.getElementById("rcw-tematica"); if(tcw) tcw.innerHTML=optsT;
   const zf=document.getElementById("rf-zona");
   if(zf) zf.innerHTML="<option value=\"\">Todas las zonas</option>"+(window.relZonas||[]).map(z=>"<option value=\""+esc(z)+"\">"+esc(z)+"</option>").join("");
   const tf=document.getElementById("rf-tematica");
@@ -861,6 +896,16 @@ window.cambiarEstadoRelDesdeDetalle=async function(nuevoEstado){
   }
 };
 
+// Alterna entre el formulario individual y el import masivo de WhatsApp
+// dentro de la pestaña Carga — no toca la pestaña de nivel superior
+// (Dashboard/Carga/Administración), sólo qué se ve adentro de "Carga".
+window.cambiarVistaCargaRel=function(modo){
+  document.getElementById("rc-view-btn-individual").classList.toggle("active",modo==="individual");
+  document.getElementById("rc-view-btn-whatsapp").classList.toggle("active",modo==="whatsapp");
+  document.getElementById("rc-panel-individual").style.display=modo==="individual"?"":"none";
+  document.getElementById("rc-panel-whatsapp").style.display=modo==="whatsapp"?"":"none";
+};
+
 // ============================================================
 //  CARGA (alta de un relevamiento)
 // ============================================================
@@ -915,6 +960,7 @@ window.editarRelevamiento=function(){
     prev.style.display="block";
   }
   cerrarModal("modal-rel-detalle");
+  cambiarVistaCargaRel("individual");
   window.cambiarTab("carga",document.getElementById("tab-btn-carga"));
 };
 // Elimina el relevamiento que está abierto en el modal de detalle. La foto
@@ -1094,6 +1140,7 @@ window.guardarRelevamiento=async function(){
     conAuditoriaRel(rel,original);
     rel.id=id;
     if(original&&original._chunk!==undefined) rel._chunk=original._chunk;
+    if(original&&original.origenArchivo) rel.origenArchivo=original.origenArchivo;
     await guardarRelevamientoChunked(rel,window.relevamientos);
     if(editando){
       const idx=window.relevamientos.findIndex(x=>x.id===id);
@@ -1111,6 +1158,249 @@ window.guardarRelevamiento=async function(){
   }finally{
     btn.disabled=false;
   }
+};
+
+// ============================================================
+//  IMPORTAR DESDE WHATSAPP (carga masiva)
+// ============================================================
+// El chat de relevamiento se exporta desde WhatsApp con "Incluir medios":
+// genera un .zip con un .txt de la conversación + todas las fotos. Cada
+// mensaje real empieza con "D/M/AAAA, HH:MM - " — toda línea que no
+// matchea ese prefijo es continuación del mensaje anterior (así es como
+// queda, en el .txt, la leyenda que alguien escribe debajo de una foto:
+// en una línea aparte, sin timestamp propio).
+const RE_HEADER_CHAT_REL=/^(\d{1,2}\/\d{1,2}\/\d{4}), \d{1,2}:\d{2} - (.*)$/;
+function fechaChatAIsoRel(dmy){
+  const [d,m,y]=dmy.split("/");
+  return y+"-"+m.padStart(2,"0")+"-"+d.padStart(2,"0");
+}
+function parsearChatWhatsappRel(texto){
+  const lineas=texto.split(/\r\n|\r|\n/);
+  const mensajes=[];
+  let actual=null;
+  for(const linea of lineas){
+    const m=linea.match(RE_HEADER_CHAT_REL);
+    if(m){
+      actual={fecha:fechaChatAIsoRel(m[1]),lineas:[m[2]]};
+      mensajes.push(actual);
+    } else if(actual){
+      actual.lineas.push(linea);
+    }
+  }
+  return mensajes;
+}
+// Sólo los mensajes cuya primera línea es un adjunto de imagen generan una
+// fila candidata. Un pin de "ubicación:", un mensaje de sistema ("Creaste
+// este grupo", etc.) o un comentario suelto sin foto simplemente no
+// matchean esta regex y quedan afuera del import sin necesitar ningún caso
+// especial para cada uno — la regla es una sola: "¿tiene foto adjunta?".
+const RE_ADJUNTO_IMG_REL=/([\w\-. ]+\.(?:jpg|jpeg|png|webp))\s*\(archivo adjunto\)/i;
+function extraerCandidatosWhatsappRel(mensajes){
+  const candidatos=[];
+  mensajes.forEach(msg=>{
+    const primera=msg.lineas[0]||"";
+    const m=primera.match(RE_ADJUNTO_IMG_REL);
+    if(!m) return;
+    candidatos.push({
+      archivo:m[1].trim(),
+      fecha:msg.fecha,
+      direccion:msg.lineas.slice(1).join(" ").trim(),
+    });
+  });
+  return candidatos;
+}
+// Busca dentro del .zip un archivo cuyo nombre (sin importar la carpeta)
+// coincida con el de la leyenda del chat — WhatsApp exporta todo en la raíz
+// del .zip, pero por las dudas no se asume esa estructura.
+function buscarArchivoEnZipRel(zip,nombre){
+  const nombreLower=nombre.toLowerCase();
+  for(const path of Object.keys(zip.files)){
+    const entry=zip.files[path];
+    if(entry.dir) continue;
+    if(path.split("/").pop().toLowerCase()===nombreLower) return entry;
+  }
+  return null;
+}
+let _wImportFilasRel=[];
+function filaImportWhatsappRelHtml(f,i){
+  return "<div class=\"rcw-row\">"
+    +"<input type=\"checkbox\" "+(f.incluir?"checked":"")+" onchange=\"_wImportToggleFilaRel("+i+",this.checked)\">"
+    +"<img class=\"rcw-thumb\" id=\"rcw-thumb-"+i+"\" alt=\"\" loading=\"lazy\">"
+    +"<input type=\"date\" class=\"form-input\" value=\""+esc(f.fecha)+"\" oninput=\"_wImportSetCampoRel("+i+",'fecha',this.value)\">"
+    +"<input type=\"text\" class=\"form-input\" value=\""+esc(f.direccion)+"\" oninput=\"_wImportSetCampoRel("+i+",'direccion',this.value)\">"
+    +"<div><div class=\"rcw-origen\">"+esc(f.archivo)+"</div>"
+    +(f.yaImportada?"<div class=\"rcw-origen\" style=\"color:#b45309\">Ya importada el "+esc(fmtDate(f.yaImportada))+"</div>":"")
+    +(f.sinBinario?"<div class=\"rcw-origen\" style=\"color:#b91c1c\">⚠️ no se encontró la foto en el .zip</div>":"")
+    +"<span id=\"rcw-estado-"+i+"\" style=\"font-size:1rem\"></span>"
+    +"</div>"
+    +"</div>";
+}
+// Arma la tabla con placeholders de miniatura y recién después resuelve
+// cada blob del zip en forma asíncrona — así la tabla aparece de una,
+// sin esperar a descomprimir las ~150 fotos antes de mostrar nada.
+// _wImportGenRel evita que un blob resuelto de un análisis viejo pise la
+// miniatura de la fila nueva que ahora ocupa el mismo id (mismo índice)
+// si se vuelve a analizar un .zip antes de que terminen de resolver todas
+// las miniaturas del análisis anterior.
+let _wImportGenRel=0;
+let _wImportThumbUrlsRel=[];
+function renderTablaImportWhatsappRel(){
+  const gen=++_wImportGenRel;
+  _wImportThumbUrlsRel.forEach(u=>URL.revokeObjectURL(u));
+  _wImportThumbUrlsRel=[];
+  const cont=document.getElementById("rcw-tabla");
+  cont.innerHTML=_wImportFilasRel.map((f,i)=>filaImportWhatsappRelHtml(f,i)).join("");
+  _wImportFilasRel.forEach((f,i)=>{
+    if(!f.zipEntry) return;
+    f.zipEntry.async("blob").then(blob=>{
+      if(gen!==_wImportGenRel) return;
+      const img=document.getElementById("rcw-thumb-"+i);
+      if(img){
+        const url=URL.createObjectURL(blob);
+        _wImportThumbUrlsRel.push(url);
+        img.src=url;
+      }
+    }).catch(()=>{});
+  });
+}
+// Una fila ya guardada ("ok" o "sin-geo") no se vuelve a intentar aunque
+// siga tildada — evita duplicar el relevamiento si se aprieta "Guardar
+// seleccionados" dos veces (por ejemplo, para reintentar sólo las que
+// dieron error la primera vez).
+function filasPendientesImportRel(){
+  return _wImportFilasRel.filter(f=>f.incluir&&f.estadoGuardado!=="ok"&&f.estadoGuardado!=="sin-geo");
+}
+function actualizarResumenImportRel(){
+  const total=_wImportFilasRel.length;
+  const yaImportadas=_wImportFilasRel.filter(f=>f.yaImportada).length;
+  const paraGuardar=filasPendientesImportRel().length;
+  document.getElementById("rcw-resumen").textContent=
+    total+" foto"+(total===1?"":"s")+" encontrada"+(total===1?"":"s")+" en el chat · "
+    +yaImportadas+" ya importada"+(yaImportadas===1?"":"s")+" antes · "
+    +paraGuardar+" para guardar";
+  const btn=document.getElementById("rcw-guardar-btn");
+  btn.disabled=paraGuardar===0;
+  btn.textContent="💾 Guardar seleccionados ("+paraGuardar+")";
+}
+window._wImportToggleFilaRel=function(idx,checked){
+  _wImportFilasRel[idx].incluir=checked;
+  actualizarResumenImportRel();
+};
+window._wImportSetCampoRel=function(idx,campo,valor){
+  _wImportFilasRel[idx][campo]=valor;
+};
+window.analizarChatWhatsappRel=async function(){
+  const file=document.getElementById("rcw-zip").files[0];
+  if(!file){toast("Elegí un archivo .zip primero.");return;}
+  const btn=document.getElementById("rcw-analizar-btn");
+  btn.disabled=true;btn.textContent="Analizando…";
+  try{
+    const zip=await JSZip.loadAsync(file);
+    const txtPath=Object.keys(zip.files).find(p=>/\.txt$/i.test(p)&&!zip.files[p].dir);
+    if(!txtPath) throw new Error("No se encontró un archivo .txt de chat dentro del .zip.");
+    const buf=await zip.files[txtPath].async("uint8array");
+    const texto=new TextDecoder("utf-8").decode(buf);
+    const candidatos=extraerCandidatosWhatsappRel(parsearChatWhatsappRel(texto));
+    const existentesPorArchivo={};
+    (window.relevamientos||[]).forEach(r=>{
+      if(r.origenArchivo) existentesPorArchivo[r.origenArchivo.toLowerCase()]=r;
+    });
+    _wImportFilasRel=candidatos.map(c=>{
+      const zipEntry=buscarArchivoEnZipRel(zip,c.archivo);
+      const existente=existentesPorArchivo[c.archivo.toLowerCase()]||null;
+      return {
+        archivo:c.archivo,fecha:c.fecha,direccion:c.direccion,
+        zipEntry,sinBinario:!zipEntry,
+        yaImportada:existente?existente.fecha:null,
+        incluir:!existente,
+        estadoGuardado:null,
+      };
+    });
+    renderTablaImportWhatsappRel();
+    actualizarResumenImportRel();
+    document.getElementById("rcw-resultado").style.display="";
+    if(!candidatos.length) toast("No se encontraron fotos con leyenda en ese chat.");
+  }catch(e){
+    toast("❌ Error al analizar el .zip: "+e.message,4000);
+    console.error(e);
+  }finally{
+    btn.disabled=false;btn.textContent="🔍 Analizar chat";
+  }
+};
+function actualizarEstadoFilaImportRel(idx){
+  const el=document.getElementById("rcw-estado-"+idx);
+  if(!el) return;
+  const f=_wImportFilasRel[idx];
+  el.textContent=f.estadoGuardado==="ok"?"✅":f.estadoGuardado==="sin-geo"?"⚠️":f.estadoGuardado==="error"?"❌":"";
+}
+// Secuencial (una fila por vez), mismo criterio que
+// regeocodificarPendientesRel(): no se puede geocodificar en paralelo por
+// la política de uso de Nominatim, y tampoco conviene golpear el Apps
+// Script de subida de fotos con decenas de requests simultáneos.
+window.guardarImportWhatsappRel=async function(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const zona=document.getElementById("rcw-zona").value;
+  const tematica=document.getElementById("rcw-tematica").value;
+  if(!zona||!tematica){toast("Elegí zona y temática para la tanda antes de guardar.");return;}
+  const pendientes=filasPendientesImportRel();
+  if(!pendientes.length){toast("No hay filas seleccionadas para guardar.");return;}
+  const btn=document.getElementById("rcw-guardar-btn");
+  btn.disabled=true;
+  let ok=0,sinGeo=0,errores=0;
+  for(let i=0;i<pendientes.length;i++){
+    const f=pendientes[i];
+    const idx=_wImportFilasRel.indexOf(f);
+    btn.textContent="Guardando "+(i+1)+"/"+pendientes.length+"…";
+    try{
+      let lat=null,lng=null;
+      if(f.direccion){
+        try{
+          const geo=await geocodificarDireccionRel(f.direccion);
+          if(geo){lat=geo.lat;lng=geo.lng;}
+        }catch(e){}
+      }
+      let fotoFileId=null;
+      const id=Date.now().toString()+"-"+idx;
+      if(f.zipEntry){
+        if(typeof RELEVAMIENTOS_FOTO_ENDPOINT==="undefined"||!RELEVAMIENTOS_FOTO_ENDPOINT){
+          throw new Error("La subida de fotos todavía no está configurada.");
+        }
+        const blob=await f.zipEntry.async("blob");
+        const dataUrl=await comprimirImagenRel(blob,1200,0.8);
+        const base64=dataUrl.split(",")[1];
+        const resp=await fetch(RELEVAMIENTOS_FOTO_ENDPOINT,{
+          method:"POST",
+          headers:{"Content-Type":"text/plain;charset=utf-8"},
+          body:JSON.stringify({token:RELEVAMIENTOS_FOTO_TOKEN,id,base64,mimeType:"image/jpeg"}),
+        });
+        const data=await resp.json();
+        if(!data.ok) throw new Error(data.error||"Error al subir la foto.");
+        fotoFileId=data.fileId;
+      }
+      const rel={
+        fecha:f.fecha,zona,tematica,fotoFileId,
+        direccion:f.direccion,lat,lng,
+        foodTruck:"No",conexionElectrica:"No",patente:"No",
+        estado:"Pendiente",observaciones:"",
+        origenArchivo:f.archivo,
+      };
+      conAuditoriaRel(rel,null);
+      rel.id=id;
+      await guardarRelevamientoChunked(rel,window.relevamientos);
+      window.relevamientos.push(rel);
+      f.estadoGuardado=(f.direccion&&lat==null)?"sin-geo":"ok";
+      if(f.estadoGuardado==="sin-geo") sinGeo++; else ok++;
+    }catch(e){
+      f.estadoGuardado="error";
+      errores++;
+      console.error(e);
+    }
+    actualizarEstadoFilaImportRel(idx);
+  }
+  btn.disabled=false;
+  actualizarResumenImportRel();
+  aplicarFiltrosRel();
+  toast("✅ "+ok+" guardado"+(ok===1?"":"s")+(sinGeo?", "+sinGeo+" sin geocodificar":"")+(errores?", "+errores+" con error":"")+".",6000);
 };
 
 // ============================================================
