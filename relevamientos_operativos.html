@@ -1319,6 +1319,81 @@ window.analizarChatWhatsappRel=async function(){
     btn.disabled=false;btn.textContent="🔍 Analizar chat";
   }
 };
+function actualizarEstadoFilaImportRel(idx){
+  const el=document.getElementById("rcw-estado-"+idx);
+  if(!el) return;
+  const f=_wImportFilasRel[idx];
+  el.textContent=f.estadoGuardado==="ok"?"✅":f.estadoGuardado==="sin-geo"?"⚠️":f.estadoGuardado==="error"?"❌":"";
+}
+// Secuencial (una fila por vez), mismo criterio que
+// regeocodificarPendientesRel(): no se puede geocodificar en paralelo por
+// la política de uso de Nominatim, y tampoco conviene golpear el Apps
+// Script de subida de fotos con decenas de requests simultáneos.
+window.guardarImportWhatsappRel=async function(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const zona=document.getElementById("rcw-zona").value;
+  const tematica=document.getElementById("rcw-tematica").value;
+  if(!zona||!tematica){toast("Elegí zona y temática para la tanda antes de guardar.");return;}
+  const pendientes=filasPendientesImportRel();
+  if(!pendientes.length){toast("No hay filas seleccionadas para guardar.");return;}
+  const btn=document.getElementById("rcw-guardar-btn");
+  btn.disabled=true;
+  let ok=0,sinGeo=0,errores=0;
+  for(let i=0;i<pendientes.length;i++){
+    const f=pendientes[i];
+    const idx=_wImportFilasRel.indexOf(f);
+    btn.textContent="Guardando "+(i+1)+"/"+pendientes.length+"…";
+    try{
+      let lat=null,lng=null;
+      if(f.direccion){
+        try{
+          const geo=await geocodificarDireccionRel(f.direccion);
+          if(geo){lat=geo.lat;lng=geo.lng;}
+        }catch(e){}
+      }
+      let fotoFileId=null;
+      const id=f.archivo+"-"+Date.now()+"-"+idx;
+      if(f.zipEntry){
+        if(typeof RELEVAMIENTOS_FOTO_ENDPOINT==="undefined"||!RELEVAMIENTOS_FOTO_ENDPOINT){
+          throw new Error("La subida de fotos todavía no está configurada.");
+        }
+        const blob=await f.zipEntry.async("blob");
+        const dataUrl=await comprimirImagenRel(blob,1200,0.8);
+        const base64=dataUrl.split(",")[1];
+        const resp=await fetch(RELEVAMIENTOS_FOTO_ENDPOINT,{
+          method:"POST",
+          headers:{"Content-Type":"text/plain;charset=utf-8"},
+          body:JSON.stringify({token:RELEVAMIENTOS_FOTO_TOKEN,id,base64,mimeType:"image/jpeg"}),
+        });
+        const data=await resp.json();
+        if(!data.ok) throw new Error(data.error||"Error al subir la foto.");
+        fotoFileId=data.fileId;
+      }
+      const rel={
+        fecha:f.fecha,zona,tematica,fotoFileId,
+        direccion:f.direccion,lat,lng,
+        foodTruck:"No",conexionElectrica:"No",patente:"No",
+        estado:"Pendiente",observaciones:"",
+        origenArchivo:f.archivo,
+      };
+      conAuditoriaRel(rel,null);
+      rel.id=id;
+      await guardarRelevamientoChunked(rel,window.relevamientos);
+      window.relevamientos.push(rel);
+      f.estadoGuardado=(f.direccion&&lat==null)?"sin-geo":"ok";
+      if(f.estadoGuardado==="sin-geo") sinGeo++; else ok++;
+    }catch(e){
+      f.estadoGuardado="error";
+      errores++;
+      console.error(e);
+    }
+    actualizarEstadoFilaImportRel(idx);
+  }
+  btn.disabled=false;
+  actualizarResumenImportRel();
+  aplicarFiltrosRel();
+  toast("✅ "+ok+" guardado"+(ok===1?"":"s")+(sinGeo?", "+sinGeo+" sin geocodificar":"")+(errores?", "+errores+" con error":"")+".",6000);
+};
 
 // ============================================================
 //  RECARGA
