@@ -228,6 +228,7 @@
         <textarea class="form-input" id="rc-observaciones" rows="4" placeholder="Detalle libre…"></textarea>
       </div>
       <button class="btn btn-verde" id="rc-guardar-btn" onclick="guardarRelevamiento()">💾 Guardar relevamiento</button>
+      <button class="btn btn-rojo" id="rc-eliminar-btn" style="display:none" onclick="eliminarRelevamientoDesdeCarga()">🗑 Eliminar</button>
     </div>
     <div id="rc-panel-whatsapp" style="display:none">
       <p style="font-size:.8rem;color:#777;margin-bottom:12px">Subí la exportación de WhatsApp del chat de relevamiento (<code>.zip</code>, con la opción "Incluir medios" activada al exportar). Se genera un relevamiento por cada foto encontrada, con la dirección que tenía escrita debajo en el chat — vas a poder revisar y corregir todo antes de guardar nada.</p>
@@ -936,6 +937,7 @@ function limpiarFormCarga(){
   document.getElementById("rc-observaciones").value="";
   _rcLat=null;_rcLng=null;
   document.getElementById("rc-ubicacion-estado").textContent="";
+  document.getElementById("rc-eliminar-btn").style.display="none";
 }
 // Carga el formulario de Carga con los datos de un relevamiento existente
 // (mismo panel que el alta — así no hay que mantener dos formularios). Si
@@ -950,6 +952,7 @@ window.editarRelevamiento=function(){
   _editRelFotoFileId=r.fotoFileId||null;
   document.getElementById("rc-title").textContent="✏️ Editar relevamiento";
   document.getElementById("rc-guardar-btn").textContent="💾 Guardar cambios";
+  document.getElementById("rc-eliminar-btn").style.display="";
   document.getElementById("rc-fecha").value=r.fecha||todayISOSimple();
   document.getElementById("rc-zona").value=r.zona||"";
   document.getElementById("rc-direccion").value=r.direccion||"";
@@ -986,6 +989,31 @@ window.eliminarRelevamiento=async function(){
     await eliminarRelevamientoChunked(r);
     window.relevamientos=window.relevamientos.filter(x=>x.id!==r.id);
     cerrarModal("modal-rel-detalle");
+    toast("Relevamiento eliminado.");
+    aplicarFiltrosRel();
+  }catch(e){
+    toast("❌ Error al eliminar: "+e.message,4000);
+    console.error(e);
+  }finally{
+    btn.disabled=false;btn.textContent="🗑 Eliminar";
+  }
+};
+// Mismo borrado que eliminarRelevamiento(), pero desde el formulario de
+// edición en Carga (ej. al entrar por "✏️ Corregir y guardar" desde
+// Ubicaciones pendientes, donde nunca se abrió el modal de detalle) — usa
+// _editRelId en vez de _relDetalleId, y limpia el formulario en vez de
+// cerrar un modal.
+window.eliminarRelevamientoDesdeCarga=async function(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const r=window.relevamientos.find(x=>x.id===_editRelId);
+  if(!r)return;
+  if(!confirm("¿Eliminar este relevamiento ("+fmtDate(r.fecha)+" — "+(r.zona||"—")+")?\n\nNo se puede deshacer."))return;
+  const btn=document.getElementById("rc-eliminar-btn");
+  btn.disabled=true;btn.textContent="Eliminando…";
+  try{
+    await eliminarRelevamientoChunked(r);
+    window.relevamientos=window.relevamientos.filter(x=>x.id!==r.id);
+    limpiarFormCarga();
     toast("Relevamiento eliminado.");
     aplicarFiltrosRel();
   }catch(e){
