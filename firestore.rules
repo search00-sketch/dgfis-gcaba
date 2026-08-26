@@ -1,37 +1,90 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /permisos_chunks/{doc}   { allow read, write: if true; }
-    match /permisos_meta/{doc}     { allow read, write: if true; }
-    match /actas_chunks/{doc}      { allow read, write: if true; }
-    match /actas_meta/{doc}        { allow read, write: if true; }
-    match /usuarios/{doc}          { allow read, write: if true; }
-    match /personal_config/{doc}   { allow read, write: if true; }
 
-    // Relevamientos Operativos — mismo esquema de chunks que nomina/novedades
-    // (mapa {id: {...datos}} por chunk + doc de índice con numChunks), y un
-    // doc de config aparte (zonas/temáticas) para el desplegable de carga.
-    match /relevamientos_chunks/{doc} { allow read, write: if true; }
-    match /relevamientos_meta/{doc}   { allow read, write: if true; }
-    match /relevamientos_config/{doc} { allow read, write: if true; }
+    // ---- Helpers de identidad ------------------------------------------
+    function logueado() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+    function perfil() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+    function esAdmin() {
+      return logueado() && perfil().role == 'admin';
+    }
+    function tieneModulo(modulo) {
+      return esAdmin() ||
+        (logueado() && ('modulos' in perfil()) && modulo in perfil().modulos);
+    }
+    function puedeEditar(modulo) {
+      return esAdmin() ||
+        (tieneModulo(modulo) &&
+         (!('permisos' in perfil()) || !(modulo in perfil().permisos) ||
+          perfil().permisos[modulo] != 'viewer'));
+    }
+    // Acceso de lectura compartido por Gestión de Personal, Novedades y
+    // Asignación de Zonas: las tres leen nómina/novedades/distribuciones/
+    // personal_config aunque sólo una sea "su" módulo (mismo comportamiento
+    // que hoy tiene el cliente, ver cargarTodo() en personal-datos.js).
+    function tieneAlgunModuloPersonal() {
+      return tieneModulo('personal') || tieneModulo('novedades') || tieneModulo('asignacion');
+    }
 
-    // Antes: un documento por persona (mucho consumo de lecturas). Ahora,
-    // chunks de hasta 500 registros con un mapa {personaId: {...datos}}
-    // adentro, y un doc de índice con la cantidad de chunks.
-    match /nomina_chunks/{doc}     { allow read, write: if true; }
-    match /nomina_meta/{doc}       { allow read, write: if true; }
+    // ---- Login: usuario -> email, antes de autenticarse -----------------
+    // Sólo expone un email por nombre de usuario, nada más (no nombre, no
+    // rol, no contraseña). Hace falta que sea pública para poder resolver
+    // "usuario" a un email real antes de llamar a signInWithEmailAndPassword.
+    match /login_lookup/{username} {
+      allow read: if true;
+      allow write: if esAdmin();
+    }
 
-    // Antes: un documento por novedad. Mismo esquema de chunks que nomina.
-    match /novedades_chunks/{doc}  { allow read, write: if true; }
-    match /novedades_meta/{doc}    { allow read, write: if true; }
+    // ---- Perfiles de usuario ---------------------------------------------
+    // Cada quien puede leer su propio perfil (para validar su sesión al
+    // entrar); el admin puede leer y escribir cualquiera. Nadie más que el
+    // admin puede escribir (ni siquiera el dueño del perfil: cambiar el
+    // rol/módulos propios pasa siempre por el panel admin).
+    match /usuarios/{uid} {
+      allow read: if logueado() && (request.auth.uid == uid || esAdmin());
+      allow write: if esAdmin();
+    }
 
-    // Antes: distribuciones/{fecha}/asignaciones/{personaId}, un documento
-    // por persona y por día. Ahora es un solo documento por fecha con un
-    // mapa {personaId: zona} adentro (mismo motivo: menos lecturas).
+    // ---- Permisos: lectura pública (buscador interno, diseño original
+    // del proyecto: cualquiera puede buscar, sólo admin puede cargar) -----
+    match /permisos_chunks/{doc} { allow read: if true; allow write: if esAdmin(); }
+    match /permisos_meta/{doc}   { allow read: if true; allow write: if esAdmin(); }
+
+    // ---- Estadísticas de actas --------------------------------------------
+    match /actas_chunks/{doc} { allow read: if tieneModulo('estadisticas'); allow write: if puedeEditar('estadisticas'); }
+    match /actas_meta/{doc}   { allow read: if tieneModulo('estadisticas'); allow write: if puedeEditar('estadisticas'); }
+
+    // ---- Config compartida por personal/novedades/asignación ------------
+    match /personal_config/{doc} {
+      allow read:  if tieneAlgunModuloPersonal();
+      allow write: if puedeEditar('asignacion') || puedeEditar('novedades');
+    }
+
+    // ---- Relevamientos operativos ------------------------------------------
+    match /relevamientos_chunks/{doc} { allow read: if tieneModulo('relevamientos'); allow write: if puedeEditar('relevamientos'); }
+    match /relevamientos_meta/{doc}   { allow read: if tieneModulo('relevamientos'); allow write: if puedeEditar('relevamientos'); }
+    match /relevamientos_config/{doc} { allow read: if tieneModulo('relevamientos'); allow write: if puedeEditar('relevamientos'); }
+
+    // ---- Nómina (Gestión de Personal edita; Novedades/Asignación leen) --
+    match /nomina_chunks/{doc} { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('personal'); }
+    match /nomina_meta/{doc}   { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('personal'); }
+
+    // ---- Novedades (Novedades de Personal edita; Personal/Asignación leen)
+    match /novedades_chunks/{doc} { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('novedades'); }
+    match /novedades_meta/{doc}   { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('novedades'); }
+
+    // ---- Distribución diaria por zona (Asignación edita) -----------------
     match /distribuciones/{fecha} {
-      allow read, write: if true;
+      allow read:  if tieneAlgunModuloPersonal();
+      allow write: if puedeEditar('asignacion');
       match /asignaciones/{personaId} {
-        allow read, write: if true;
+        allow read:  if tieneAlgunModuloPersonal();
+        allow write: if puedeEditar('asignacion');
       }
     }
   }
