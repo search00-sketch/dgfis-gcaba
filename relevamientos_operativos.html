@@ -1237,12 +1237,19 @@ function filaImportWhatsappRelHtml(f,i){
 // Arma la tabla con placeholders de miniatura y recién después resuelve
 // cada blob del zip en forma asíncrona — así la tabla aparece de una,
 // sin esperar a descomprimir las ~150 fotos antes de mostrar nada.
+// _wImportGenRel evita que un blob resuelto de un análisis viejo pise la
+// miniatura de la fila nueva que ahora ocupa el mismo id (mismo índice)
+// si se vuelve a analizar un .zip antes de que terminen de resolver todas
+// las miniaturas del análisis anterior.
+let _wImportGenRel=0;
 function renderTablaImportWhatsappRel(){
+  const gen=++_wImportGenRel;
   const cont=document.getElementById("rcw-tabla");
   cont.innerHTML=_wImportFilasRel.map((f,i)=>filaImportWhatsappRelHtml(f,i)).join("");
   _wImportFilasRel.forEach((f,i)=>{
     if(!f.zipEntry) return;
     f.zipEntry.async("blob").then(blob=>{
+      if(gen!==_wImportGenRel) return;
       const img=document.getElementById("rcw-thumb-"+i);
       if(img) img.src=URL.createObjectURL(blob);
     }).catch(()=>{});
