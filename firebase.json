@@ -12,7 +12,10 @@
       "generate-config.js",
       "README.md",
       ".gitignore",
-      "node_modules"
+      "node_modules",
+      "**/.*",
+      "**/.*/**",
+      "docs/**"
     ],
     "headers": [
       {
