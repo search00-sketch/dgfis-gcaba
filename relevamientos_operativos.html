@@ -1159,6 +1159,56 @@ window.guardarRelevamiento=async function(){
 };
 
 // ============================================================
+//  IMPORTAR DESDE WHATSAPP (carga masiva)
+// ============================================================
+// El chat de relevamiento se exporta desde WhatsApp con "Incluir medios":
+// genera un .zip con un .txt de la conversación + todas las fotos. Cada
+// mensaje real empieza con "D/M/AAAA, HH:MM - " — toda línea que no
+// matchea ese prefijo es continuación del mensaje anterior (así es como
+// queda, en el .txt, la leyenda que alguien escribe debajo de una foto:
+// en una línea aparte, sin timestamp propio).
+const RE_HEADER_CHAT_REL=/^(\d{1,2}\/\d{1,2}\/\d{4}), \d{1,2}:\d{2} - (.*)$/;
+function fechaChatAIsoRel(dmy){
+  const [d,m,y]=dmy.split("/");
+  return y+"-"+m.padStart(2,"0")+"-"+d.padStart(2,"0");
+}
+function parsearChatWhatsappRel(texto){
+  const lineas=texto.split(/\r\n|\r|\n/);
+  const mensajes=[];
+  let actual=null;
+  for(const linea of lineas){
+    const m=linea.match(RE_HEADER_CHAT_REL);
+    if(m){
+      actual={fecha:fechaChatAIsoRel(m[1]),lineas:[m[2]]};
+      mensajes.push(actual);
+    } else if(actual){
+      actual.lineas.push(linea);
+    }
+  }
+  return mensajes;
+}
+// Sólo los mensajes cuya primera línea es un adjunto de imagen generan una
+// fila candidata. Un pin de "ubicación:", un mensaje de sistema ("Creaste
+// este grupo", etc.) o un comentario suelto sin foto simplemente no
+// matchean esta regex y quedan afuera del import sin necesitar ningún caso
+// especial para cada uno — la regla es una sola: "¿tiene foto adjunta?".
+const RE_ADJUNTO_IMG_REL=/([\w\-. ]+\.(?:jpg|jpeg|png|webp))\s*\(archivo adjunto\)/i;
+function extraerCandidatosWhatsappRel(mensajes){
+  const candidatos=[];
+  mensajes.forEach(msg=>{
+    const primera=msg.lineas[0]||"";
+    const m=primera.match(RE_ADJUNTO_IMG_REL);
+    if(!m) return;
+    candidatos.push({
+      archivo:m[1].trim(),
+      fecha:msg.fecha,
+      direccion:msg.lineas.slice(1).join(" ").trim(),
+    });
+  });
+  return candidatos;
+}
+
+// ============================================================
 //  RECARGA
 // ============================================================
 window.forzarRecarga=async function(){
