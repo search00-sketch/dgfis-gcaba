@@ -15,7 +15,8 @@
       "node_modules",
       "**/.*",
       "**/.*/**",
-      "docs/**"
+      "docs/**",
+      "migration-scripts/**"
     ],
     "headers": [
       {

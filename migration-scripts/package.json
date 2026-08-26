@@ -1,0 +1,9 @@
+{
+  "name": "dgfis-gcaba-migracion-usuarios",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Script de un solo uso para migrar usuarios de Firestore a Firebase Authentication. No se despliega (ver firebase.json hosting.ignore).",
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

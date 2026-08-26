@@ -83,3 +83,8 @@ node_modules/
 # Archivos de datos temporales para pruebas (datos reales de personal, no subir)
 Asistencia.xlsx
 *.xlsx
+
+# Migración de usuarios a Firebase Auth (script de un solo uso)
+migration-scripts/service-account-key.json
+migration-scripts/usuarios-email.json
+migration-scripts/node_modules
