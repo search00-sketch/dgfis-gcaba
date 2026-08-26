@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=9">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
@@ -1207,6 +1208,110 @@ function extraerCandidatosWhatsappRel(mensajes){
   });
   return candidatos;
 }
+// Busca dentro del .zip un archivo cuyo nombre (sin importar la carpeta)
+// coincida con el de la leyenda del chat — WhatsApp exporta todo en la raíz
+// del .zip, pero por las dudas no se asume esa estructura.
+function buscarArchivoEnZipRel(zip,nombre){
+  const nombreLower=nombre.toLowerCase();
+  for(const path of Object.keys(zip.files)){
+    const entry=zip.files[path];
+    if(entry.dir) continue;
+    if(path.split("/").pop().toLowerCase()===nombreLower) return entry;
+  }
+  return null;
+}
+let _wImportFilasRel=[];
+function filaImportWhatsappRelHtml(f,i){
+  return "<div class=\"rcw-row\">"
+    +"<input type=\"checkbox\" "+(f.incluir?"checked":"")+" onchange=\"_wImportToggleFilaRel("+i+",this.checked)\">"
+    +"<img class=\"rcw-thumb\" id=\"rcw-thumb-"+i+"\" alt=\"\">"
+    +"<input type=\"date\" class=\"form-input\" value=\""+esc(f.fecha)+"\" oninput=\"_wImportSetCampoRel("+i+",'fecha',this.value)\">"
+    +"<input type=\"text\" class=\"form-input\" value=\""+esc(f.direccion)+"\" oninput=\"_wImportSetCampoRel("+i+",'direccion',this.value)\">"
+    +"<div><div class=\"rcw-origen\">"+esc(f.archivo)+"</div>"
+    +(f.yaImportada?"<div class=\"rcw-origen\" style=\"color:#b45309\">Ya importada el "+esc(fmtDate(f.yaImportada))+"</div>":"")
+    +(f.sinBinario?"<div class=\"rcw-origen\" style=\"color:#b91c1c\">⚠️ no se encontró la foto en el .zip</div>":"")
+    +"<span id=\"rcw-estado-"+i+"\" style=\"font-size:1rem\"></span>"
+    +"</div>"
+    +"</div>";
+}
+// Arma la tabla con placeholders de miniatura y recién después resuelve
+// cada blob del zip en forma asíncrona — así la tabla aparece de una,
+// sin esperar a descomprimir las ~150 fotos antes de mostrar nada.
+function renderTablaImportWhatsappRel(){
+  const cont=document.getElementById("rcw-tabla");
+  cont.innerHTML=_wImportFilasRel.map((f,i)=>filaImportWhatsappRelHtml(f,i)).join("");
+  _wImportFilasRel.forEach((f,i)=>{
+    if(!f.zipEntry) return;
+    f.zipEntry.async("blob").then(blob=>{
+      const img=document.getElementById("rcw-thumb-"+i);
+      if(img) img.src=URL.createObjectURL(blob);
+    }).catch(()=>{});
+  });
+}
+// Una fila ya guardada ("ok" o "sin-geo") no se vuelve a intentar aunque
+// siga tildada — evita duplicar el relevamiento si se aprieta "Guardar
+// seleccionados" dos veces (por ejemplo, para reintentar sólo las que
+// dieron error la primera vez).
+function filasPendientesImportRel(){
+  return _wImportFilasRel.filter(f=>f.incluir&&f.estadoGuardado!=="ok"&&f.estadoGuardado!=="sin-geo");
+}
+function actualizarResumenImportRel(){
+  const total=_wImportFilasRel.length;
+  const yaImportadas=_wImportFilasRel.filter(f=>f.yaImportada).length;
+  const paraGuardar=filasPendientesImportRel().length;
+  document.getElementById("rcw-resumen").textContent=
+    total+" foto"+(total===1?"":"s")+" encontrada"+(total===1?"":"s")+" en el chat · "
+    +yaImportadas+" ya importada"+(yaImportadas===1?"":"s")+" antes · "
+    +paraGuardar+" para guardar";
+  const btn=document.getElementById("rcw-guardar-btn");
+  btn.disabled=paraGuardar===0;
+  btn.textContent="💾 Guardar seleccionados ("+paraGuardar+")";
+}
+window._wImportToggleFilaRel=function(idx,checked){
+  _wImportFilasRel[idx].incluir=checked;
+  actualizarResumenImportRel();
+};
+window._wImportSetCampoRel=function(idx,campo,valor){
+  _wImportFilasRel[idx][campo]=valor;
+};
+window.analizarChatWhatsappRel=async function(){
+  const file=document.getElementById("rcw-zip").files[0];
+  if(!file){toast("Elegí un archivo .zip primero.");return;}
+  const btn=document.getElementById("rcw-analizar-btn");
+  btn.disabled=true;btn.textContent="Analizando…";
+  try{
+    const zip=await JSZip.loadAsync(file);
+    const txtPath=Object.keys(zip.files).find(p=>/\.txt$/i.test(p)&&!zip.files[p].dir);
+    if(!txtPath) throw new Error("No se encontró un archivo .txt de chat dentro del .zip.");
+    const buf=await zip.files[txtPath].async("uint8array");
+    const texto=new TextDecoder("utf-8").decode(buf);
+    const candidatos=extraerCandidatosWhatsappRel(parsearChatWhatsappRel(texto));
+    const existentesPorArchivo={};
+    (window.relevamientos||[]).forEach(r=>{
+      if(r.origenArchivo) existentesPorArchivo[r.origenArchivo.toLowerCase()]=r;
+    });
+    _wImportFilasRel=candidatos.map(c=>{
+      const zipEntry=buscarArchivoEnZipRel(zip,c.archivo);
+      const existente=existentesPorArchivo[c.archivo.toLowerCase()]||null;
+      return {
+        archivo:c.archivo,fecha:c.fecha,direccion:c.direccion,
+        zipEntry,sinBinario:!zipEntry,
+        yaImportada:existente?existente.fecha:null,
+        incluir:!existente,
+        estadoGuardado:null,
+      };
+    });
+    renderTablaImportWhatsappRel();
+    actualizarResumenImportRel();
+    document.getElementById("rcw-resultado").style.display="";
+    if(!candidatos.length) toast("No se encontraron fotos con leyenda en ese chat.");
+  }catch(e){
+    toast("❌ Error al analizar el .zip: "+e.message,4000);
+    console.error(e);
+  }finally{
+    btn.disabled=false;btn.textContent="🔍 Analizar chat";
+  }
+};
 
 // ============================================================
 //  RECARGA
