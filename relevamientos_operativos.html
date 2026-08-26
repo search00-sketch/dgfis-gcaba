@@ -1244,6 +1244,13 @@ function filaImportWhatsappRelHtml(f,i){
 // las miniaturas del análisis anterior.
 let _wImportGenRel=0;
 let _wImportThumbUrlsRel=[];
+// Evita que un segundo "Analizar chat"/"Guardar seleccionados" arranque
+// mientras guardarImportWhatsappRel todavía está guardando fila por fila:
+// sin este candado, la tabla nueva no reconoce como "ya importadas" las
+// filas que el guardado anterior todavía no alcanzó a escribir, y los dos
+// guardados en paralelo terminan creando un relevamiento duplicado (válido
+// y completo de los dos lados) por cada foto que ambos alcanzan a procesar.
+let _wImportGuardandoRel=false;
 function renderTablaImportWhatsappRel(){
   const gen=++_wImportGenRel;
   _wImportThumbUrlsRel.forEach(u=>URL.revokeObjectURL(u));
@@ -1279,8 +1286,10 @@ function actualizarResumenImportRel(){
     +yaImportadas+" ya importada"+(yaImportadas===1?"":"s")+" antes · "
     +paraGuardar+" para guardar";
   const btn=document.getElementById("rcw-guardar-btn");
-  btn.disabled=paraGuardar===0;
-  btn.textContent="💾 Guardar seleccionados ("+paraGuardar+")";
+  if(!_wImportGuardandoRel){
+    btn.disabled=paraGuardar===0;
+    btn.textContent="💾 Guardar seleccionados ("+paraGuardar+")";
+  }
 }
 window._wImportToggleFilaRel=function(idx,checked){
   _wImportFilasRel[idx].incluir=checked;
@@ -1290,6 +1299,7 @@ window._wImportSetCampoRel=function(idx,campo,valor){
   _wImportFilasRel[idx][campo]=valor;
 };
 window.analizarChatWhatsappRel=async function(){
+  if(_wImportGuardandoRel){toast("Esperá a que termine el guardado en curso antes de analizar de nuevo.");return;}
   const file=document.getElementById("rcw-zip").files[0];
   if(!file){toast("Elegí un archivo .zip primero.");return;}
   const btn=document.getElementById("rcw-analizar-btn");
@@ -1342,11 +1352,16 @@ window.guardarImportWhatsappRel=async function(){
   const zona=document.getElementById("rcw-zona").value;
   const tematica=document.getElementById("rcw-tematica").value;
   if(!zona||!tematica){toast("Elegí zona y temática para la tanda antes de guardar.");return;}
+  if(_wImportGuardandoRel){toast("Ya hay un guardado en curso, esperá a que termine.");return;}
   const pendientes=filasPendientesImportRel();
   if(!pendientes.length){toast("No hay filas seleccionadas para guardar.");return;}
+  _wImportGuardandoRel=true;
   const btn=document.getElementById("rcw-guardar-btn");
+  const analizarBtn=document.getElementById("rcw-analizar-btn");
   btn.disabled=true;
+  analizarBtn.disabled=true;
   let ok=0,sinGeo=0,errores=0;
+  try{
   for(let i=0;i<pendientes.length;i++){
     const f=pendientes[i];
     const idx=_wImportFilasRel.indexOf(f);
@@ -1396,6 +1411,10 @@ window.guardarImportWhatsappRel=async function(){
       console.error(e);
     }
     actualizarEstadoFilaImportRel(idx);
+  }
+  }finally{
+    _wImportGuardandoRel=false;
+    analizarBtn.disabled=false;
   }
   btn.disabled=false;
   actualizarResumenImportRel();
