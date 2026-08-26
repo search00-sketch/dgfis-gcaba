@@ -42,6 +42,12 @@
 .rlv-viewbtn{border:1.5px solid var(--bor);background:#fff;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
 .rlv-viewbtn.active{background:var(--azul);color:#fff;border-color:var(--azul)}
 
+.rcw-row{display:grid;grid-template-columns:28px 56px 150px 1fr 220px;gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--bor);font-size:.8rem}
+.rcw-row:last-child{border-bottom:none}
+.rcw-thumb{width:48px;height:48px;object-fit:cover;background:var(--gris);display:block}
+.rcw-tabla{max-height:520px;overflow-y:auto;overflow-x:auto;border:1.5px solid var(--bor);margin-top:2px}
+.rcw-origen{font-size:.7rem;color:#888;line-height:1.3}
+
 .ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
 .ficha-item{background:#f9f9f9;padding:8px 12px}
 .ficha-key{font-size:11px;color:#888}
@@ -188,30 +194,56 @@
 <div class="panel" id="panel-carga">
   <div class="gestion-zonas">
     <div class="gz-title" id="rc-title">📥 Cargar relevamiento</div>
-    <div class="rc-grid">
-      <div class="form-field"><label class="fl">Fecha</label><input type="date" class="form-input" id="rc-fecha"></div>
-      <div class="form-field"><label class="fl">Ubicación / Zona</label><select class="form-input" id="rc-zona"><option value="">Seleccionar…</option></select></div>
-      <div class="form-field full">
-        <label class="fl">Dirección</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" class="form-input" id="rc-direccion" placeholder="Calle y altura, punto de referencia…" style="flex:1">
-          <button type="button" class="btn btn-gris btn-sm" id="rc-ubicacion-btn" onclick="validarDireccionRel()" title="Busca la dirección y confirma sus coordenadas — no depende de dónde estés parado">🔍 Validar dirección</button>
+    <div style="margin-bottom:14px">
+      <button class="rlv-viewbtn active" id="rc-view-btn-individual" onclick="cambiarVistaCargaRel('individual')">📝 Individual</button>
+      <button class="rlv-viewbtn" id="rc-view-btn-whatsapp" onclick="cambiarVistaCargaRel('whatsapp')">📦 Importar desde WhatsApp</button>
+    </div>
+    <div id="rc-panel-individual">
+      <div class="rc-grid">
+        <div class="form-field"><label class="fl">Fecha</label><input type="date" class="form-input" id="rc-fecha"></div>
+        <div class="form-field"><label class="fl">Ubicación / Zona</label><select class="form-input" id="rc-zona"><option value="">Seleccionar…</option></select></div>
+        <div class="form-field full">
+          <label class="fl">Dirección</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" class="form-input" id="rc-direccion" placeholder="Calle y altura, punto de referencia…" style="flex:1">
+            <button type="button" class="btn btn-gris btn-sm" id="rc-ubicacion-btn" onclick="validarDireccionRel()" title="Busca la dirección y confirma sus coordenadas — no depende de dónde estés parado">🔍 Validar dirección</button>
+          </div>
+          <div id="rc-ubicacion-estado" style="font-size:.74rem;color:#888;margin-top:4px"></div>
         </div>
-        <div id="rc-ubicacion-estado" style="font-size:.74rem;color:#888;margin-top:4px"></div>
+        <div class="form-field"><label class="fl">Temática</label><select class="form-input" id="rc-tematica"><option value="">Seleccionar…</option></select></div>
+        <div class="form-field"><label class="fl">Foto</label><input type="file" accept="image/*" class="form-input" id="rc-foto" onchange="previewFotoRel(this)"></div>
+        <div class="form-field"><label class="fl">Foodtruck</label><select class="form-input" id="rc-foodtruck"><option value="No">No</option><option value="Si">Sí</option></select></div>
+        <div class="form-field"><label class="fl">Conexión eléctrica</label><select class="form-input" id="rc-conexion"><option value="No">No</option><option value="Si">Sí</option><option value="Precaria">Precaria</option></select></div>
+        <div class="form-field"><label class="fl">Patente</label><select class="form-input" id="rc-patente"><option value="No">No</option><option value="Si">Sí</option></select></div>
+        <div class="form-field"><label class="fl">Estado</label><select class="form-input" id="rc-estado"><option value="Pendiente">Pendiente</option><option value="Realizado">Realizado</option><option value="Intimado">Intimado</option></select></div>
       </div>
-      <div class="form-field"><label class="fl">Temática</label><select class="form-input" id="rc-tematica"><option value="">Seleccionar…</option></select></div>
-      <div class="form-field"><label class="fl">Foto</label><input type="file" accept="image/*" class="form-input" id="rc-foto" onchange="previewFotoRel(this)"></div>
-      <div class="form-field"><label class="fl">Foodtruck</label><select class="form-input" id="rc-foodtruck"><option value="No">No</option><option value="Si">Sí</option></select></div>
-      <div class="form-field"><label class="fl">Conexión eléctrica</label><select class="form-input" id="rc-conexion"><option value="No">No</option><option value="Si">Sí</option><option value="Precaria">Precaria</option></select></div>
-      <div class="form-field"><label class="fl">Patente</label><select class="form-input" id="rc-patente"><option value="No">No</option><option value="Si">Sí</option></select></div>
-      <div class="form-field"><label class="fl">Estado</label><select class="form-input" id="rc-estado"><option value="Pendiente">Pendiente</option><option value="Realizado">Realizado</option><option value="Intimado">Intimado</option></select></div>
+      <div id="rc-foto-preview" style="display:none;margin:12px 0"></div>
+      <div class="form-field full" style="margin:14px 0">
+        <label class="fl">Observaciones</label>
+        <textarea class="form-input" id="rc-observaciones" rows="4" placeholder="Detalle libre…"></textarea>
+      </div>
+      <button class="btn btn-verde" id="rc-guardar-btn" onclick="guardarRelevamiento()">💾 Guardar relevamiento</button>
     </div>
-    <div id="rc-foto-preview" style="display:none;margin:12px 0"></div>
-    <div class="form-field full" style="margin:14px 0">
-      <label class="fl">Observaciones</label>
-      <textarea class="form-input" id="rc-observaciones" rows="4" placeholder="Detalle libre…"></textarea>
+    <div id="rc-panel-whatsapp" style="display:none">
+      <p style="font-size:.8rem;color:#777;margin-bottom:12px">Subí la exportación de WhatsApp del chat de relevamiento (<code>.zip</code>, con la opción "Incluir medios" activada al exportar). Se genera un relevamiento por cada foto encontrada, con la dirección que tenía escrita debajo en el chat — vas a poder revisar y corregir todo antes de guardar nada.</p>
+      <div class="rc-grid">
+        <div class="form-field"><label class="fl">Ubicación / Zona (para toda la tanda)</label><select class="form-input" id="rcw-zona"><option value="">Seleccionar…</option></select></div>
+        <div class="form-field"><label class="fl">Temática (para toda la tanda)</label><select class="form-input" id="rcw-tematica"><option value="">Seleccionar…</option></select></div>
+        <div class="form-field full">
+          <label class="fl">Chat exportado de WhatsApp (.zip)</label>
+          <input type="file" accept=".zip" class="form-input" id="rcw-zip">
+        </div>
+      </div>
+      <button class="btn btn-azul" id="rcw-analizar-btn" onclick="analizarChatWhatsappRel()" style="margin-top:10px">🔍 Analizar chat</button>
+      <div id="rcw-resultado" style="display:none;margin-top:16px">
+        <div id="rcw-resumen" style="font-size:.85rem;color:#555;margin-bottom:8px"></div>
+        <div class="rcw-row" style="font-weight:700;font-size:.72rem;color:#888;border-bottom:2px solid var(--bor)">
+          <span></span><span>Foto</span><span>Fecha</span><span>Dirección</span><span>Origen</span>
+        </div>
+        <div class="rcw-tabla" id="rcw-tabla"></div>
+        <button class="btn btn-verde" id="rcw-guardar-btn" onclick="guardarImportWhatsappRel()" style="margin-top:12px" disabled>💾 Guardar seleccionados (0)</button>
+      </div>
     </div>
-    <button class="btn btn-verde" id="rc-guardar-btn" onclick="guardarRelevamiento()">💾 Guardar relevamiento</button>
   </div>
 </div>
 
@@ -465,6 +497,8 @@ function poblarSelectsRel(){
   const optsT="<option value=\"\">Seleccionar…</option>"+(window.relTematicas||[]).map(t=>"<option value=\""+esc(t)+"\">"+esc(t)+"</option>").join("");
   const zc=document.getElementById("rc-zona"); if(zc) zc.innerHTML=optsZ;
   const tc=document.getElementById("rc-tematica"); if(tc) tc.innerHTML=optsT;
+  const zcw=document.getElementById("rcw-zona"); if(zcw) zcw.innerHTML=optsZ;
+  const tcw=document.getElementById("rcw-tematica"); if(tcw) tcw.innerHTML=optsT;
   const zf=document.getElementById("rf-zona");
   if(zf) zf.innerHTML="<option value=\"\">Todas las zonas</option>"+(window.relZonas||[]).map(z=>"<option value=\""+esc(z)+"\">"+esc(z)+"</option>").join("");
   const tf=document.getElementById("rf-tematica");
@@ -861,6 +895,16 @@ window.cambiarEstadoRelDesdeDetalle=async function(nuevoEstado){
   }
 };
 
+// Alterna entre el formulario individual y el import masivo de WhatsApp
+// dentro de la pestaña Carga — no toca la pestaña de nivel superior
+// (Dashboard/Carga/Administración), sólo qué se ve adentro de "Carga".
+window.cambiarVistaCargaRel=function(modo){
+  document.getElementById("rc-view-btn-individual").classList.toggle("active",modo==="individual");
+  document.getElementById("rc-view-btn-whatsapp").classList.toggle("active",modo==="whatsapp");
+  document.getElementById("rc-panel-individual").style.display=modo==="individual"?"":"none";
+  document.getElementById("rc-panel-whatsapp").style.display=modo==="whatsapp"?"":"none";
+};
+
 // ============================================================
 //  CARGA (alta de un relevamiento)
 // ============================================================
@@ -915,6 +959,7 @@ window.editarRelevamiento=function(){
     prev.style.display="block";
   }
   cerrarModal("modal-rel-detalle");
+  cambiarVistaCargaRel("individual");
   window.cambiarTab("carga",document.getElementById("tab-btn-carga"));
 };
 // Elimina el relevamiento que está abierto en el modal de detalle. La foto
