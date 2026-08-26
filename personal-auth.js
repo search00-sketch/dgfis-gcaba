@@ -96,20 +96,23 @@ function restaurarSesion(){
         return;
       }
       try {
-        const snap = await window._fGetDoc(window._fDoc(window._db, "usuarios", user.uid));
-        if (!snap.exists()) throw new Error("tu usuario ya no existe en el sistema");
-        const perfil = snap.data();
-        if (MODULO_ID && perfil.role!=="admin" && !(perfil.modulos&&perfil.modulos.includes(MODULO_ID))) {
-          throw new Error('no tenés el módulo "'+MODULO_ID+'" habilitado');
+        try {
+          const snap = await window._fGetDoc(window._fDoc(window._db, "usuarios", user.uid));
+          if (!snap.exists()) throw new Error("tu usuario ya no existe en el sistema");
+          const perfil = snap.data();
+          if (MODULO_ID && perfil.role!=="admin" && !(perfil.modulos&&perfil.modulos.includes(MODULO_ID))) {
+            throw new Error('no tenés el módulo "'+MODULO_ID+'" habilitado');
+          }
+          mostrarSesionUI(perfil, user.uid);
+          if (!primeraVez) _recargarDatosPagina();
+        } catch(e) {
+          console.error("restaurarSesion() falló:", e);
+          await window._fSignOut(window._auth).catch(()=>{});
+          mostrarLogin("⚠️ Se cerró tu sesión: " + e.message);
         }
-        mostrarSesionUI(perfil, user.uid);
-        if (!primeraVez) _recargarDatosPagina();
-      } catch(e) {
-        console.error("restaurarSesion() falló:", e);
-        await window._fSignOut(window._auth).catch(()=>{});
-        mostrarLogin("⚠️ Se cerró tu sesión: " + e.message);
+      } finally {
+        if (primeraVez) { resuelto = true; resolve(); }
       }
-      if (primeraVez) { resuelto = true; resolve(); }
     });
   });
 }
