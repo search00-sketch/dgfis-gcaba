@@ -52,11 +52,11 @@ async function migrarUsuario(username, datos) {
   const email = emails[username];
   if (!email) {
     console.error(`⚠️  ${username}: no tiene email en usuarios-email.json — se salteó.`);
-    return;
+    return 'sin_email';
   }
   if (!datos.passHash || typeof datos.passHash !== 'string') {
     console.error(`⚠️  ${username}: no tiene passHash válido — se salteó.`);
-    return;
+    return 'sin_hash';
   }
 
   let uid;
@@ -82,7 +82,7 @@ async function migrarUsuario(username, datos) {
     });
     if (resultado.failureCount > 0) {
       console.error(`❌ ${username}: falló la importación:`, JSON.stringify(resultado.errors));
-      return;
+      return 'fallo_import';
     }
     console.log(`✅ ${username}: importado a Authentication (uid=${uid}).`);
   }
@@ -99,22 +99,41 @@ async function migrarUsuario(username, datos) {
   await db.collection('login_lookup').doc(username).set({ email }, { merge: true });
 
   console.log(`   → perfil escrito en usuarios/${uid} y login_lookup/${username}.`);
+  return 'migrado';
 }
 
 async function main() {
   const snap = await db.collection('usuarios').get();
   console.log(`Encontrados ${snap.size} documentos en la colección vieja "usuarios".`);
+  const contador = { migrado: 0, ya_migrado: 0, sin_email: 0, sin_hash: 0, fallo_import: 0 };
   for (const d of snap.docs) {
     const username = d.id;
     if (soloUsuario && username !== soloUsuario) continue;
     const datos = d.data();
-    // Heurística para no reprocesar por error un doc que ya es del esquema
-    // nuevo si este script se corre más de una vez: los docs viejos siempre
-    // tienen passHash, los nuevos (doc id = uid) no.
-    if (!datos.passHash) { console.log(`↷ ${username}: sin passHash (¿ya migrado?) — se salteó.`); continue; }
-    await migrarUsuario(username, datos);
+    // Un doc ya migrado (esquema nuevo, doc id = uid) siempre tiene el campo
+    // "username" (lo escribe este mismo script); los docs viejos (doc id =
+    // username) nunca lo tienen. Esto distingue "ya migrado" (salteo normal,
+    // esperable si el script se corre más de una vez) de "doc viejo sin
+    // passHash" (problema real: un usuario legítimo que no se migraría si
+    // lo salteáramos en silencio).
+    if (datos.username) {
+      console.log(`↷ ${username}: ya es un perfil migrado (tiene "username") — se salteó.`);
+      contador.ya_migrado++;
+      continue;
+    }
+    if (!datos.passHash) {
+      console.error(`⚠️  ${username}: no tiene passHash y no parece un perfil ya migrado (falta "username") — revisar a mano. Se salteó.`);
+      contador.sin_hash++;
+      continue;
+    }
+    const resultado = await migrarUsuario(username, datos);
+    contador[resultado] = (contador[resultado] || 0) + 1;
   }
-  console.log('Listo.');
+  console.log(`Listo. ${contador.migrado} migrados, ${contador.ya_migrado} ya migrados (salteo normal), ${contador.sin_email} sin email, ${contador.sin_hash} sin passHash (revisar), ${contador.fallo_import} fallos de importación.`);
+  if (contador.sin_email > 0 || contador.sin_hash > 0 || contador.fallo_import > 0) {
+    console.error('⚠️  Hubo usuarios que NO se migraron correctamente — revisar los mensajes de arriba antes de dar la migración por terminada.');
+    process.exitCode = 1;
+  }
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
