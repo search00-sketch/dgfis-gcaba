@@ -43,11 +43,15 @@
 .rlv-viewbtn{border:1.5px solid var(--bor);background:#fff;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer}
 .rlv-viewbtn.active{background:var(--azul);color:#fff;border-color:var(--azul)}
 
-.rcw-row{display:grid;grid-template-columns:28px 56px 150px 1fr 220px;gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--bor);font-size:.8rem}
+.rcw-row{padding:6px 4px;border-bottom:1px solid var(--bor)}
 .rcw-row:last-child{border-bottom:none}
+.rcw-row1{display:grid;grid-template-columns:28px 56px 150px 1fr 220px 28px;gap:10px;align-items:center;font-size:.8rem}
+.rcw-row2{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;padding-left:38px}
+.rcw-row2 select{font-size:.72rem;padding:3px 4px;border:1.5px solid var(--bor);background:#fff;max-width:140px}
 .rcw-thumb{width:48px;height:48px;object-fit:cover;background:var(--gris);display:block}
 .rcw-tabla{max-height:520px;overflow-y:auto;overflow-x:auto;border:1.5px solid var(--bor);margin-top:2px}
 .rcw-origen{font-size:.7rem;color:#888;line-height:1.3}
+.rcw-del-btn{border:none;background:none;cursor:pointer;font-size:.95rem;padding:2px;line-height:1}
 
 .ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
 .ficha-item{background:#f9f9f9;padding:8px 12px}
@@ -230,6 +234,10 @@
       <div class="rc-grid">
         <div class="form-field"><label class="fl">Ubicación / Zona (para toda la tanda)</label><select class="form-input" id="rcw-zona"><option value="">Seleccionar…</option></select></div>
         <div class="form-field"><label class="fl">Temática (para toda la tanda)</label><select class="form-input" id="rcw-tematica"><option value="">Seleccionar…</option></select></div>
+        <div class="form-field"><label class="fl">Foodtruck (para toda la tanda)</label><select class="form-input" id="rcw-foodtruck"><option value="No">No</option><option value="Si">Sí</option></select></div>
+        <div class="form-field"><label class="fl">Conexión eléctrica (para toda la tanda)</label><select class="form-input" id="rcw-conexion"><option value="No">No</option><option value="Si">Sí</option><option value="Precaria">Precaria</option></select></div>
+        <div class="form-field"><label class="fl">Patente (para toda la tanda)</label><select class="form-input" id="rcw-patente"><option value="No">No</option><option value="Si">Sí</option></select></div>
+        <div class="form-field"><label class="fl">Estado (para toda la tanda)</label><select class="form-input" id="rcw-estado"><option value="Pendiente">Pendiente</option><option value="Realizado">Realizado</option><option value="Intimado">Intimado</option></select></div>
         <div class="form-field full">
           <label class="fl">Chat exportado de WhatsApp (.zip)</label>
           <input type="file" accept=".zip" class="form-input" id="rcw-zip">
@@ -239,7 +247,7 @@
       <div id="rcw-resultado" style="display:none;margin-top:16px">
         <div id="rcw-resumen" style="font-size:.85rem;color:#555;margin-bottom:8px"></div>
         <div class="rcw-row" style="font-weight:700;font-size:.72rem;color:#888;border-bottom:2px solid var(--bor)">
-          <span></span><span>Foto</span><span>Fecha</span><span>Dirección</span><span>Origen</span>
+          <div class="rcw-row1"><span></span><span>Foto</span><span>Fecha</span><span>Dirección</span><span>Origen</span><span></span></div>
         </div>
         <div class="rcw-tabla" id="rcw-tabla"></div>
         <button class="btn btn-verde" id="rcw-guardar-btn" onclick="guardarImportWhatsappRel()" style="margin-top:12px" disabled>💾 Guardar seleccionados (0)</button>
@@ -1222,8 +1230,14 @@ function buscarArchivoEnZipRel(zip,nombre){
   return null;
 }
 let _wImportFilasRel=[];
+function selectedRel(actual,valor){return actual===valor?" selected":"";}
+function opcionesZonaTematicaRel(lista,actual){
+  return "<option value=\"\""+selectedRel(actual,"")+">Seleccionar…</option>"
+    +(lista||[]).map(v=>"<option value=\""+esc(v)+"\""+selectedRel(actual,v)+">"+esc(v)+"</option>").join("");
+}
 function filaImportWhatsappRelHtml(f,i){
   return "<div class=\"rcw-row\">"
+    +"<div class=\"rcw-row1\">"
     +"<input type=\"checkbox\" "+(f.incluir?"checked":"")+" onchange=\"_wImportToggleFilaRel("+i+",this.checked)\">"
     +"<img class=\"rcw-thumb\" id=\"rcw-thumb-"+i+"\" alt=\"\" loading=\"lazy\">"
     +"<input type=\"date\" class=\"form-input\" value=\""+esc(f.fecha)+"\" oninput=\"_wImportSetCampoRel("+i+",'fecha',this.value)\">"
@@ -1232,6 +1246,16 @@ function filaImportWhatsappRelHtml(f,i){
     +(f.yaImportada?"<div class=\"rcw-origen\" style=\"color:#b45309\">Ya importada el "+esc(fmtDate(f.yaImportada))+"</div>":"")
     +(f.sinBinario?"<div class=\"rcw-origen\" style=\"color:#b91c1c\">⚠️ no se encontró la foto en el .zip</div>":"")
     +"<span id=\"rcw-estado-"+i+"\" style=\"font-size:1rem\"></span>"
+    +"</div>"
+    +"<button type=\"button\" class=\"rcw-del-btn\" title=\"Quitar esta fila\" onclick=\"_wImportEliminarFilaRel("+i+")\">🗑</button>"
+    +"</div>"
+    +"<div class=\"rcw-row2\">"
+    +"<select title=\"Zona\" onchange=\"_wImportSetCampoRel("+i+",'zona',this.value)\">"+opcionesZonaTematicaRel(window.relZonas,f.zona)+"</select>"
+    +"<select title=\"Temática\" onchange=\"_wImportSetCampoRel("+i+",'tematica',this.value)\">"+opcionesZonaTematicaRel(window.relTematicas,f.tematica)+"</select>"
+    +"<select title=\"Foodtruck\" onchange=\"_wImportSetCampoRel("+i+",'foodTruck',this.value)\"><option value=\"No\""+selectedRel(f.foodTruck,"No")+">Foodtruck: No</option><option value=\"Si\""+selectedRel(f.foodTruck,"Si")+">Foodtruck: Sí</option></select>"
+    +"<select title=\"Conexión eléctrica\" onchange=\"_wImportSetCampoRel("+i+",'conexionElectrica',this.value)\"><option value=\"No\""+selectedRel(f.conexionElectrica,"No")+">Conexión: No</option><option value=\"Si\""+selectedRel(f.conexionElectrica,"Si")+">Conexión: Sí</option><option value=\"Precaria\""+selectedRel(f.conexionElectrica,"Precaria")+">Conexión: Precaria</option></select>"
+    +"<select title=\"Patente\" onchange=\"_wImportSetCampoRel("+i+",'patente',this.value)\"><option value=\"No\""+selectedRel(f.patente,"No")+">Patente: No</option><option value=\"Si\""+selectedRel(f.patente,"Si")+">Patente: Sí</option></select>"
+    +"<select title=\"Estado\" onchange=\"_wImportSetCampoRel("+i+",'estado',this.value)\"><option value=\"Pendiente\""+selectedRel(f.estado,"Pendiente")+">Pendiente</option><option value=\"Realizado\""+selectedRel(f.estado,"Realizado")+">Realizado</option><option value=\"Intimado\""+selectedRel(f.estado,"Intimado")+">Intimado</option></select>"
     +"</div>"
     +"</div>";
 }
@@ -1298,10 +1322,22 @@ window._wImportToggleFilaRel=function(idx,checked){
 window._wImportSetCampoRel=function(idx,campo,valor){
   _wImportFilasRel[idx][campo]=valor;
 };
+window._wImportEliminarFilaRel=function(idx){
+  _wImportFilasRel.splice(idx,1);
+  renderTablaImportWhatsappRel();
+  actualizarResumenImportRel();
+};
 window.analizarChatWhatsappRel=async function(){
   if(_wImportGuardandoRel){toast("Esperá a que termine el guardado en curso antes de analizar de nuevo.");return;}
   const file=document.getElementById("rcw-zip").files[0];
   if(!file){toast("Elegí un archivo .zip primero.");return;}
+  const zonaDefault=document.getElementById("rcw-zona").value;
+  const tematicaDefault=document.getElementById("rcw-tematica").value;
+  if(!zonaDefault||!tematicaDefault){toast("Elegí zona y temática para la tanda antes de analizar.");return;}
+  const foodTruckDefault=document.getElementById("rcw-foodtruck").value;
+  const conexionDefault=document.getElementById("rcw-conexion").value;
+  const patenteDefault=document.getElementById("rcw-patente").value;
+  const estadoDefault=document.getElementById("rcw-estado").value;
   const btn=document.getElementById("rcw-analizar-btn");
   btn.disabled=true;btn.textContent="Analizando…";
   try{
@@ -1324,6 +1360,9 @@ window.analizarChatWhatsappRel=async function(){
         yaImportada:existente?existente.fecha:null,
         incluir:!existente,
         estadoGuardado:null,
+        zona:zonaDefault,tematica:tematicaDefault,
+        foodTruck:foodTruckDefault,conexionElectrica:conexionDefault,
+        patente:patenteDefault,estado:estadoDefault,
       };
     });
     renderTablaImportWhatsappRel();
@@ -1349,9 +1388,6 @@ function actualizarEstadoFilaImportRel(idx){
 // Script de subida de fotos con decenas de requests simultáneos.
 window.guardarImportWhatsappRel=async function(){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
-  const zona=document.getElementById("rcw-zona").value;
-  const tematica=document.getElementById("rcw-tematica").value;
-  if(!zona||!tematica){toast("Elegí zona y temática para la tanda antes de guardar.");return;}
   if(_wImportGuardandoRel){toast("Ya hay un guardado en curso, esperá a que termine.");return;}
   const pendientes=filasPendientesImportRel();
   if(!pendientes.length){toast("No hay filas seleccionadas para guardar.");return;}
@@ -1367,6 +1403,7 @@ window.guardarImportWhatsappRel=async function(){
     const idx=_wImportFilasRel.indexOf(f);
     btn.textContent="Guardando "+(i+1)+"/"+pendientes.length+"…";
     try{
+      if(!f.zona||!f.tematica){throw new Error("Falta zona o temática en esta fila.");}
       let lat=null,lng=null;
       if(f.direccion){
         try{
@@ -1393,10 +1430,10 @@ window.guardarImportWhatsappRel=async function(){
         fotoFileId=data.fileId;
       }
       const rel={
-        fecha:f.fecha,zona,tematica,fotoFileId,
+        fecha:f.fecha,zona:f.zona,tematica:f.tematica,fotoFileId,
         direccion:f.direccion,lat,lng,
-        foodTruck:"No",conexionElectrica:"No",patente:"No",
-        estado:"Pendiente",observaciones:"",
+        foodTruck:f.foodTruck,conexionElectrica:f.conexionElectrica,patente:f.patente,
+        estado:f.estado,observaciones:"",
         origenArchivo:f.archivo,
       };
       conAuditoriaRel(rel,null);
