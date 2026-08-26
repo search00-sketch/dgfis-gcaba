@@ -1140,6 +1140,7 @@ window.guardarRelevamiento=async function(){
     conAuditoriaRel(rel,original);
     rel.id=id;
     if(original&&original._chunk!==undefined) rel._chunk=original._chunk;
+    if(original&&original.origenArchivo) rel.origenArchivo=original.origenArchivo;
     await guardarRelevamientoChunked(rel,window.relevamientos);
     if(editando){
       const idx=window.relevamientos.findIndex(x=>x.id===id);
@@ -1224,7 +1225,7 @@ let _wImportFilasRel=[];
 function filaImportWhatsappRelHtml(f,i){
   return "<div class=\"rcw-row\">"
     +"<input type=\"checkbox\" "+(f.incluir?"checked":"")+" onchange=\"_wImportToggleFilaRel("+i+",this.checked)\">"
-    +"<img class=\"rcw-thumb\" id=\"rcw-thumb-"+i+"\" alt=\"\">"
+    +"<img class=\"rcw-thumb\" id=\"rcw-thumb-"+i+"\" alt=\"\" loading=\"lazy\">"
     +"<input type=\"date\" class=\"form-input\" value=\""+esc(f.fecha)+"\" oninput=\"_wImportSetCampoRel("+i+",'fecha',this.value)\">"
     +"<input type=\"text\" class=\"form-input\" value=\""+esc(f.direccion)+"\" oninput=\"_wImportSetCampoRel("+i+",'direccion',this.value)\">"
     +"<div><div class=\"rcw-origen\">"+esc(f.archivo)+"</div>"
@@ -1242,8 +1243,11 @@ function filaImportWhatsappRelHtml(f,i){
 // si se vuelve a analizar un .zip antes de que terminen de resolver todas
 // las miniaturas del análisis anterior.
 let _wImportGenRel=0;
+let _wImportThumbUrlsRel=[];
 function renderTablaImportWhatsappRel(){
   const gen=++_wImportGenRel;
+  _wImportThumbUrlsRel.forEach(u=>URL.revokeObjectURL(u));
+  _wImportThumbUrlsRel=[];
   const cont=document.getElementById("rcw-tabla");
   cont.innerHTML=_wImportFilasRel.map((f,i)=>filaImportWhatsappRelHtml(f,i)).join("");
   _wImportFilasRel.forEach((f,i)=>{
@@ -1251,7 +1255,11 @@ function renderTablaImportWhatsappRel(){
     f.zipEntry.async("blob").then(blob=>{
       if(gen!==_wImportGenRel) return;
       const img=document.getElementById("rcw-thumb-"+i);
-      if(img) img.src=URL.createObjectURL(blob);
+      if(img){
+        const url=URL.createObjectURL(blob);
+        _wImportThumbUrlsRel.push(url);
+        img.src=url;
+      }
     }).catch(()=>{});
   });
 }
@@ -1352,7 +1360,7 @@ window.guardarImportWhatsappRel=async function(){
         }catch(e){}
       }
       let fotoFileId=null;
-      const id=f.archivo+"-"+Date.now()+"-"+idx;
+      const id=Date.now().toString()+"-"+idx;
       if(f.zipEntry){
         if(typeof RELEVAMIENTOS_FOTO_ENDPOINT==="undefined"||!RELEVAMIENTOS_FOTO_ENDPOINT){
           throw new Error("La subida de fotos todavía no está configurada.");
