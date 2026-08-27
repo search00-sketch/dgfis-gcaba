@@ -448,44 +448,20 @@ function openLogin() {
   document.getElementById('loginOverlay').style.display='flex';
   setTimeout(function(){document.getElementById('lUser').focus();},100);
 }
-function mostrarCpMsg(texto, ok) {
-  var err = document.getElementById('cp-err');
-  err.style.background = ok ? '#dcfce7' : '#fee2e2';
-  err.style.color = ok ? '#166534' : '#b91c1c';
-  err.textContent = texto;
-  err.style.display = 'block';
-}
-function abrirModalCambiarPass() {
-  document.getElementById('cp-actual').value = '';
-  document.getElementById('cp-nueva').value = '';
-  document.getElementById('cp-nueva2').value = '';
-  document.getElementById('cp-err').style.display = 'none';
-  document.getElementById('modal-cambiar-pass-overlay').classList.add('open');
-}
-async function guardarCambioPassPropia() {
-  var actual = document.getElementById('cp-actual').value;
-  var nueva  = document.getElementById('cp-nueva').value;
-  var nueva2 = document.getElementById('cp-nueva2').value;
-  if (!actual || !nueva || !nueva2) { mostrarCpMsg('Completá todos los campos.', false); return; }
-  if (nueva.length < 6) { mostrarCpMsg('La nueva contraseña debe tener al menos 6 caracteres.', false); return; }
-  if (nueva !== nueva2) { mostrarCpMsg('Las contraseñas nuevas no coinciden.', false); return; }
-  var btn = document.getElementById('cp-guardar-btn');
-  btn.disabled = true; btn.textContent = 'Guardando…';
-  try {
-    var fDoc = window._doc, fGet = window._getDoc, fSet = window._setDoc, db = window._db;
-    var snap = await fGet(fDoc(db, 'usuarios', usuarioActual()?.username));
-    if (!snap.exists() || snap.data().passHash !== await sha256Local(actual)) {
-      mostrarCpMsg('La contraseña actual no es correcta.', false);
-      return;
-    }
-    await fSet(fDoc(db, 'usuarios', usuarioActual()?.username), { passHash: await sha256Local(nueva) }, { merge: true });
-    mostrarCpMsg('✅ Contraseña actualizada.', true);
-    setTimeout(function(){ document.getElementById('modal-cambiar-pass-overlay').classList.remove('open'); }, 1400);
-  } catch(e) {
-    mostrarCpMsg('Error: ' + e.message, false);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Guardar';
+// abrirModalCambiarPass()/guardarCambioPassPropia() ahora vienen de
+// personal-auth.js (Firebase Auth real: reauthenticateWithCredential +
+// updatePassword) — necesitan toast()/cerrarModal(), definidos abajo.
+function cerrarModal(id){ document.getElementById(id).classList.remove('open'); }
+function toast(msg){
+  let t = document.getElementById('_toastGlobal');
+  if(!t){
+    t=document.createElement('div'); t.id='_toastGlobal';
+    t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:0;font-size:.85rem;z-index:5000;box-shadow:0 4px 14px rgba(0,0,0,.25)';
+    document.body.appendChild(t);
   }
+  t.textContent = msg; t.style.display='block';
+  clearTimeout(window._toastGlobalTimer);
+  window._toastGlobalTimer = setTimeout(()=>{ t.style.display='none'; }, 3000);
 }
 function showDbStatus(msg, type) {
   var p=document.getElementById('dbPill');
