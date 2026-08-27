@@ -8,6 +8,8 @@
 <!-- config.js carga FIREBASE_CONFIG desde variables de entorno (NO hardcodeado) -->
 <script src="config.js"></script>
 <script src="utils.js?v=3"></script>
+<script>window.MODULO_ID='permisos'; window.LOGIN_REQUERIDO=false;</script>
+<script src="personal-auth.js?v=7"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -15,6 +17,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
   import { getFirestore, collection, getDocs, writeBatch, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   if (typeof FIREBASE_CONFIG === 'undefined') {
     alert('Error: no se encontró config.js. Ejecutá generate-config.js primero.');
   }
@@ -24,12 +27,27 @@
   if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
     initializeAppCheck(app, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
   }
-  const db  = getFirestore(app);
+  const db   = getFirestore(app);
+  const auth = getAuth(app);
   window._db     = db;
   window._fs     = { collection, getDocs, writeBatch, doc };
   window._getDoc = getDoc;
   window._setDoc = setDoc;
   window._doc    = doc;
+  // Alias con el mismo nombre que usa personal-auth.js (el resto de las
+  // páginas ya expone _fDoc/_fGetDoc; acá conviven con los alias viejos
+  // _doc/_getDoc que ya usa el resto de este archivo, para no reescribir
+  // todo el archivo).
+  window._fDoc    = doc;
+  window._fGetDoc = getDoc;
+  window._auth = auth;
+  window._fOnAuthStateChanged = onAuthStateChanged;
+  window._fSignIn  = signInWithEmailAndPassword;
+  window._fSignOut = signOut;
+  window._fEmailAuthProvider = EmailAuthProvider;
+  window._fReauthenticate = reauthenticateWithCredential;
+  window._fUpdatePassword = updatePassword;
+  window.restaurarSesion();
 
   const CACHE_KEY    = 'dgf_permisos_cache';
   const CACHE_TS_KEY = 'dgf_permisos_ts';
@@ -404,73 +422,31 @@ function showOnMap(r) {
   _map.setView(coords,15);
 }
 
-// AUTH — usa Firestore (mismos usuarios que el portal)
-var loggedUser = null;
-// Restaurar sesión del portal (evita pedir contraseña al volver)
-(function() {
-  try {
-    var saved = localStorage.getItem('dgf_session');
-    if (saved) {
-      var s = JSON.parse(saved);
-      if (s && s.role === 'admin') {
-        loggedUser = s.username;
-        document.getElementById('ubadge').style.display = 'inline-flex';
-        document.getElementById('ubadgeN').textContent = s.nombre || s.username;
-        document.getElementById('tabUpload').style.display = '';
-      }
-    }
-  } catch(e) {}
-})();
+// AUTH — delegado a personal-auth.js (Firebase Authentication). loggedUser
+// vive ahí; acá sólo se reacciona al login/logout para esta página en
+// particular, porque a diferencia del resto del portal, acá la búsqueda es
+// pública y sólo la pestaña "Carga" exige haber iniciado sesión como admin.
+window._onLogin = function(u) {
+  document.getElementById('ubadge').style.display = 'inline-flex';
+  document.getElementById('ubadgeN').textContent = u.nombre || u.username;
+  if (u.role === 'admin') document.getElementById('tabUpload').style.display = '';
+};
 function switchTab(name, btn) {
   document.querySelectorAll('.tpanel').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.tbtn').forEach(function(b){b.classList.remove('active');});
   document.getElementById('panel-'+name).classList.add('active');
   btn.classList.add('active');
-  if (name==='upload' && !loggedUser) openLogin();
+  if (name==='upload' && (!window.usuarioActual || !usuarioActual())) openLogin();
   if (name==='search') setTimeout(function(){if(_map)_map.invalidateSize();},120);
 }
 function openLogin() {
   var errEl=document.getElementById('loginErr');
-  errEl.textContent='Usuario o contraseña incorrectos.';
   errEl.style.display='none';
   document.getElementById('lUser').value='';
   document.getElementById('lPass').value='';
   document.getElementById('loginOverlay').classList.add('show');
+  document.getElementById('loginOverlay').style.display='flex';
   setTimeout(function(){document.getElementById('lUser').focus();},100);
-}
-async function sha256Local(text) {
-  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
-}
-async function doLogin() {
-  var u = document.getElementById('lUser').value.trim().toLowerCase();
-  var p = document.getElementById('lPass').value;
-  var errEl = document.getElementById('loginErr');
-  errEl.textContent='Usuario o contraseña incorrectos.';
-  errEl.style.display='none';
-  if (!u || !p) { errEl.style.display='block'; return; }
-  try {
-    var fDoc = window._doc, fGet = window._getDoc, db = window._db;
-    var snap = await fGet(fDoc(db, 'usuarios', u));
-    if (!snap.exists()) { errEl.style.display='block'; document.getElementById('lPass').value=''; return; }
-    var hash = await sha256Local(p);
-    if (snap.data().passHash !== hash) { errEl.style.display='block'; document.getElementById('lPass').value=''; return; }
-    // Solo admin puede cargar datos
-    if (snap.data().role !== 'admin') { errEl.textContent='Sin permiso de carga.'; errEl.style.display='block'; return; }
-    loggedUser = u;
-    document.getElementById('loginOverlay').classList.remove('show');
-    document.getElementById('ubadge').style.display='inline-flex';
-    document.getElementById('ubadgeN').textContent=snap.data().nombre||u;
-    // Sólo llega hasta acá si ya pasó el chequeo de admin de arriba.
-    document.getElementById('tabUpload').style.display = '';
-  } catch(e) {
-    errEl.textContent='Error de conexión.'; errEl.style.display='block';
-  }
-}
-function doLogout() {
-  loggedUser=null;
-  document.getElementById('ubadge').style.display='none';
-  document.querySelectorAll('.tbtn')[0].click();
 }
 function mostrarCpMsg(texto, ok) {
   var err = document.getElementById('cp-err');
@@ -497,12 +473,12 @@ async function guardarCambioPassPropia() {
   btn.disabled = true; btn.textContent = 'Guardando…';
   try {
     var fDoc = window._doc, fGet = window._getDoc, fSet = window._setDoc, db = window._db;
-    var snap = await fGet(fDoc(db, 'usuarios', loggedUser));
+    var snap = await fGet(fDoc(db, 'usuarios', usuarioActual()?.username));
     if (!snap.exists() || snap.data().passHash !== await sha256Local(actual)) {
       mostrarCpMsg('La contraseña actual no es correcta.', false);
       return;
     }
-    await fSet(fDoc(db, 'usuarios', loggedUser), { passHash: await sha256Local(nueva) }, { merge: true });
+    await fSet(fDoc(db, 'usuarios', usuarioActual()?.username), { passHash: await sha256Local(nueva) }, { merge: true });
     mostrarCpMsg('✅ Contraseña actualizada.', true);
     setTimeout(function(){ document.getElementById('modal-cambiar-pass-overlay').classList.remove('open'); }, 1400);
   } catch(e) {
@@ -664,7 +640,7 @@ function cv(v){
 }
 async function loadExcel(){
   if(!chosenFile)return;
-  if(!loggedUser){openLogin();return;}
+  if (!window.usuarioActual || !usuarioActual()) { openLogin(); return; }
   var btn=document.getElementById('loadBtn');
   btn.disabled=true; btn.textContent='Procesando...';
   showT('Leyendo archivo...','info'); setP(5);
