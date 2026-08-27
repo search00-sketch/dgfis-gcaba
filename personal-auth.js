@@ -126,13 +126,14 @@ async function doLogin(){
   if(btn){btn.disabled=true;btn.textContent="Verificando…";}
   try{
     const lookupSnap = await window._fGetDoc(window._fDoc(window._db, "login_lookup", u));
-    if(!lookupSnap.exists()) { showLoginErr("Usuario o contraseña incorrectos."); return; }
+    if(!lookupSnap.exists()) { console.error("doLogin(): login_lookup/"+u+" no existe."); showLoginErr("Usuario o contraseña incorrectos."); return; }
     const { email } = lookupSnap.data();
     await window._fSignIn(window._auth, email, p);
     // onAuthStateChanged (activado por restaurarSesion) actualiza
     // loggedUser y la UI solo — acá no hace falta nada más en el caso de
     // éxito.
   }catch(e){
+    console.error("doLogin() falló:", e);
     showLoginErr("Usuario o contraseña incorrectos.");
   }finally{
     if(btn){btn.disabled=false;btn.textContent="Ingresar";}
