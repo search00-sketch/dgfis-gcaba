@@ -79,10 +79,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
     <p>Portal de herramientas internas</p>
   </div>
   <div class="huser">
-    <div id="userBadge">
-      <span class="dot"></span>
-      <span id="userBadgeName"></span>
-    </div>
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
     <button id="cpBtn" class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña" style="display:none">🔑 Cambiar contraseña</button>
     <button id="logoutBtn" onclick="doLogout()">Cerrar sesión</button>
   </div>
@@ -150,7 +147,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {
-  getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, arrayUnion, arrayRemove
+  getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, arrayUnion, arrayRemove, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider,
@@ -246,8 +243,6 @@ window.toast = toast;
 let loggedUser = null;
 window._onLogin = function(u) {
   loggedUser = u;
-  document.getElementById('userBadge').style.display = 'flex';
-  document.getElementById('userBadgeName').textContent = loggedUser.nombre;
   document.getElementById('cpBtn').style.display = 'inline';
   document.getElementById('logoutBtn').style.display = 'inline';
   document.getElementById('welcomeTitle').textContent = '👋 Hola, ' + loggedUser.nombre;
@@ -390,8 +385,10 @@ window.addUser = async function() {
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
     const uid = cred.user.uid;
     await signOut(secondaryAuth);
-    await setDoc(doc(db, 'usuarios', uid), { username, nombre, email, role, modulos: [], permisos: {} });
-    await setDoc(doc(db, 'login_lookup', username), { email });
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'usuarios', uid), { username, nombre, email, role, modulos: [], permisos: {} });
+    batch.set(doc(db, 'login_lookup', username), { email });
+    await batch.commit();
     document.getElementById('newUsername').value = '';
     document.getElementById('newNombre').value   = '';
     document.getElementById('newEmail').value    = '';
