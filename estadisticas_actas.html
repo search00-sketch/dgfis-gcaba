@@ -7,6 +7,9 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
 <script src="utils.js?v=3"></script>
+<script>window.MODULO_ID='estadisticas';</script>
+<script src="personal-auth.js?v=7"></script>
+<script src="personal-nav.js?v=2"></script>
 
 <!-- Leaflet para mapa -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -124,6 +127,56 @@ tr:hover td{background:#f8fafc;}
 </head>
 <body>
 
+<!-- CAMBIAR CONTRASEÑA -->
+<div class="overlay" id="modal-cambiar-pass-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">Cambiar contraseña</div>
+    <div id="cp-err" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Contraseña actual</label>
+      <input class="form-input" type="password" id="cp-actual" autocomplete="current-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva" autocomplete="new-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px">
+      <label class="fl">Repetir nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva2" autocomplete="new-password">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-cambiar-pass-overlay')">Cancelar</button>
+      <button class="btn btn-azul" id="cp-guardar-btn" onclick="guardarCambioPassPropia()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN OVERLAY -->
+<div class="overlay open" id="loginOverlay" style="z-index:3000">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">🏛️</div>
+    <div class="modal-title" style="text-align:center">Estadísticas — Actas</div>
+    <p style="font-size:.79rem;color:#888;margin-bottom:18px">DGFIS-GCABA — Acceso restringido</p>
+    <div class="lerr" id="loginErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:0;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px;text-align:left">
+      <label class="fl">Usuario</label>
+      <input class="form-input" type="text" id="lUser" placeholder="usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px;text-align:left">
+      <label class="fl">Contraseña</label>
+      <div style="position:relative">
+        <input class="form-input" type="password" id="lPass" placeholder="••••••" style="padding-right:36px" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" onclick="togglePass()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:#888">👁️</button>
+      </div>
+    </div>
+    <button class="btn btn-azul" style="width:100%;padding:11px" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <p style="margin-top:12px;font-size:.74rem"><a href="index.html" style="color:var(--pli)">← Volver al portal</a></p>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='loginOverlay')o.classList.remove('open');}));
+</script>
+
 <header>
   <div style="display:flex;align-items:center;gap:12px">
     <div class="nav-drop" style="position:relative">
@@ -138,6 +191,9 @@ tr:hover td{background:#f8fafc;}
   <div class="hright">
     <div class="pill loading" id="dbPill"><span class="dot"></span><span id="dbTxt">Cargando…</span></div>
     <button class="hbtn" onclick="forzarRecarga()">⟳ Actualizar</button>
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
+    <button class="hbtn" onclick="doLogout()">Salir</button>
   </div>
 </header>
 
@@ -338,6 +394,7 @@ tr:hover td{background:#f8fafc;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import { getFirestore, collection, getDocs, doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 if (typeof FIREBASE_CONFIG === 'undefined') {
   alert('Error: falta config.js'); throw new Error();
@@ -348,7 +405,8 @@ const app = initializeApp(FIREBASE_CONFIG);
 if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
   initializeAppCheck(app, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
 }
-const db  = getFirestore(app);
+const db   = getFirestore(app);
+const auth = getAuth(app);
 window._db     = db;
 window._setDoc = setDoc;
 window._getDoc = getDoc;
@@ -356,6 +414,24 @@ window._deleteDoc = deleteDoc;
 window._doc    = doc;
 window._collection = collection;
 window._getDocs    = getDocs;
+window._fDoc    = doc;
+window._fGetDoc = getDoc;
+window._auth = auth;
+window._fOnAuthStateChanged = onAuthStateChanged;
+window._fSignIn  = signInWithEmailAndPassword;
+window._fSignOut = signOut;
+window._fEmailAuthProvider = EmailAuthProvider;
+window._fReauthenticate = reauthenticateWithCredential;
+window._fUpdatePassword = updatePassword;
+// cargarDatos() se define más abajo, en este mismo <script type="module">
+// (function declaration: queda hoisted, así que ya existe para cuando esta
+// línea corre). Se llama vía window.cargarDatos (recién seteada ahí abajo)
+// porque las declaraciones de nivel superior de un módulo NO cuelgan de
+// window solas (a diferencia de un <script> clásico) — mismo patrón que
+// .then(window.cargarTodo) en el resto del portal; _recargarDatosPagina()
+// de personal-auth.js también la vuelve a llamar sola si el login ocurre
+// después de esta carga inicial (ver Task 3).
+window.restaurarSesion().then(() => { if (window.cargarDatos) window.cargarDatos(); });
 
 // ── CACHÉ sessionStorage ────────────────────────────────────────────────────
 const CKEY = 'dgf_actas_cache';
@@ -366,20 +442,11 @@ const TTL  = 24 * 60 * 60 * 1000; // 24 horas
 // La colección "actas_chunks" tiene documentos chunk_0, chunk_1, …
 // Cada uno guarda hasta 500 registros en un campo "registros" (array).
 // Leer todos los chunks = N documentos en lugar de miles de lecturas.
-function mostrarTabCargaSegunRol() {
-  try {
-    const s = localStorage.getItem('dgf_session');
-    if (s) {
-      const sess = JSON.parse(s);
-      if (sess && sess.role === 'admin') {
-        document.getElementById('tabCarga').style.display = '';
-      }
-    }
-  } catch(e) {}
-}
-
-// Mostrar tab apenas carga la página, sin esperar a Firestore
-mostrarTabCargaSegunRol();
+// Antes leía localStorage directo; ahora loggedUser (con .role real,
+// revalidado contra Firestore) lo entrega personal-auth.js vía _onLogin.
+window._onLogin = function(u) {
+  if (u.role === 'admin') document.getElementById('tabCarga').style.display = '';
+};
 
 async function cargarDatos() {
   // 1. Intentar caché
@@ -401,7 +468,6 @@ async function cargarDatos() {
     if (!metaSnap.exists()) {
       window.ACTAS = [];
       dbPill('warn','⚠️ Sin datos — cargá el Excel');
-      mostrarTabCargaSegunRol();
       mostrarVacio(); return;
     }
     const { totalChunks } = metaSnap.data();
@@ -431,18 +497,38 @@ async function cargarDatos() {
     mostrarVacio();
   }
 }
+// Se expone en window para que el .then(restaurarSesion) de más arriba y
+// _recargarDatosPagina() de personal-auth.js puedan invocarla — al estar
+// definida dentro de este mismo <script type="module">, no queda colgada
+// de window automáticamente (a diferencia de un <script> clásico).
+window.cargarDatos = cargarDatos;
 
 window.forzarRecarga = function() {
   sessionStorage.removeItem(CKEY);
   sessionStorage.removeItem(CTS);
   cargarDatos();
 };
-
-cargarDatos();
 </script>
 
 <script>
 // ── UTILIDADES ─────────────────────────────────────────────────────────────
+// abrirModalCambiarPass()/guardarCambioPassPropia() vienen de personal-auth.js
+// (Firebase Auth real: reauthenticateWithCredential + updatePassword) —
+// necesitan toast()/cerrarModal(), definidos acá (mismo patrón que ya usa
+// buscador_permisos.html, que tampoco tenía toast/modales propios antes).
+function cerrarModal(id){ document.getElementById(id).classList.remove('open'); }
+function toast(msg){
+  let t = document.getElementById('_toastGlobal');
+  if(!t){
+    t=document.createElement('div'); t.id='_toastGlobal';
+    t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:0;font-size:.85rem;z-index:5000;box-shadow:0 4px 14px rgba(0,0,0,.25)';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg; t.style.display='block';
+  clearTimeout(window._toastGlobalTimer);
+  window._toastGlobalTimer = setTimeout(()=>{ t.style.display='none'; }, 3000);
+}
+
 function dbPill(type, txt) {
   const p = document.getElementById('dbPill');
   p.className = 'pill ' + type;
