@@ -7,6 +7,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
 <script src="utils.js?v=3"></script>
+<script src="personal-auth.js?v=7"></script>
+<script src="personal-nav.js?v=2"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=9">
 <style>
 body{min-height:100vh;display:flex;flex-direction:column}
@@ -73,25 +75,6 @@ body{min-height:100vh;display:flex;flex-direction:column}
 <script>
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='loginOverlay')o.classList.remove('open');}));
 </script>
-<script>
-// Oculta el overlay de login al instante si hay una sesión guardada en
-// localStorage, sin esperar a que cargue Firebase ni a la revalidación
-// contra Firestore que hace el script de más abajo — evita el "parpadeo"
-// del popup de usuario/contraseña en cada visita a esta página. Es un
-// <script> clásico (no depende de red salvo el propio archivo, mismo
-// origen) que corre apenas se parsea, antes de que el <script
-// type="module"> de abajo siquiera empiece a bajar el SDK de Firebase del
-// CDN. Si la revalidación de ese script falla, vuelve a mostrar el overlay.
-(function(){
-  try {
-    var s = localStorage.getItem('dgf_session');
-    if (s && JSON.parse(s).username) {
-      document.getElementById('loginOverlay').style.display = 'none';
-    }
-  } catch(e) {}
-})();
-</script>
-
 <!-- HEADER -->
 <header>
   <div class="htitle">
@@ -117,7 +100,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
       <thead>
         <tr>
           <th>Usuario</th><th>Nombre</th><th>Rol</th>
-          <th>Módulos</th><th>Nueva contraseña</th><th>Acciones</th>
+          <th>Módulos</th><th>Restablecer</th><th>Acciones</th>
         </tr>
       </thead>
       <tbody id="userTableBody">
@@ -133,6 +116,10 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
       <div class="afield">
         <label>Nombre visible</label>
         <input type="text" id="newNombre" placeholder="Ej: J. García" style="width:150px">
+      </div>
+      <div class="afield">
+        <label>Email real</label>
+        <input type="email" id="newEmail" placeholder="nombre@dominio.com" style="width:190px">
       </div>
       <div class="afield">
         <label>Contraseña</label>
@@ -163,11 +150,16 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 <footer>DGFIS-GCABA &nbsp;|&nbsp; Uso interno</footer>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {
   getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider,
+  reauthenticateWithCredential, updatePassword, createUserWithEmailAndPassword,
+  sendPasswordResetEmail
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 // -- INIT FIREBASE ----------------------------------------------
 if (typeof FIREBASE_CONFIG === 'undefined') {
@@ -180,197 +172,83 @@ const app = initializeApp(FIREBASE_CONFIG);
 if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
   initializeAppCheck(app, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
 }
-const db  = getFirestore(app);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+window._db      = db;
+window._fDoc    = doc;
+window._fGetDoc = getDoc;
+window._auth = auth;
+window._fOnAuthStateChanged = onAuthStateChanged;
+window._fSignIn  = signInWithEmailAndPassword;
+window._fSignOut = signOut;
+window._fEmailAuthProvider = EmailAuthProvider;
+window._fReauthenticate = reauthenticateWithCredential;
+window._fUpdatePassword = updatePassword;
 
 // -- MÓDULOS DEL PORTAL ----------------------------------------
 // Para agregar uno nuevo, solo sumá un objeto acá.
 const MODULES = [
   {
-    id: 'permisos',
-    icon: '🔍',
-    title: 'Buscador de Permisos',
+    id: 'permisos', icon: '🔍', title: 'Buscador de Permisos',
     desc: 'Consultá permisos de alimentos por nombre, DNI, expediente o ubicación.',
-    tag: 'Activo',
-    roles: ['admin','permisos'],
-    url: 'buscador_permisos.html',
+    tag: 'Activo', roles: ['admin','permisos'], url: 'buscador_permisos.html',
   },
   {
-    id: 'estadisticas',
-    icon: '📊',
-    title: 'Estadísticas — Actas',
+    id: 'estadisticas', icon: '📊', title: 'Estadísticas — Actas',
     desc: 'Mapa de calor, gráficos por zona, fecha, tipo de operativo y categorías de artículos.',
-    tag: 'Activo',
-    roles: ['admin','estadisticas'],
-    url: 'estadisticas_actas.html',
+    tag: 'Activo', roles: ['admin','estadisticas'], url: 'estadisticas_actas.html',
   },
   {
-    id: 'novedades',
-    icon: '📋',
-    title: 'Novedades de Personal',
+    id: 'novedades', icon: '📋', title: 'Novedades de Personal',
     desc: 'Carga de licencias, novedades, nómina y bajas del personal.',
-    tag: 'Activo',
-    roles: ['admin','novedades'],
-    url: 'novedades_personal.html',
+    tag: 'Activo', roles: ['admin','novedades'], url: 'novedades_personal.html',
   },
   {
-    id: 'asignacion',
-    icon: '📍',
-    title: 'Asignación de Zonas',
+    id: 'asignacion', icon: '📍', title: 'Asignación de Zonas',
     desc: 'Distribución diaria por zona, resumen y configuración de feriados.',
-    tag: 'Activo',
-    roles: ['admin','asignacion'],
-    url: 'asignacion_zonas.html',
+    tag: 'Activo', roles: ['admin','asignacion'], url: 'asignacion_zonas.html',
   },
   {
-    id: 'personal',
-    icon: '👥',
-    title: 'Gestión de Personal',
+    id: 'personal', icon: '👥', title: 'Gestión de Personal',
     desc: 'Alta, edición y baja de personal, nómina y carga desde Excel.',
-    tag: 'Activo',
-    roles: ['admin','personal'],
-    url: 'gestion_personal.html',
+    tag: 'Activo', roles: ['admin','personal'], url: 'gestion_personal.html',
   },
   {
-    id: 'relevamientos',
-    icon: '🗂️',
-    title: 'Relevamientos Operativos',
+    id: 'relevamientos', icon: '🗂️', title: 'Relevamientos Operativos',
     desc: 'Carga y consulta de relevamientos de campo para preparar operativos.',
-    tag: 'Activo',
-    roles: ['admin','relevamientos'],
-    url: 'relevamientos_operativos.html',
+    tag: 'Activo', roles: ['admin','relevamientos'], url: 'relevamientos_operativos.html',
   },
   {
-    id: 'expedientes',
-    icon: '📋',
-    title: 'Gestión de Expedientes',
+    id: 'expedientes', icon: '📋', title: 'Gestión de Expedientes',
     desc: 'Alta, baja y seguimiento de expedientes.',
-    tag: 'Próximamente',
-    roles: [],
-    url: null,
+    tag: 'Próximamente', roles: [], url: null,
   },
 ];
 
-// -- HASH SHA-256 (contraseñas nunca se guardan en texto plano) -
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-// esc() ahora vive en utils.js (compartido por todo el portal)
-
-// -- ESTADO ----------------------------------------------------
-let loggedUser = null; // { username, nombre, role }
-
-// El alta inicial del usuario admin se hace UNA sola vez desde la consola
-// de Firebase (o un script local), nunca desde acá: dejar la contraseña
-// de bootstrap en el HTML la expone a cualquiera que vea el código fuente.
-
-// -- LOGIN ------------------------------------------------------
-window.doLogin = async function() {
-  const u = document.getElementById('lUser').value.trim().toLowerCase();
-  const p = document.getElementById('lPass').value;
-  const err = document.getElementById('loginErr');
-  const btn = document.getElementById('loginBtn');
-  const sp  = document.getElementById('loginSpinner');
-  const txt = document.getElementById('loginBtnTxt');
-
-  if (!u || !p) { showErr('Completá usuario y contraseña.'); return; }
-
-  btn.disabled = true;
-  sp.style.display = 'block';
-  txt.textContent = 'Verificando…';
-  err.style.display = 'none';
-
-  try {
-    const snap = await getDoc(doc(db, 'usuarios', u));
-    if (!snap.exists()) { showErr('Usuario o contraseña incorrectos.'); return; }
-
-    const data = snap.data();
-    const hash = await sha256(p);
-
-    if (data.passHash !== hash) { showErr('Usuario o contraseña incorrectos.'); return; }
-
-    loggedUser = { username: u, nombre: data.nombre, role: data.role, modulos: data.modulos||[], permisos: data.permisos||{} };
-    // Guardar sesión en localStorage (persiste aunque se cierre el navegador)
-    localStorage.setItem('dgf_session', JSON.stringify(loggedUser));
-    document.getElementById('loginOverlay').style.display = 'none';
-    onLoginSuccess();
-
-  } catch(e) {
-    showErr('Error de conexión. Revisá tu red.');
-    console.error(e);
-  } finally {
-    btn.disabled = false;
-    sp.style.display = 'none';
-    txt.textContent = 'Ingresar';
+// -- toast()/cerrarModal() genéricos ------------------------------------
+// personal-auth.js los necesita para guardarCambioPassPropia() (mismo
+// patrón que ya usan gestion_personal.html/novedades_personal.html/
+// asignacion_zonas.html/relevamientos_operativos.html); index.html no los
+// tenía porque su login viejo era otra implementación.
+function cerrarModal(id){ document.getElementById(id).classList.remove('open'); }
+function toast(msg){
+  let t = document.getElementById('_toastGlobal');
+  if(!t){
+    t=document.createElement('div'); t.id='_toastGlobal';
+    t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:0;font-size:.85rem;z-index:5000;box-shadow:0 4px 14px rgba(0,0,0,.25)';
+    document.body.appendChild(t);
   }
-};
-
-function showErr(msg) {
-  const el = document.getElementById('loginErr');
-  el.textContent = msg;
-  el.style.display = 'block';
-  document.getElementById('lPass').value = '';
-  document.getElementById('lPass').focus();
+  t.textContent = msg; t.style.display='block';
+  clearTimeout(window._toastGlobalTimer);
+  window._toastGlobalTimer = setTimeout(()=>{ t.style.display='none'; }, 3000);
 }
+window.cerrarModal = cerrarModal;
+window.toast = toast;
 
-// -- LOGOUT -----------------------------------------------------
-window.doLogout = function() {
-  loggedUser = null;
-  localStorage.removeItem('dgf_session');
-  document.getElementById('loginOverlay').style.display = 'flex';
-  document.getElementById('lUser').value = '';
-  document.getElementById('lPass').value = '';
-  document.getElementById('userBadge').style.display = 'none';
-  document.getElementById('cpBtn').style.display = 'none';
-  document.getElementById('logoutBtn').style.display = 'none';
-  document.getElementById('adminPanel').style.display = 'none';
-  document.getElementById('moduleGrid').innerHTML = '';
-  document.getElementById('welcomeTitle').textContent = 'Bienvenido';
-};
-
-// -- CAMBIAR CONTRASEÑA PROPIA -----------------------------------
-window.abrirModalCambiarPass = function() {
-  document.getElementById('cp-actual').value = '';
-  document.getElementById('cp-nueva').value = '';
-  document.getElementById('cp-nueva2').value = '';
-  document.getElementById('cp-err').style.display = 'none';
-  document.getElementById('modal-cambiar-pass-overlay').classList.add('open');
-};
-function mostrarCpMsg(texto, ok) {
-  const err = document.getElementById('cp-err');
-  err.style.background = ok ? '#dcfce7' : '#fee2e2';
-  err.style.color = ok ? '#166534' : '#b91c1c';
-  err.textContent = texto;
-  err.style.display = 'block';
-}
-window.guardarCambioPassPropia = async function() {
-  const actual = document.getElementById('cp-actual').value;
-  const nueva  = document.getElementById('cp-nueva').value;
-  const nueva2 = document.getElementById('cp-nueva2').value;
-  if (!actual || !nueva || !nueva2) { mostrarCpMsg('Completá todos los campos.', false); return; }
-  if (nueva.length < 6) { mostrarCpMsg('La nueva contraseña debe tener al menos 6 caracteres.', false); return; }
-  if (nueva !== nueva2) { mostrarCpMsg('Las contraseñas nuevas no coinciden.', false); return; }
-  const btn = document.getElementById('cp-guardar-btn');
-  btn.disabled = true; btn.textContent = 'Guardando…';
-  try {
-    const snap = await getDoc(doc(db, 'usuarios', loggedUser.username));
-    if (!snap.exists() || snap.data().passHash !== await sha256(actual)) {
-      mostrarCpMsg('La contraseña actual no es correcta.', false);
-      return;
-    }
-    await setDoc(doc(db, 'usuarios', loggedUser.username), { passHash: await sha256(nueva) }, { merge: true });
-    mostrarCpMsg('✅ Contraseña actualizada.', true);
-    setTimeout(() => document.getElementById('modal-cambiar-pass-overlay').classList.remove('open'), 1400);
-  } catch(e) {
-    mostrarCpMsg('Error: ' + e.message, false);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Guardar';
-  }
-};
-
-// -- POST-LOGIN -------------------------------------------------
-function onLoginSuccess() {
+// -- POST-LOGIN: personal-auth.js llama a esto con el perfil ya validado -
+let loggedUser = null;
+window._onLogin = function(u) {
+  loggedUser = u;
   document.getElementById('userBadge').style.display = 'flex';
   document.getElementById('userBadgeName').textContent = loggedUser.nombre;
   document.getElementById('cpBtn').style.display = 'inline';
@@ -380,13 +258,14 @@ function onLoginSuccess() {
     loggedUser.role === 'admin'
       ? 'Acceso completo — Panel de administración habilitado.'
       : 'Seleccioná un módulo para comenzar.';
-
   if (loggedUser.role === 'admin') {
     document.getElementById('adminPanel').style.display = 'block';
     loadUserTable();
+  } else {
+    document.getElementById('adminPanel').style.display = 'none';
   }
   renderModules();
-}
+};
 
 // -- MÓDULOS ----------------------------------------------------
 function renderModules() {
@@ -410,7 +289,10 @@ function renderModules() {
   });
 }
 
-// -- TABLA DE USUARIOS (admin) ----------------------------------
+// -- TABLA DE USUARIOS (admin) -----------------------------------
+// El id de cada fila/documento ahora es el uid de Firebase Auth, no el
+// nombre de usuario — el nombre de usuario vive en el campo "username".
+const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal','relevamientos'];
 async function loadUserTable() {
   const tbody = document.getElementById('userTableBody');
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Cargando…</td></tr>';
@@ -418,14 +300,13 @@ async function loadUserTable() {
     const snap = await getDocs(collection(db, 'usuarios'));
     tbody.innerHTML = '';
     snap.forEach(d => {
-      const { nombre, role, modulos, permisos } = d.data();
-      const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal','relevamientos'];
+      const { username, nombre, role, modulos, permisos } = d.data();
       const modsActuales = modulos || [];
       const permisosActuales = permisos || {};
       const tr = document.createElement('tr');
       tr.id = 'urow_' + d.id;
       tr.innerHTML = `
-        <td><strong>${esc(d.id)}</strong></td>
+        <td><strong>${esc(username)}</strong></td>
         <td>${esc(nombre)}</td>
         <td><span class="role-badge ${esc(role)}">${esc(role)}</span></td>
         <td>
@@ -446,13 +327,11 @@ async function loadUserTable() {
           </div>
         </td>
         <td>
-          <input class="pinput" type="password" id="np_${esc(d.id)}"
-                 placeholder="Nueva contraseña">
+          <button class="abtn" onclick="sendPasswordReset('${escJsAttr(d.id)}','${escJsAttr(username)}')">Enviar restablecimiento</button>
         </td>
         <td style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="abtn" onclick="changePass('${escJsAttr(d.id)}', this)">Cambiar pass</button>
-          ${d.id !== 'srepetto'
-            ? `<button class="abtn danger" onclick="deleteUser('${escJsAttr(d.id)}')">Eliminar</button>`
+          ${username !== 'srepetto'
+            ? `<button class="abtn danger" onclick="deleteUser('${escJsAttr(d.id)}','${escJsAttr(username)}')">Eliminar</button>`
             : ''}
         </td>
       `;
@@ -466,35 +345,32 @@ async function loadUserTable() {
   }
 }
 
-// -- CAMBIAR CONTRASEÑA -----------------------------------------
-window.changePass = async function(username, btn) {
-  const input = document.getElementById('np_' + username);
-  const newPass = input.value.trim();
-  if (!newPass || newPass.length < 6) {
-    showAdminToast('La contraseña debe tener al menos 6 caracteres.', 'err');
-    return;
-  }
-  btn.disabled = true; btn.textContent = 'Guardando…';
+// -- ENVIAR EMAIL DE RESTABLECIMIENTO (reemplaza "cambiar contraseña de
+//    otro usuario", que ya no es posible sin backend — ver spec) --------
+window.sendPasswordReset = async function(uid, username) {
   try {
-    const hash = await sha256(newPass);
-    await setDoc(doc(db, 'usuarios', username), { passHash: hash }, { merge: true });
-    input.value = '';
-    showAdminToast('✅ Contraseña de ' + username + ' actualizada.', 'ok');
+    const snap = await getDoc(doc(db, 'usuarios', uid));
+    if (!snap.exists() || !snap.data().email) { showAdminToast('Ese usuario no tiene un email cargado.', 'err'); return; }
+    await sendPasswordResetEmail(auth, snap.data().email);
+    showAdminToast(`✅ Email de restablecimiento enviado a ${username}.`, 'ok');
   } catch(e) {
-    showAdminToast('Error al guardar: ' + e.message, 'err');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Cambiar pass';
+    showAdminToast('Error al enviar: ' + e.message, 'err');
   }
 };
 
-// -- AGREGAR USUARIO --------------------------------------------
+// -- AGREGAR USUARIO ----------------------------------------------------
+// Crea la cuenta de Firebase Authentication desde una instancia SECUNDARIA
+// de la app (patrón estándar de Firebase): createUserWithEmailAndPassword
+// en la instancia normal cerraría la sesión del admin que está creando la
+// cuenta de otra persona.
 window.addUser = async function() {
   const username = document.getElementById('newUsername').value.trim().toLowerCase();
   const nombre   = document.getElementById('newNombre').value.trim();
+  const email    = document.getElementById('newEmail').value.trim();
   const pass     = document.getElementById('newPass').value.trim();
   const role     = document.getElementById('newRole').value;
 
-  if (!username || !nombre || !pass) {
+  if (!username || !nombre || !email || !pass) {
     showAdminToast('Completá todos los campos.', 'err'); return;
   }
   if (pass.length < 6) {
@@ -504,66 +380,77 @@ window.addUser = async function() {
     showAdminToast('El usuario solo puede tener letras, números y guión bajo.', 'err'); return;
   }
 
-  const existSnap = await getDoc(doc(db, 'usuarios', username));
-  if (existSnap.exists()) {
-    showAdminToast('Ese nombre de usuario ya existe.', 'err'); return;
+  try {
+    const existeLookup = await getDoc(doc(db, 'login_lookup', username));
+    if (existeLookup.exists()) { showAdminToast('Ese nombre de usuario ya existe.', 'err'); return; }
+  } catch(e) {
+    showAdminToast('Error al verificar el usuario: ' + e.message, 'err'); return;
   }
 
+  const secondaryApp = initializeApp(FIREBASE_CONFIG, 'secondary-' + Date.now());
+  const secondaryAuth = getAuth(secondaryApp);
   try {
-    const hash = await sha256(pass);
-    await setDoc(doc(db, 'usuarios', username), { nombre, role, passHash: hash });
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
+    const uid = cred.user.uid;
+    await signOut(secondaryAuth);
+    await setDoc(doc(db, 'usuarios', uid), { username, nombre, email, role, modulos: [], permisos: {} });
+    await setDoc(doc(db, 'login_lookup', username), { email });
     document.getElementById('newUsername').value = '';
     document.getElementById('newNombre').value   = '';
+    document.getElementById('newEmail').value    = '';
     document.getElementById('newPass').value     = '';
     document.getElementById('newRole').value     = 'viewer';
     showAdminToast('✅ Usuario ' + username + ' creado correctamente.', 'ok');
     loadUserTable();
   } catch(e) {
     showAdminToast('Error al crear usuario: ' + e.message, 'err');
+  } finally {
+    deleteApp(secondaryApp);
   }
 };
 
-// -- ELIMINAR USUARIO -------------------------------------------
-window.deleteUser = async function(username) {
-  if (!confirm('¿Eliminar el usuario "' + username + '"? Esta acción no se puede deshacer.')) return;
+// -- ELIMINAR USUARIO ---------------------------------------------------
+// No borra la cuenta de Firebase Authentication (eso requeriría el Admin
+// SDK / una Cloud Function, fuera de alcance — ver spec): borra el perfil
+// de Firestore, con lo que esa persona pierde el acceso al instante (las
+// reglas nuevas exigen que exists(usuarios/{uid})). La cuenta de
+// Authentication en sí queda inactiva hasta que alguien la borre a mano,
+// cada tanto, desde la consola de Firebase.
+window.deleteUser = async function(uid, username) {
+  if (!confirm('¿Eliminar el acceso del usuario "' + username + '"? Esta acción no se puede deshacer desde acá.')) return;
   try {
-    await deleteDoc(doc(db, 'usuarios', username));
-    document.getElementById('urow_' + username)?.remove();
-    showAdminToast('Usuario ' + username + ' eliminado.', 'ok');
+    await deleteDoc(doc(db, 'usuarios', uid));
+    await deleteDoc(doc(db, 'login_lookup', username)).catch(()=>{});
+    document.getElementById('urow_' + uid)?.remove();
+    showAdminToast('Usuario ' + username + ' eliminado (su acceso se cortó al instante).', 'ok');
   } catch(e) {
     showAdminToast('Error al eliminar: ' + e.message, 'err');
   }
 };
 
-// -- TOGGLE MÓDULO ----------------------------------------------
-// arrayUnion/arrayRemove son atómicos del lado de Firestore: dos admins
-// tocando módulos distintos del mismo usuario al mismo tiempo ya no se
-// pisan (antes se leía el array entero, se modificaba en el cliente y se
-// reescribía completo — la edición más lenta perdía la de la otra).
-window.toggleModulo = async function(username, modulo, enabled) {
+// -- TOGGLE MÓDULO --------------------------------------------------------
+window.toggleModulo = async function(uid, modulo, enabled) {
   try {
-    await updateDoc(doc(db, 'usuarios', username), {
+    await updateDoc(doc(db, 'usuarios', uid), {
       modulos: enabled ? arrayUnion(modulo) : arrayRemove(modulo)
     });
-    showAdminToast(`✅ Módulo "${modulo}" ${enabled?'habilitado':'deshabilitado'} para ${username}.`, 'ok');
+    showAdminToast(`✅ Módulo "${modulo}" ${enabled?'habilitado':'deshabilitado'}.`, 'ok');
   } catch(e) {
     showAdminToast('Error: ' + e.message, 'err');
   }
 };
 
 // -- NIVEL DE PERMISO POR MÓDULO (editor puede editar, viewer sólo ve) ----
-window.cambiarPermiso = async function(username, modulo, nivel) {
+window.cambiarPermiso = async function(uid, modulo, nivel) {
   try {
-    // Notación de punto: sólo toca esa clave del mapa "permisos", no lo pisa
-    // entero (mismo problema de condición de carrera que arriba).
-    await updateDoc(doc(db, 'usuarios', username), { ['permisos.' + modulo]: nivel });
-    showAdminToast(`✅ Permiso de "${modulo}" para ${username}: ${nivel==='viewer'?'sólo ver':'editor'}.`, 'ok');
+    await updateDoc(doc(db, 'usuarios', uid), { ['permisos.' + modulo]: nivel });
+    showAdminToast(`✅ Permiso de "${modulo}": ${nivel==='viewer'?'sólo ver':'editor'}.`, 'ok');
   } catch(e) {
     showAdminToast('Error: ' + e.message, 'err');
   }
 };
 
-// -- TOAST ADMIN ------------------------------------------------
+// -- TOAST ADMIN ----------------------------------------------------------
 function showAdminToast(msg, type) {
   const t = document.getElementById('adminToast');
   t.textContent = msg;
@@ -574,35 +461,7 @@ function showAdminToast(msg, type) {
 }
 
 // -- ARRANQUE ---------------------------------------------------
-
-// Restaurar sesión si el usuario ya estaba logueado en otra página.
-// No confiamos en los datos guardados en localStorage (pueden ser editados
-// desde la consola del navegador): sólo usamos el username para volver a
-// leer el rol/módulos reales desde Firestore.
-(async function() {
-  const saved = localStorage.getItem('dgf_session');
-  if (!saved) return;
-  try {
-    const parsed = JSON.parse(saved);
-    if (!parsed || !parsed.username) throw new Error('sesión inválida');
-    const snap = await getDoc(doc(db, 'usuarios', parsed.username));
-    if (!snap.exists()) throw new Error('usuario ya no existe');
-    const data = snap.data();
-    loggedUser = { username: parsed.username, nombre: data.nombre, role: data.role, modulos: data.modulos || [], permisos: data.permisos || {} };
-    localStorage.setItem('dgf_session', JSON.stringify(loggedUser));
-    document.getElementById('loginOverlay').style.display = 'none';
-    onLoginSuccess();
-  } catch(e) {
-    // El script de arriba puede haber ocultado el overlay de forma
-    // optimista confiando en localStorage: si la revalidación falla acá,
-    // hay que volver a mostrarlo (si no, quedaría oculto sin sesión válida).
-    localStorage.removeItem('dgf_session');
-    document.getElementById('loginOverlay').style.display = 'flex';
-    const err = document.getElementById('loginErr');
-    err.textContent = '⚠️ Se cerró tu sesión: ' + e.message;
-    err.style.display = 'block';
-  }
-})();
+window.restaurarSesion();
 </script>
 </body>
 </html>
