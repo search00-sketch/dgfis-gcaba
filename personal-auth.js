@@ -95,6 +95,15 @@ function restaurarSesion(){
         if (primeraVez) { resuelto = true; resolve(); }
         return;
       }
+      // Ocultar el cartel de login apenas Firebase confirma que hay una
+      // sesión real, sin esperar también la lectura del perfil en Firestore
+      // (que puede tardar y antes dejaba el cartel visible varios segundos
+      // de más en cada cambio de página). Si el perfil resulta inválido o
+      // sin el módulo habilitado, el catch de abajo cierra la sesión y
+      // vuelve a mostrar el cartel — mismo comportamiento de fondo que
+      // antes, sólo cambia cuándo se oculta la primera vez.
+      const overlayYa=document.getElementById("loginOverlay");
+      if(overlayYa) overlayYa.style.display="none";
       try {
         try {
           const snap = await window._fGetDoc(window._fDoc(window._db, "usuarios", user.uid));
