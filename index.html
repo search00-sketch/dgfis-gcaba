@@ -293,6 +293,11 @@ async function loadUserTable() {
     tbody.innerHTML = '';
     snap.forEach(d => {
       const { username, nombre, role, modulos, permisos } = d.data();
+      // Documentos viejos (esquema pre-migración: doc id = nombre de
+      // usuario, sin campo "username") todavía conviven en esta colección
+      // hasta la limpieza — no se usan para nada ya (login/perfil sólo leen
+      // por uid), así que no se listan acá para no confundir.
+      if (!username) return;
       const modsActuales = modulos || [];
       const permisosActuales = permisos || {};
       const tr = document.createElement('tr');
