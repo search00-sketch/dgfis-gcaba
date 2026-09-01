@@ -56,6 +56,7 @@ body{font-family:var(--font);background:var(--c-bg);color:var(--c-ink);font-size
 .nav-menu a.current{background:#eaf0f6;font-weight:700}
 .nav-menu .nav-portal{border-top:var(--border-w) solid var(--c-line-soft);color:var(--c-ink-mut)}
 .nav-menu .nav-empty{padding:14px var(--sp-4);color:var(--c-ink-mut);font-size:var(--fs-sm)}
+.nav-menu a.nav-solo-mobile{display:none}
 
 /* ---------- Pestañas / paneles ---------- */
 .tabs{display:flex;gap:0;padding:0 var(--sp-4);flex-wrap:wrap;background:var(--c-surface);border-bottom:var(--border-w-strong) solid var(--c-line);overflow-x:auto;scrollbar-width:none}
@@ -280,6 +281,26 @@ footer{padding:var(--sp-3);background:var(--c-bg);font-size:var(--fs-sm);color:v
 
   /* Toast que no tape los botones de acción en pantallas chicas */
   .toast{left:16px;right:16px;bottom:16px}
+
+  /* Acciones de sesión: se ocultan del header (se movieron al menú ☰,
+     ver personal-nav.js). Los tres selectores cubren index.html
+     (#cpBtn/#logoutBtn) y las otras 5 páginas con login obligatorio
+     (mismos onclick, sin id propio) — buscador_permisos.html queda afuera
+     a propósito (ver Global Constraints del plan). !important porque
+     personal-auth.js pisa el display de #userBadge con estilo inline
+     (mostrarSesionUI()), que si no tendría más especificidad que esta regla. */
+  #userBadge,
+  [onclick="abrirModalCambiarPass()"],
+  [onclick="doLogout()"]{display:none !important}
+
+  /* Los ítems de sesión del menú ☰ (ocultos por defecto, ver regla base
+     fuera de esta media query) se muestran acá. */
+  .nav-menu a.nav-solo-mobile{display:flex}
+
+  /* Segunda fila de header para controles propios de cada página (fecha en
+     Asignación de Zonas, botón Actualizar en Estadísticas, etc.) — la usa
+     cada página cuando le toque su sub-proyecto; acá sólo se define. */
+  .header-fila2{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;width:100%;margin-top:var(--sp-2)}
 }
 
 /* Preferencia del sistema: sin animaciones para quien las desactivó */

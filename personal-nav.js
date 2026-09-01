@@ -28,10 +28,19 @@ function renderNavMenu(){
   // personal-auth.js), así que esto no abre nada que esa página no controle.
   const current=location.pathname.split("/").pop();
   const items=NAV_MODULES;
-  m.innerHTML=(items.length?items.map(x=>
+  let html=(items.length?items.map(x=>
     '<a href="'+x.url+'" class="'+(x.url===current?"current":"")+'"><span>'+x.icon+'</span><span>'+x.title+'</span></a>'
   ).join(""):'<div class="nav-empty">Sin otros módulos habilitados</div>')+
   '<a href="index.html" class="nav-portal">🏛️<span>Portal</span></a>';
+  // En mobile, "Cambiar contraseña" y "Cerrar sesión" se sacan del header
+  // (ver estilo-comun.css, regla #userBadge/onclick con !important) y se
+  // muestran acá — mismo menú ☰ que ya existe, no uno nuevo. En escritorio
+  // estos ítems quedan ocultos por CSS (.nav-solo-mobile).
+  if (window.usuarioActual && usuarioActual()) {
+    html += '<a class="nav-solo-mobile" onclick="abrirModalCambiarPass()"><span>🔑</span><span>Cambiar contraseña</span></a>'
+          + '<a class="nav-solo-mobile" onclick="doLogout()"><span>🚪</span><span>Cerrar sesión</span></a>';
+  }
+  m.innerHTML=html;
 }
 document.addEventListener("click",function(e){
   const dd=document.querySelector(".nav-drop");
