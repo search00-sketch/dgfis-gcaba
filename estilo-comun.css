@@ -306,6 +306,31 @@ footer{padding:var(--sp-3);background:var(--c-bg);font-size:var(--fs-sm);color:v
      Asignación de Zonas, botón Actualizar en Estadísticas, etc.) — la usa
      cada página cuando le toque su sub-proyecto; acá sólo se define. */
   .header-fila2{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;width:100%;margin-top:var(--sp-2)}
+
+  /* Lista compacta: reemplaza .table-row/.grid-* y table.utbl/rtbl cuando
+     cada página adapte su tabla real (sub-proyectos siguientes — acá sólo
+     se define la clase, ninguna página la usa todavía). Estructura de
+     referencia en el spec: avatar/iniciales + nombre + subtítulo de 1-2
+     datos + badge de estado a la derecha; el onclick de cada item abre el
+     mismo modal "👁 Ver" que ya existe en cada página. */
+  .mob-list-item{display:flex;align-items:center;gap:var(--sp-3);padding:10px var(--sp-2);border-bottom:var(--border-w) solid var(--c-line-soft);cursor:pointer}
+  .mob-list-item:hover,.mob-list-item:active{background:var(--c-bg)}
+  .mob-avatar{width:36px;height:36px;border-radius:50%;background:var(--c-brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-sm);flex-shrink:0}
+  .mob-main{flex:1;min-width:0}
+  .mob-nombre{font-weight:600;font-size:var(--fs-base);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mob-sub{font-size:var(--fs-sm);color:var(--c-ink-mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* Accesibilidad táctil: 44x44px mínimo es la recomendación estándar
+     (Apple HIG / Material Design) para que un dedo pueda tocar sin errar.
+     Sólo botones "de verdad" (no [onclick] genérico — eso incluiría
+     encabezados de columna ordenables (.th-sort) y otros elementos chicos
+     a propósito que no son botones principales). */
+  button,.btn,.hbtn,.abtn{min-height:44px}
+
+  /* 16px mínimo en inputs de texto: por debajo de eso, iOS Safari hace
+     zoom automático al enfocar el campo (comportamiento del sistema, no
+     configurable por CSS salvo subiendo el font-size). */
+  input[type=text],input[type=password],input[type=date],input[type=email],select{font-size:16px}
 }
 
 /* Preferencia del sistema: sin animaciones para quien las desactivó */
