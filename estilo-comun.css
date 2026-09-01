@@ -288,10 +288,15 @@ footer{padding:var(--sp-3);background:var(--c-bg);font-size:var(--fs-sm);color:v
      (mismos onclick, sin id propio) — buscador_permisos.html queda afuera
      a propósito (ver Global Constraints del plan). !important porque
      personal-auth.js pisa el display de #userBadge con estilo inline
-     (mostrarSesionUI()), que si no tendría más especificidad que esta regla. */
+     (mostrarSesionUI()), que si no tendría más especificidad que esta regla.
+     El selector de los botones va calificado con "button" (no un [onclick]
+     suelto): los ítems nuevos del menú ☰ de más abajo son <a>, no <button>,
+     y usan el MISMO onclick — un selector sin calificar los ocultaría a
+     ellos también, con !important, sin que la regla .nav-solo-mobile de
+     abajo (sin !important) pudiera ganarles nunca. */
   #userBadge,
-  [onclick="abrirModalCambiarPass()"],
-  [onclick="doLogout()"]{display:none !important}
+  button[onclick="abrirModalCambiarPass()"],
+  button[onclick="doLogout()"]{display:none !important}
 
   /* Los ítems de sesión del menú ☰ (ocultos por defecto, ver regla base
      fuera de esta media query) se muestran acá. */
