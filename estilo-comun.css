@@ -326,6 +326,15 @@ footer{padding:var(--sp-3);background:var(--c-bg);font-size:var(--fs-sm);color:v
      encabezados de columna ordenables (.th-sort) y otros elementos chicos
      a propósito que no son botones principales). */
   button,.btn,.hbtn,.abtn{min-height:44px}
+  /* Excepción: los links de migas de pan dentro de .header-sub (ej. "←
+     Portal", "📋 Novedades →" en gestión/asignación/novedades/
+     relevamientos) también usan la clase .hbtn pero viven sueltos en un
+     <div> sin flex, con su propio padding/font-size chico por inline
+     style — forzarles 44px de alto los infla en una píldora enorme al
+     lado de texto chico. Se excluyen específicamente, en vez de agrandar
+     el selector general (mismo tipo de error que hubo que arreglar en la
+     Task 1 con un selector demasiado amplio). */
+  .header-sub .hbtn{min-height:auto}
 
   /* 16px mínimo en inputs de texto: por debajo de eso, iOS Safari hace
      zoom automático al enfocar el campo (comportamiento del sistema, no
