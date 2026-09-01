@@ -1059,7 +1059,11 @@ window.cargarExcel = async function() {
     const precintos = [];
     PRECINTO_COLS.forEach(([np, cant, art, cat]) => {
       const num = row[np];
-      if (num !== null && num !== undefined && String(num).trim() !== '') {
+      // El Excel deja las columnas de precinto sin usar en "0" en vez de
+      // vacías (en vez de la celda en blanco) — sin este chequeo, cada
+      // fila con menos de 34 precintos reales sumaba decenas de precintos
+      // "0" falsos (con cantidad/artículo/categoría siempre en null).
+      if (num !== null && num !== undefined && String(num).trim() !== '' && String(num).trim() !== '0') {
         precintos.push({
           precinto: String(num),
           cantidad: row[cant] ?? null,
