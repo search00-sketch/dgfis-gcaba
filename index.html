@@ -90,6 +90,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   <div id="adminPanel">
     <h3>⚙️ Panel de Administración — Usuarios</h3>
     <p class="subtitle">Gestioná usuarios y contraseñas. Los cambios aplican en todos los navegadores.</p>
+    <div style="overflow-x:auto">
     <table class="utbl" id="userTable">
       <thead>
         <tr>
@@ -101,6 +102,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
         <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--c-ink-mut)">Cargando usuarios…</td></tr>
       </tbody>
     </table>
+    </div>
 
     <div class="add-user-form">
       <div class="afield">
