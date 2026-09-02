@@ -57,6 +57,10 @@ body{font-family:var(--font);background:var(--c-bg);color:var(--c-ink);font-size
 .nav-menu .nav-portal{border-top:var(--border-w) solid var(--c-line-soft);color:var(--c-ink-mut)}
 .nav-menu .nav-empty{padding:14px var(--sp-4);color:var(--c-ink-mut);font-size:var(--fs-sm)}
 .nav-menu a.nav-solo-mobile{display:none}
+/* Igual que arriba: sin este display:none de base, un <div> sin usar cae
+   al default del navegador (display:block) apenas alguna página le ponga
+   la clase, aunque el display:flex "real" viva sólo en la media query. */
+.header-fila2{display:none}
 
 /* ---------- Pestañas / paneles ---------- */
 .tabs{display:flex;gap:0;padding:0 var(--sp-4);flex-wrap:wrap;background:var(--c-surface);border-bottom:var(--border-w-strong) solid var(--c-line);overflow-x:auto;scrollbar-width:none}
@@ -132,6 +136,12 @@ select.ctrl,.pinput{border:var(--border-w) solid var(--c-line-soft);padding:var(
 .table-row:hover{background:#bfd6ec}
 .table-row:nth-child(even){background:#fafaf8}
 .table-row:nth-child(even):hover{background:#bfd6ec}
+/* Oculta por defecto: .mob-list-item sólo debía verse dentro de la media
+   query de mobile (donde se le pone display:flex más abajo), pero nunca
+   tuvo un display:none acá afuera — sin esto, un <div> sin estilo cae al
+   default del navegador (display:block) y queda visible EN ESCRITORIO
+   también, apilado debajo de cada .table-row. */
+.mob-list-item{display:none}
 .nombre-cell{font-weight:600;font-size:var(--fs-base);line-height:1.2}
 .sub-cell{font-size:var(--fs-sm);color:var(--c-ink-mut);margin-top:0;line-height:1.2}
 .table-info{font-size:var(--fs-sm);color:var(--c-ink-mut);margin-bottom:6px}
