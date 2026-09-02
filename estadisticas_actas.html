@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Estadísticas Actas</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=3"></script>
+<script src="utils.js?v=4"></script>
 <script>window.MODULO_ID='estadisticas';</script>
 <script src="personal-auth.js?v=9"></script>
 
@@ -20,7 +20,7 @@
 <!-- XLSX para carga -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-<link rel="stylesheet" href="estilo-comun.css?v=12">
+<link rel="stylesheet" href="estilo-comun.css?v=13">
 <style>
 :root{--bg:var(--c-bg);--sur:var(--c-surface);--pri:var(--c-brand);--pli:var(--c-brand-2);--acc:var(--c-accent);--txt:var(--c-ink);--mut:var(--c-ink-mut);--bor:var(--c-line-soft);--ok:var(--c-ok);--da:var(--c-danger);--r:var(--radius);}
 
@@ -205,7 +205,12 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 
 <!-- ===== FILTROS ===== -->
 <main>
-<div class="filtros" id="filtrosBar">
+<button type="button" class="mob-filter-toggle" id="filtrosToggleBtn" onclick="toggleFiltrosPanel('filtrosBar')">⚙️ Filtros</button>
+<div class="filtros mob-filter-panel" id="filtrosBar">
+  <div class="mob-filter-head">
+    <span>Filtros</span>
+    <button type="button" onclick="toggleFiltrosPanel('filtrosBar',true)">✕</button>
+  </div>
   <div class="ffield">
     <label>Operativo</label>
     <select id="fOperativo" onchange="aplicarFiltros()">
@@ -584,6 +589,7 @@ function poblarFiltros() {
 }
 
 function aplicarFiltros() {
+  actualizarBadgeFiltros('filtrosBar','filtrosToggleBtn');
   const op        = document.getElementById('fOperativo').value;
   const zona      = document.getElementById('fZona').value;
   const categoria = document.getElementById('fCategoria').value;

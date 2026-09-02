@@ -48,3 +48,27 @@ function actualizarStickyOffset() {
 }
 document.addEventListener('DOMContentLoaded', actualizarStickyOffset);
 window.addEventListener('resize', actualizarStickyOffset);
+
+// Panel de filtros colapsable (mobile): un botón "⚙️ Filtros (N)" abre el
+// mismo contenedor de filtros de escritorio como panel de pantalla completa
+// (CSS .mob-filter-panel en estilo-comun.css) — no se clona ni se mueve
+// ningún <select>/<input> a otro lado del DOM, así que sus ids y sus
+// onchange existentes siguen funcionando igual, con o sin el panel.
+function toggleFiltrosPanel(panelId, forceClose) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  if (forceClose === true) { panel.classList.remove('open'); return; }
+  panel.classList.toggle('open');
+}
+
+// Cuenta los <select>/<input> con un valor no vacío dentro del panel y
+// actualiza el label del botón que lo abre. Se llama desde la misma función
+// aplicarFiltros()/equivalente de cada página, así queda siempre al día.
+function actualizarBadgeFiltros(panelId, btnId) {
+  const panel = document.getElementById(panelId);
+  const btn = document.getElementById(btnId);
+  if (!panel || !btn) return;
+  const activos = [...panel.querySelectorAll('select,input')]
+    .filter(el => (el.value || '').trim() !== '').length;
+  btn.textContent = activos ? `⚙️ Filtros (${activos})` : '⚙️ Filtros';
+}
