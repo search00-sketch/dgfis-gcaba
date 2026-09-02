@@ -1,0 +1,15 @@
+{
+  "name": "DGFIS-GCABA",
+  "short_name": "DGFIS-GCABA",
+  "description": "Portal de herramientas internas — DGFIS-GCABA",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f2",
+  "theme_color": "#1a3a5c",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
