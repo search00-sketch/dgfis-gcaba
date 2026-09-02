@@ -226,13 +226,13 @@
 <script>window.MODULO_ID='personal';</script>
 <script src="personal-auth.js?v=9"></script>
 <script src="personal-dominio.js?v=8"></script>
-<script src="personal-datos.js?v=2"></script>
+<script src="personal-datos.js?v=3"></script>
 
 <!-- Firebase module -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
@@ -253,6 +253,7 @@ window._db      = db;
 window._fDoc    = doc;
 window._fGetDoc = getDoc;
 window._fGetDocs= getDocs;
+window._fCol    = collection;
 window._fSetDoc = setDoc;
 window._fDeleteField = deleteField;
 window._auth = auth;
@@ -679,10 +680,11 @@ function renderZonas(){
 //  MODAL VER PERSONA
 // ============================================================
 let _verPersonaId=null;
-function abrirModalVer(id){
+async function abrirModalVer(id){
   _verPersonaId=id;
   const p=window.nomina.find(x=>x.id===id);
   if(!p) return;
+  await window.cargarTodasLasDistribuciones();
   const hoy=getFecha();
   const est=getEstadoPersona(p,hoy);
   document.getElementById('mv-title').textContent=p.nombre+' · '+est;
@@ -706,9 +708,10 @@ function abrirModalVer(id){
   document.getElementById('modal-ver-overlay').classList.add('open');
 }
 function exportarHistPersona(){exportarHistPersonaId(_verPersonaId);}
-function exportarHistPersonaId(id){
+async function exportarHistPersonaId(id){
   const p=window.nomina.find(x=>x.id===id);
   if(!p) return;
+  await window.cargarTodasLasDistribuciones();
   const dists=Object.keys(window.distribuciones).filter(d=>window.distribuciones[d][id]).sort().reverse().map(d=>({
     'Fecha':d,
     'Zona':window.distribuciones[d][id],

@@ -14,6 +14,7 @@ const CACHE = {
   novedades:  { key:'dgf_personal_nov',     ts:'dgf_personal_nov_ts',     ttl: 24*60*60*1000 },
   zonas:      { key:'dgf_personal_zonas',   ts:'dgf_personal_zonas_ts',   ttl: 24*60*60*1000 },
   dist:       { key:'dgf_personal_dist_',   ts:'dgf_personal_dist_ts_',   ttl:  5*60*1000     },
+  distTodas:  { key:'dgf_personal_dist_todas', ts:'dgf_personal_dist_todas_ts', ttl: 5*60*1000 },
 };
 
 function getCache(cfg, suffix='') {
@@ -189,6 +190,25 @@ window.cargarDistFecha = async function(fecha) {
   const data = (snap && snap.exists()) ? (snap.data().asignaciones || {}) : {};
   window.distribuciones[fecha] = data;
   setCache(CACHE.dist, data, fecha);
+};
+
+// Historial de zonas por persona (ficha "Ver" y su exportación en Gestión
+// de Personal) necesita TODAS las fechas, no una sola — cargarDistFecha()
+// sólo trae una fecha por vez (y sólo "hoy" se carga sola al arrancar), así
+// que sin esto window.distribuciones queda casi siempre vacío para ese uso.
+// Mismo patrón de lectura completa que ya usa exportarBackup() en
+// Asignación de Zonas (getDocs de toda la colección "distribuciones"), acá
+// cacheado 5 min como el resto de las lecturas por fecha.
+window.cargarTodasLasDistribuciones = async function() {
+  const cached = getCache(CACHE.distTodas);
+  if (cached) { Object.assign(window.distribuciones, cached); return; }
+  try {
+    const snap = await window._fGetDocs(window._fCol(window._db, 'distribuciones'));
+    const todas = {};
+    snap.docs.forEach(d => { todas[d.id] = d.data().asignaciones || {}; });
+    Object.assign(window.distribuciones, todas);
+    setCache(CACHE.distTodas, todas);
+  } catch (e) { console.error('Error cargando historial de distribuciones:', e); }
 };
 
 // -- GUARDADO A FIREBASE ----------------------------------------------------
