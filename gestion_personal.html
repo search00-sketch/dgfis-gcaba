@@ -499,6 +499,13 @@ function renderDist(){
       <div style="font-size:13px;color:${zona?'#222;font-weight:600':'#aaa'}">${esc(zona||'Sin asignar')}</div>
       <div>${novs.map(n=>badgeNov(n.tipo)).join(' ')}${est==='Licencia'?badgeEstado('Licencia'):''}</div>
       <div><button onclick="abrirModalVer('${p.id}')" style="background:none;border:none;font-size:16px;cursor:pointer">👁</button></div>
+    </div>
+    <div class="mob-list-item" onclick="abrirModalVer('${p.id}')">
+      <div class="mob-avatar">${inicialesNombre(p.nombre)}</div>
+      <div class="mob-main">
+        <div class="mob-nombre">${esc(p.nombre)}</div>
+        <div class="mob-sub">${esc(p.turno||'—')} · ${esc(zona||'Sin asignar')}</div>
+      </div>
     </div>`;
   }).join('');
 }
