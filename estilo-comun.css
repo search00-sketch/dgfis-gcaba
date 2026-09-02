@@ -320,6 +320,14 @@ footer{padding:var(--sp-3);background:var(--c-bg);font-size:var(--fs-sm);color:v
   .mob-nombre{font-weight:600;font-size:var(--fs-base);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mob-sub{font-size:var(--fs-sm);color:var(--c-ink-mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+  /* Botón "⋮" de acciones secundarias — hereda min-height:44px de la regla
+     táctil de más abajo (es un <button>, no hace falta repetirlo acá). */
+  .mob-kebab{background:none;border:none;font-size:20px;color:var(--c-ink-mut);cursor:pointer;flex-shrink:0;padding:0 var(--sp-2)}
+
+  /* Bloque de fecha compacta (reemplaza al avatar en listas cronológicas
+     como Novedades/Historial). */
+  .mob-fecha{flex-shrink:0;text-align:center;font-size:var(--fs-sm);font-weight:700;color:var(--c-brand);min-width:40px}
+
   /* Accesibilidad táctil: 44x44px mínimo es la recomendación estándar
      (Apple HIG / Material Design) para que un dedo pueda tocar sin errar.
      Sólo botones "de verdad" (no [onclick] genérico — eso incluiría

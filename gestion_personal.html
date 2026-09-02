@@ -212,6 +212,17 @@
   </div>
 </div>
 
+<!-- MOBILE: panel de acciones secundarias (⋮ de la lista compacta) -->
+<div class="overlay" id="mob-acciones-overlay">
+  <div class="modal" style="max-width:320px">
+    <div class="modal-title" id="mob-acciones-title"></div>
+    <div id="mob-acciones-botones" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-gris" onclick="cerrarModal('mob-acciones-overlay')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script>window.MODULO_ID='personal';</script>
 <script src="personal-auth.js?v=9"></script>
 <script src="personal-dominio.js?v=8"></script>

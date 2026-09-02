@@ -173,3 +173,45 @@ function ordenarLista(lista, tablaId, getter){
     return factor * (va > vb ? 1 : va < vb ? -1 : 0);
   });
 }
+
+// ============================================================
+//  MOBILE — lista compacta (avatar/fecha + nombre + subtítulo + badge) y
+//  panel de acciones secundarias "⋮". Compartido por gestion_personal.html
+//  y novedades_personal.html.
+// ============================================================
+// Iniciales para el avatar de la lista compacta: primera letra del nombre
+// + primera del apellido (si hay más de una palabra).
+function inicialesNombre(nombre){
+  const partes=(nombre||'').trim().split(/\s+/);
+  if(!partes[0]) return '?';
+  return (partes[0][0]+(partes[1]?partes[1][0]:'')).toUpperCase();
+}
+
+const MESES_CORTOS=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+// Fecha compacta para el bloque "fecha" de las listas de Novedades/
+// Historial en mobile (reemplaza al avatar de iniciales, ya que estas
+// listas son cronológicas). Espera "YYYY-MM-DD".
+function fmtDateCorta(fecha){
+  if(!fecha) return '—';
+  const [, m, d]=fecha.split('-');
+  return d+' '+MESES_CORTOS[parseInt(m,10)-1];
+}
+
+// Panel de acciones secundarias (el "⋮" de una fila en la lista compacta
+// mobile). `acciones` = [{label, fn}, ...]. Requiere que la página host
+// tenga el markup #mob-acciones-overlay (ver Task 1, Step 3/4) y las
+// funciones cerrarModal()/esc() ya definidas (mismo patrón que el resto de
+// los modales de estas páginas).
+let _menuAccionesActuales=[];
+function abrirMenuAcciones(titulo, acciones){
+  _menuAccionesActuales=acciones;
+  document.getElementById('mob-acciones-title').textContent=titulo;
+  document.getElementById('mob-acciones-botones').innerHTML=acciones.map((a,i)=>
+    `<button class="btn btn-gris" onclick="_ejecutarAccionMenu(${i})">${esc(a.label)}</button>`
+  ).join('');
+  document.getElementById('mob-acciones-overlay').classList.add('open');
+}
+function _ejecutarAccionMenu(i){
+  cerrarModal('mob-acciones-overlay');
+  _menuAccionesActuales[i].fn();
+}
