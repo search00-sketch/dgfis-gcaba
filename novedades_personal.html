@@ -953,7 +953,16 @@ function renderNomina(){
       +(est==="Baja"
         ?"<button class=\"btn btn-sm\" style=\"background:#e8f8e8;color:#1b5e20;border:1px solid #a5d6a7\" onclick=\"reactivarPersona(\'"+p.id+"\')\" >✅</button>"
         :"<button class=\"btn btn-sm\" style=\"background:#fff5f5;color:#c0392b;border:1px solid #ef9a9a\" onclick=\"pedirBaja(\'"+p.id+"\')\" >🚫</button>")
-      +"</div></div>";
+      +"</div></div>"
+      +"<div class=\"mob-list-item\" onclick=\"abrirModalVer('"+p.id+"')\">"
+      +"<div class=\"mob-avatar\">"+inicialesNombre(p.nombre)+"</div>"
+      +"<div class=\"mob-main\">"
+      +"<div class=\"mob-nombre\">"+esc(p.nombre)+(rol==="Chofer"?" 🚗":"")+"</div>"
+      +"<div class=\"mob-sub\">"+esc(rol)+" · "+esc(p.turno||"—")+"</div>"
+      +"</div>"
+      +badgeEstado(est)
+      +"<button class=\"mob-kebab\" onclick=\"event.stopPropagation();abrirMenuAcciones('"+escJsAttr(p.nombre)+"',[{label:'✏️ Editar',fn:()=>abrirModalPersona('"+p.id+"')},{label:'➕ Agregar novedad',fn:()=>abrirModalNovedad('"+p.id+"')},{label:'"+(est==="Baja"?"✅ Reactivar":"🚫 Dar de baja")+"',fn:()=>"+(est==="Baja"?"reactivarPersona":"pedirBaja")+"('"+p.id+"')}])\">⋮</button>"
+      +"</div>";
   }).join("");
 }
 
