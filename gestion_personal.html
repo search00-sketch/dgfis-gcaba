@@ -762,14 +762,17 @@ function exportarNominaCompleta(){
   const hoy=getFecha();
   exportNominaExcel(window.nomina, `nomina_completa_${hoy}.xlsx`, 'NOMINA COMPLETA');
 }
-function exportarHistorialNovedades(){
+async function exportarHistorialNovedades(){
+  await window.cargarTodasLasDistribuciones();
   const rows=[...window.novedades].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const zona=(window.distribuciones[n.fecha]||{})[n.personaId]||'';
     return {
       'Fecha':          n.fecha,
       'Apellido y Nombre': p.nombre||n.personaId,
       'Turno':          p.turno||'',
       'DNI':            p.dni||'',
+      'Zona':           zona,
       'Tipo':           n.tipo,
       'Inicio Licencia':n.licIni||'',
       'Fin Licencia':   n.licFin||'',
@@ -780,7 +783,7 @@ function exportarHistorialNovedades(){
   const ws = XLSX.utils.json_to_sheet(rows);
   // Ancho de columnas
   ws['!cols'] = [
-    {wch:12},{wch:35},{wch:18},{wch:12},{wch:20},{wch:14},{wch:14},{wch:40}
+    {wch:12},{wch:35},{wch:18},{wch:12},{wch:18},{wch:14},{wch:14},{wch:14},{wch:40}
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'NOVEDADES');

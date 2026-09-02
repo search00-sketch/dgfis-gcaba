@@ -467,7 +467,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
@@ -487,6 +487,8 @@ const auth = getAuth(app);
 window._db      = db;
 window._fDoc    = doc;
 window._fGetDoc = getDoc;
+window._fGetDocs= getDocs;
+window._fCol    = collection;
 window._fSetDoc = setDoc;
 window._fDeleteField = deleteField;
 window._auth = auth;
@@ -1251,16 +1253,18 @@ function exportarActivos(){
   exportNominaExcel(window.nomina.filter(p=>getEstadoPersona(p,hoy)==="Activo"),"nomina_activos_"+hoy+".xlsx","ACTIVOS");
 }
 function exportarNominaCompleta(){exportNominaExcel(window.nomina,"nomina_completa_"+getFecha()+".xlsx","NOMINA COMPLETA");}
-function exportarHistorialNovedades(){
+async function exportarHistorialNovedades(){
   // Exporta respetando los mismos filtros que se ven en pantalla (búsqueda,
   // varios tipos a la vez, rango de fechas) — no sólo los primeros 200 mostrados
+  await window.cargarTodasLasDistribuciones();
   const rows=historialFiltrado().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
-    return{"Fecha":n.fecha,"Nombre":p.nombre||n.personaId,"Turno":p.turno||"","Rol":p.rol||"","DNI":p.dni||"","Tipo":n.tipo,"Inicio Licencia":n.licIni||"","Fin Licencia":n.licFin||"","Detalle":n.detalle||""};
+    const zona=(window.distribuciones[n.fecha]||{})[n.personaId]||"";
+    return{"Fecha":n.fecha,"Nombre":p.nombre||n.personaId,"Turno":p.turno||"","Rol":p.rol||"","DNI":p.dni||"","Zona":zona,"Tipo":n.tipo,"Inicio Licencia":n.licIni||"","Fin Licencia":n.licFin||"","Detalle":n.detalle||""};
   });
   if(!rows.length){toast("Sin novedades para los filtros seleccionados.");return;}
   const ws=XLSX.utils.json_to_sheet(rows);
-  ws["!cols"]=[{wch:12},{wch:35},{wch:18},{wch:18},{wch:12},{wch:20},{wch:14},{wch:14},{wch:40}];
+  ws["!cols"]=[{wch:12},{wch:35},{wch:18},{wch:18},{wch:12},{wch:18},{wch:20},{wch:14},{wch:14},{wch:40}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"NOVEDADES");
   XLSX.writeFile(wb,"historial_novedades_"+todayISO()+".xlsx");
   toast("✅ Historial exportado ("+rows.length+" registros)");
