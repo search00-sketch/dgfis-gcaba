@@ -315,6 +315,16 @@ footer{padding:var(--sp-3);background:var(--c-bg);font-size:var(--fs-sm);color:v
      mismo modal "👁 Ver" que ya existe en cada página. */
   .mob-list-item{display:flex;align-items:center;gap:var(--sp-3);padding:10px var(--sp-2);border-bottom:var(--border-w) solid var(--c-line-soft);cursor:pointer}
   .mob-list-item:hover,.mob-list-item:active{background:var(--c-bg)}
+
+  /* Oculta la fila de escritorio (.table-row) en las tablas que ya tienen
+     su .mob-list-item hermano — si no, se muestran las dos apiladas.
+     Acotado por id de contenedor (no global) para no tocar tablas que
+     todavía no migraron a lista compacta y siguen con scroll horizontal
+     (Distribución de Asignación de Zonas, Carga diaria, Ranking, etc.). */
+  #dist-body .table-row,
+  #nom-body .table-row,
+  #nov-body .table-row,
+  #hist-body .table-row{display:none}
   .mob-avatar{width:36px;height:36px;border-radius:50%;background:var(--c-brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-sm);flex-shrink:0}
   .mob-main{flex:1;min-width:0}
   .mob-nombre{font-weight:600;font-size:var(--fs-base);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
