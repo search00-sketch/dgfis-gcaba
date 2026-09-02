@@ -351,6 +351,11 @@ footer{padding:var(--sp-3);background:var(--c-bg);font-size:var(--fs-sm);color:v
      scroll horizontal que ya tienen. */
   .table-head.mob-hide-head{display:none}
 
+  /* Utilidad genérica: ocultar cualquier elemento sólo en mobile (ej. un
+     encabezado de columnas que no es .table-head, como el de la tabla de
+     importación de WhatsApp en Relevamientos). */
+  .mob-hide{display:none}
+
   /* Filas editables (Asignación de Zonas, Carga diaria de novedades): en
      vez de duplicar el <select> en una tarjeta aparte (como .mob-list-item
      para las tablas de solo lectura), se reordena la MISMA fila con CSS.
