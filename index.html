@@ -10,6 +10,11 @@
 <script src="personal-auth.js?v=9"></script>
 <script src="personal-nav.js?v=2"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=14">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#1a3a5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DGFIS-GCABA">
 <style>
 body{min-height:100vh;display:flex;flex-direction:column}
 .lbox .lic{font-size:2.4rem;margin-bottom:8px}
@@ -137,6 +142,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   <div class="welcome">
     <h2 id="welcomeTitle">Bienvenido</h2>
     <p id="welcomeSub">Seleccioná un módulo para comenzar.</p>
+    <button id="pwaInstallBtn" class="btn btn-azul" style="display:none;margin-top:10px" onclick="instalarPWA()">📲 Instalar app</button>
   </div>
 
   <!-- Módulos -->
@@ -145,6 +151,40 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 
 <footer>DGFIS-GCABA &nbsp;|&nbsp; Uso interno</footer>
 
+<script>
+// Botón de instalar como app (PWA). beforeinstallprompt sólo existe en
+// Chrome/Edge/Android — en iOS Safari y Firefox de escritorio el botón
+// simplemente no aparece nunca (no es un bug: esas plataformas no
+// permiten disparar el flujo de instalación por código). En iOS, una vez
+// que el manifest + apple-touch-icon están enlazados, el usuario puede
+// instalar igual a mano desde Compartir → "Agregar a inicio".
+let deferredPwaPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPwaPrompt = e;
+  const btn = document.getElementById('pwaInstallBtn');
+  if (btn) btn.style.display = 'inline-flex';
+});
+
+async function instalarPWA() {
+  if (!deferredPwaPrompt) return;
+  deferredPwaPrompt.prompt();
+  await deferredPwaPrompt.userChoice;
+  deferredPwaPrompt = null;
+  const btn = document.getElementById('pwaInstallBtn');
+  if (btn) btn.style.display = 'none';
+}
+
+window.addEventListener('appinstalled', () => {
+  const btn = document.getElementById('pwaInstallBtn');
+  if (btn) btn.style.display = 'none';
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+}
+</script>
 <script type="module">
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
