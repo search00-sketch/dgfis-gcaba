@@ -8,13 +8,14 @@
 <script src="config.js"></script>
 <script src="utils.js?v=3"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="estilo-comun.css?v=11">
+<link rel="stylesheet" href="estilo-comun.css?v=12">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
 
 .grid-dist{grid-template-columns:2fr .9fr 1.4fr 1.2fr 50px}
 .grid-nom{grid-template-columns:2fr .9fr .9fr .8fr 120px}
 .grid-hist{grid-template-columns:90px 2fr 1fr 2fr 64px}
+.grid-carga{grid-template-columns:2fr .9fr 1.1fr 1.2fr}
 .bdg-nov-presente{color:#2e7d32}
 
 .tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
@@ -168,7 +169,7 @@
       <span id="carga-info" style="font-size:.78rem;color:#888;align-self:center"></span>
     </div>
     <div class="table-wrap">
-      <div class="table-head" id="carga-head" style="grid-template-columns:2fr .9fr 1.1fr 1.2fr"></div>
+      <div class="table-head grid-carga mob-hide-head" id="carga-head"></div>
       <div class="table-body" id="carga-body" style="max-height:420px"></div>
     </div>
   </div>
@@ -194,7 +195,7 @@
   </div>
   <div class="table-info" id="nom-info"></div>
   <div class="table-wrap">
-    <div class="table-head" id="nom-head" style="grid-template-columns:2fr .9fr .8fr .8fr .8fr 120px"></div>
+    <div class="table-head mob-hide-head" id="nom-head" style="grid-template-columns:2fr .9fr .8fr .8fr .8fr 120px"></div>
     <div class="table-body mob-migrated" id="nom-body"></div>
   </div>
 </div>
@@ -221,7 +222,7 @@
   </div>
   <div class="table-info" id="hist-info"></div>
   <div class="table-wrap">
-    <div class="table-head grid-hist" id="hist-head"></div>
+    <div class="table-head grid-hist mob-hide-head" id="hist-head"></div>
     <div class="table-body mob-migrated" id="hist-body"></div>
   </div>
 </div>
@@ -736,7 +737,7 @@ function renderCargaDiaria(){
     }
 
     const zona=dist[p.id]||"";
-    return "<div class=\"table-row\" style=\"grid-template-columns:2fr .9fr 1.1fr 1.2fr\">"
+    return "<div class=\"table-row grid-carga\">"
       +"<span style=\"font-weight:600\">"+esc(p.nombre)+"</span>"
       +badgeTurno(p.turno)
       +"<span style=\"font-size:12px;color:"+(zona?"#333":"#aaa")+"\">"+esc(zona||"Sin asignar")+"</span>"

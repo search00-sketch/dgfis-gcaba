@@ -332,6 +332,26 @@ footer{padding:var(--sp-3);background:var(--c-bg);font-size:var(--fs-sm);color:v
      táctil de más abajo (es un <button>, no hace falta repetirlo acá). */
   .mob-kebab{background:none;border:none;font-size:20px;color:var(--c-ink-mut);cursor:pointer;flex-shrink:0;padding:0 var(--sp-2)}
 
+  /* Encabezado de tabla (.table-head): con columnas fijas de escritorio,
+     queda apretado/roto en mobile. Se oculta en las tablas que ya tienen
+     algún tratamiento mobile (lista compacta o fila reordenada más abajo)
+     — los selects de las filas editables son autoexplicativos por sus
+     propias opciones, no necesitan el rótulo de columna. Va por clase
+     explícita porque no todas las tablas migraron todavía (Ranking,
+     Relevamientos, Buscador…) y esas sí necesitan su encabezado con el
+     scroll horizontal que ya tienen. */
+  .table-head.mob-hide-head{display:none}
+
+  /* Filas editables (Asignación de Zonas, Carga diaria de novedades): en
+     vez de duplicar el <select> en una tarjeta aparte (como .mob-list-item
+     para las tablas de solo lectura), se reordena la MISMA fila con CSS.
+     Duplicar el control habría dejado dos <select> por persona a la vez
+     en el DOM, y guardarCargaDiaria()/asignarZona() sólo esperan uno. */
+  .grid-dist,.grid-carga{display:block;padding:10px var(--sp-3)}
+  .grid-dist>*,.grid-carga>*{margin-bottom:4px}
+  .grid-carga>*{display:block}
+  .grid-dist .zona-select{width:100%}
+
   /* Bloque de fecha compacta (reemplaza al avatar en listas cronológicas
      como Novedades/Historial). */
   .mob-fecha{flex-shrink:0;text-align:center;font-size:var(--fs-sm);font-weight:700;color:var(--c-brand);min-width:40px}
