@@ -887,6 +887,15 @@ function renderHistorial(){
       +"<button onclick=\"editarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#2563a8;cursor:pointer;font-size:13px\">✏️</button>"
       +"<button onclick=\"borrarNovedad(\'"+n.id+"\')\" style=\"background:none;border:none;color:#c0392b;cursor:pointer;font-size:13px\">✕</button>"
       +"</span>"
+      +"</div>"
+      +"<div class=\"mob-list-item\">"
+      +"<div class=\"mob-fecha\">"+fmtDateCorta(n.fecha)+"</div>"
+      +"<div class=\"mob-main\">"
+      +"<div class=\"mob-nombre\">"+esc(p.nombre)+"</div>"
+      +"<div class=\"mob-sub\">"+detalleTxt+"</div>"
+      +"</div>"
+      +badgeNov(n.tipo)
+      +"<button class=\"mob-kebab\" onclick=\"abrirMenuAcciones('"+escJsAttr(p.nombre)+"',[{label:'✏️ Editar',fn:()=>editarNovedad('"+n.id+"')},{label:'✕ Eliminar',fn:()=>borrarNovedad('"+n.id+"')}])\">⋮</button>"
       +"</div>";
   }).join("");
 }
