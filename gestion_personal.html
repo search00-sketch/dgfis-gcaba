@@ -552,6 +552,15 @@ function renderNomina(){
         <button class="btn btn-gris btn-sm" onclick="abrirModalVer('${p.id}')">👁 Ver</button>
         <button class="btn btn-gris btn-sm" onclick="exportarHistPersonaId('${p.id}')" title="Exportar">📥</button>
       </div>
+    </div>
+    <div class="mob-list-item" onclick="abrirModalVer('${p.id}')">
+      <div class="mob-avatar">${inicialesNombre(p.nombre)}</div>
+      <div class="mob-main">
+        <div class="mob-nombre">${esc(p.nombre)}</div>
+        <div class="mob-sub">${esc(p.rol||'Inspector')} · ${esc(p.turno||'—')}</div>
+      </div>
+      ${badgeEstado(est)}
+      <button class="mob-kebab" onclick="event.stopPropagation();abrirMenuAcciones('${escJsAttr(p.nombre)}',[{label:'📥 Exportar',fn:()=>exportarHistPersonaId('${p.id}')}])">⋮</button>
     </div>`;
   }).join('');
 }
