@@ -740,10 +740,11 @@ function renderCargaDiaria(){
     }
 
     const zona=dist[p.id]||"";
+    const zonaOpts="<option value=\"\">— Sin asignar —</option>"+allZonas().map(z=>"<option value=\""+esc(z)+"\""+(z===zona?" selected":"")+">"+esc(z)+"</option>").join("");
     return "<div class=\"table-row grid-carga\">"
       +"<span style=\"font-weight:600\">"+esc(p.nombre)+"</span>"
       +badgeTurno(p.turno)
-      +"<span style=\"font-size:12px;color:"+(zona?"#333":"#aaa")+"\">"+esc(zona||"Sin asignar")+"</span>"
+      +"<select class=\"ctrl zona-select"+(zona?" asignada":"")+"\" style=\"font-size:12px\" onchange=\"onCargaZonaChange(this,'"+p.id+"')\">"+zonaOpts+"</select>"
       +"<span>"+estadoHtml+"</span>"
       +"</div>";
   }).join("") || "<div style=\"padding:16px;color:#aaa;text-align:center\">Sin personas activas para este filtro.</div>";
@@ -759,6 +760,30 @@ function onCargaEstadoChange(sel){
   if(!obs) return;
   if(sel.value==="Presente"||sel.value===""){ obs.style.display="none"; obs.value=""; }
   else { obs.style.display="block"; }
+}
+
+// Cambio puntual de zona desde Carga diaria (ej: hoy este inspector va a
+// otra zona) — mismo mecanismo que asignarZona() en Asignación de Zonas:
+// actualiza el estado local al toque para que se vea al instante, y
+// debounce de 1.5s por persona+fecha antes de escribir de verdad (así
+// varios cambios seguidos sobre la misma fila no disparan una escritura
+// por cada uno). Requiere permiso de "novedades" (además de "asignación",
+// que ya lo tenía) — ver firestore.rules.
+function onCargaZonaChange(sel,pid){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");renderCargaDiaria();return;}
+  const fecha=getFecha();
+  const zona=sel.value;
+  if(!window.distribuciones[fecha])window.distribuciones[fecha]={};
+  if(zona)window.distribuciones[fecha][pid]=zona;
+  else delete window.distribuciones[fecha][pid];
+  sel.classList.toggle("asignada",!!zona);
+  if(!window._cargaZonaTimers)window._cargaZonaTimers={};
+  const key=fecha+"|"+pid;
+  clearTimeout(window._cargaZonaTimers[key]);
+  window._cargaZonaTimers[key]=setTimeout(async()=>{
+    try{ await window._guardarAsignacion(fecha,pid,zona); }
+    catch(e){ toast("❌ Error al guardar la zona: "+e.message,4000); console.error(e); }
+  },1500);
 }
 
 async function guardarCargaDiaria(){

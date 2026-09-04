@@ -78,13 +78,15 @@ service cloud.firestore {
     match /novedades_chunks/{doc} { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('novedades'); }
     match /novedades_meta/{doc}   { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('novedades'); }
 
-    // ---- Distribución diaria por zona (Asignación edita) -----------------
+    // ---- Distribución diaria por zona (Asignación edita; Novedades
+    // también puede reasignar la zona de un día puntual desde Carga
+    // diaria, sin necesitar el módulo Asignación) -------------------------
     match /distribuciones/{fecha} {
       allow read:  if tieneAlgunModuloPersonal();
-      allow write: if puedeEditar('asignacion');
+      allow write: if puedeEditar('asignacion') || puedeEditar('novedades');
       match /asignaciones/{personaId} {
         allow read:  if tieneAlgunModuloPersonal();
-        allow write: if puedeEditar('asignacion');
+        allow write: if puedeEditar('asignacion') || puedeEditar('novedades');
       }
     }
   }
