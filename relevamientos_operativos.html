@@ -316,7 +316,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteField, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
@@ -335,6 +335,7 @@ window._db      = db;
 window._fDoc    = doc;
 window._fGetDoc = getDoc;
 window._fSetDoc = setDoc;
+window._fRunTransaction = runTransaction;
 window._auth = auth;
 window._fOnAuthStateChanged = onAuthStateChanged;
 window._fSignIn  = signInWithEmailAndPassword;
@@ -488,6 +489,22 @@ async function leerRelevamientos(){
   setCacheRel(recs);
   return recs;
 }
+// Sube numChunks al valor pedido SÓLO si es mayor al que ya hay en
+// Firestore — nunca lo baja. Corre en una transacción para que dos
+// guardados que se superpongan (dos pestañas, o una importación masiva
+// corriendo dos veces) no puedan pisarse y esconder chunks que sí existen
+// (mismo bug real que se encontró y arregló en novedades — ver
+// personal-datos.js).
+async function bumpNumChunksRelevamientosSiHaceFalta(numChunksNecesario){
+  const metaRef=window._fDoc(window._db,"relevamientos_meta","index");
+  await window._fRunTransaction(window._db, async (tx) => {
+    const snap = await tx.get(metaRef);
+    const actual = snap.exists() ? (snap.data().numChunks || 0) : 0;
+    if (numChunksNecesario > actual) {
+      tx.set(metaRef, { numChunks: numChunksNecesario }, { merge: true });
+    }
+  });
+}
 async function guardarRelevamientoChunked(registro,coleccionActual){
   const {id,_chunk,...datos}=registro;
   let chunkIdx=_chunk;
@@ -496,7 +513,7 @@ async function guardarRelevamientoChunked(registro,coleccionActual){
     const numChunks=(metaSnap&&metaSnap.exists())?(metaSnap.data().numChunks||0):0;
     chunkIdx=Math.min(Math.floor(coleccionActual.length/CHUNK_SIZE),numChunks);
     if(chunkIdx>=numChunks){
-      await window._fSetDoc(window._fDoc(window._db,"relevamientos_meta","index"),{numChunks:chunkIdx+1},{merge:true});
+      await bumpNumChunksRelevamientosSiHaceFalta(chunkIdx+1);
     }
   }
   await window._fUpdateOrCrear(window._fDoc(window._db,"relevamientos_chunks","chunk_"+chunkIdx),{["registros."+id]:datos});
