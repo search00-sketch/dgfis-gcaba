@@ -189,8 +189,8 @@
   </div>
   <div class="gestion-zonas">
     <div class="gz-title">🔄 Acciones</div>
+    <p style="font-size:.8rem;color:#888;margin-bottom:10px">El backup completo del sistema (nómina, novedades, permisos, actas, relevamientos, etc.) ahora se descarga desde el <a href="index.html">Portal</a> → panel de administración.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-gris" onclick="exportarBackup()">💾 Backup completo (JSON)</button>
       <button class="btn btn-rojo" onclick="if(confirm('⚠️ Esto borra PARA SIEMPRE el historial completo de asignaciones de zona de TODAS las fechas (no sólo las de hoy), de la base de datos real. No se puede deshacer. ¿Confirmás?'))limpiarDistribuciones()">🗑 Limpiar distribuciones</button>
     </div>
   </div>
@@ -917,27 +917,6 @@ async function precargarFeriados(){
   renderFeriados();renderDist();
   await window._guardarFeriados(window.feriados,window.feriadosDesc);
   toast("✅ "+agregados+" feriados precargados");
-}
-
-async function exportarBackup(){
-  // window.distribuciones sólo tiene en memoria las fechas ya consultadas en
-  // esta sesión (caché por fecha) — para que el backup sea realmente
-  // completo hay que traer la colección entera de Firestore, igual que hace
-  // limpiarDistribuciones() antes de borrarla.
-  toast("Preparando backup…");
-  const distSnap=await window._fGetDocs(window._fCol(window._db,"distribuciones"));
-  const distribucionesCompletas={};
-  distSnap.docs.forEach(d=>{distribucionesCompletas[d.id]=d.data();});
-  const data={
-    nomina:window.nomina,novedades:window.novedades,zonas:window.zonas,eventos:window.eventos,
-    distribuciones:distribucionesCompletas,
-    feriados:{lista:window.feriados||[],desc:window.feriadosDesc||{}},
-    fecha:new Date().toISOString()
-  };
-  const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(b);
-  a.download="backup_personal_"+todayISO()+".json";a.click();
-  toast("✅ Backup exportado");
 }
 
 async function limpiarDistribuciones(){

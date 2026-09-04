@@ -216,8 +216,8 @@ window.cargarDistFecha = async function(fecha) {
 // de Personal) necesita TODAS las fechas, no una sola — cargarDistFecha()
 // sólo trae una fecha por vez (y sólo "hoy" se carga sola al arrancar), así
 // que sin esto window.distribuciones queda casi siempre vacío para ese uso.
-// Mismo patrón de lectura completa que ya usa exportarBackup() en
-// Asignación de Zonas (getDocs de toda la colección "distribuciones"), acá
+// Mismo patrón de lectura completa que usa exportarBackupCompleto() en
+// index.html (getDocs de toda la colección "distribuciones"), acá
 // cacheado 5 min como el resto de las lecturas por fecha.
 window.cargarTodasLasDistribuciones = async function() {
   const cached = getCache(CACHE.distTodas);

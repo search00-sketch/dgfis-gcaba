@@ -135,6 +135,11 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
       </div>
       <button class="abtn success" onclick="addUser()">+ Agregar usuario</button>
     </div>
+
+    <h3 style="margin-top:24px">💾 Backup</h3>
+    <p class="subtitle">Descarga un único JSON con todos los datos del sistema (nómina, novedades, relevamientos, permisos, actas, distribución por zona, configuración y usuarios). No modifica nada — es sólo lectura.</p>
+    <button class="abtn" id="backupCompletoBtn" onclick="exportarBackupCompleto()">💾 Exportar backup completo</button>
+
     <div class="toast-msg" id="adminToast"></div>
   </div>
 
@@ -383,6 +388,115 @@ async function loadUserTable() {
     tbody.innerHTML = '<tr><td colspan="6" style="color:var(--c-danger);padding:12px">Error al cargar usuarios.</td></tr>';
   }
 }
+
+// -- BACKUP COMPLETO (sólo lectura, no modifica nada) --------------------
+// Junta TODAS las colecciones del sistema en un único JSON descargable.
+// Cada colección se lee independiente y con su propio try/catch: si una
+// falla (permisos, red), no bloquea a las demás — el resumen final dice
+// cuáles salieron bien y cuáles no, en vez de fallar todo en silencio.
+async function leerChunkedMapa(nombreCol) {
+  // nomina/novedades/relevamientos: cada chunk guarda {registros:{id:{...}}}
+  const metaSnap = await getDoc(doc(db, nombreCol+'_meta', 'index')).catch(()=>null);
+  const numChunks = (metaSnap && metaSnap.exists()) ? (metaSnap.data().numChunks||0) : 0;
+  const chunkSnaps = await Promise.all(
+    Array.from({length: numChunks}, (_,i) => getDoc(doc(db, nombreCol+'_chunks', 'chunk_'+i)))
+  );
+  const recs = [];
+  chunkSnaps.forEach(snap => {
+    if (!snap || !snap.exists()) return;
+    Object.entries(snap.data().registros || {}).forEach(([id, datos]) => recs.push({ id, ...datos }));
+  });
+  return recs;
+}
+async function leerChunkedArray(nombreCol) {
+  // permisos/actas: cada chunk guarda {registros:[...]}, contador "totalChunks"
+  const metaSnap = await getDoc(doc(db, nombreCol+'_meta', 'index')).catch(()=>null);
+  const totalChunks = (metaSnap && metaSnap.exists()) ? (metaSnap.data().totalChunks||0) : 0;
+  const chunkSnaps = await Promise.all(
+    Array.from({length: totalChunks}, (_,i) => getDoc(doc(db, nombreCol+'_chunks', 'chunk_'+i)))
+  );
+  const recs = [];
+  chunkSnaps.forEach(snap => {
+    if (!snap || !snap.exists()) return;
+    recs.push(...(snap.data().registros || []));
+  });
+  return recs;
+}
+window.exportarBackupCompleto = async function() {
+  const btn = document.getElementById('backupCompletoBtn');
+  if (btn) btn.disabled = true;
+  showAdminToast('Preparando backup completo…', 'ok');
+
+  const resultado = { fecha: new Date().toISOString() };
+  const resumen = [];
+  async function intentar(nombre, fn) {
+    try {
+      const datos = await fn();
+      resultado[nombre] = datos;
+      const cuenta = Array.isArray(datos) ? datos.length : Object.keys(datos||{}).length;
+      resumen.push(nombre+': '+cuenta);
+    } catch (e) {
+      resultado[nombre] = null;
+      resultado['_error_'+nombre] = String((e&&e.message)||e);
+      resumen.push(nombre+': ERROR');
+    }
+  }
+
+  await intentar('nomina', () => leerChunkedMapa('nomina'));
+  await intentar('novedades', () => leerChunkedMapa('novedades'));
+  await intentar('relevamientos', () => leerChunkedMapa('relevamientos'));
+  await intentar('permisos', () => leerChunkedArray('permisos'));
+  await intentar('actas', () => leerChunkedArray('actas'));
+  await intentar('distribuciones', async () => {
+    const snap = await getDocs(collection(db, 'distribuciones'));
+    const out = {};
+    snap.forEach(d => { out[d.id] = d.data().asignaciones || {}; });
+    return out;
+  });
+  await intentar('personal_config', async () => {
+    const [zonasSnap, tiposSnap, feriadosSnap] = await Promise.all([
+      getDoc(doc(db,'personal_config','zonas')),
+      getDoc(doc(db,'personal_config','tipos_novedad')),
+      getDoc(doc(db,'personal_config','feriados')),
+    ]);
+    return {
+      zonas: zonasSnap.exists() ? (zonasSnap.data().lista||[]) : [],
+      tiposNovedad: tiposSnap.exists() ? (tiposSnap.data().lista||[]) : [],
+      feriados: feriadosSnap.exists() ? feriadosSnap.data() : {},
+    };
+  });
+  await intentar('relevamientos_config', async () => {
+    const [zSnap, tSnap] = await Promise.all([
+      getDoc(doc(db,'relevamientos_config','zonas')),
+      getDoc(doc(db,'relevamientos_config','tematicas')),
+    ]);
+    return {
+      zonas: zSnap.exists() ? (zSnap.data().lista||[]) : [],
+      tematicas: tSnap.exists() ? (tSnap.data().lista||[]) : [],
+    };
+  });
+  await intentar('usuarios', async () => {
+    const snap = await getDocs(collection(db, 'usuarios'));
+    const out = [];
+    snap.forEach(d => out.push({ uid: d.id, ...d.data() }));
+    return out;
+  });
+  await intentar('login_lookup', async () => {
+    const snap = await getDocs(collection(db, 'login_lookup'));
+    const out = {};
+    snap.forEach(d => { out[d.id] = d.data(); });
+    return out;
+  });
+
+  const blob = new Blob([JSON.stringify(resultado, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'backup_completo_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+
+  if (btn) btn.disabled = false;
+  showAdminToast('✅ Backup exportado — ' + resumen.join(' · '), 'ok');
+};
 
 // -- ENVIAR EMAIL DE RESTABLECIMIENTO (reemplaza "cambiar contraseña de
 //    otro usuario", que ya no es posible sin backend — ver spec) --------
