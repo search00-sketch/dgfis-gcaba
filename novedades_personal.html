@@ -726,15 +726,17 @@ function renderCargaDiaria(){
   document.getElementById("carga-body").innerHTML=activos.map(p=>{
     const existente=novedadDePersonaEnFecha(p.id,fecha);
     const editable=!existente||existente.tipo==="Presente";
-    const valorActual=existente?existente.tipo:"";
-    const presenteAutomatico=esOficina(p)&&!existente;
-    if(presenteAutomatico){ /* no cuenta ni como pendiente ni como excepción */ }
-    else if(editable && !existente) sinCargar++; else if(!editable) conExcepcion++;
+    const esOfic=esOficina(p);
+    // Administrativo/Gerencia sin registro todavía: se precarga "Presente"
+    // en vez de "— Sin cargar —" (no cuenta como pendiente), pero sigue
+    // siendo el mismo <select> editable que el resto — si alguien lo
+    // cambia acá mismo y aprieta "Guardar carga diaria", se guarda igual
+    // que cualquier otra excepción.
+    const valorActual=existente?existente.tipo:(esOfic?"Presente":"");
+    if(editable && !existente && !esOfic) sinCargar++; else if(!editable) conExcepcion++;
 
     let estadoHtml;
-    if(presenteAutomatico){
-      estadoHtml=badgeNov("Presente")+"<span style=\"font-size:10px;color:#aaa;margin-left:6px\" title=\"Administrativo/Gerencia: presente por defecto salvo que se cargue una excepción desde Nómina\">🏢</span>";
-    } else if(editable){
+    if(editable){
       const pendiente=valorActual==="";
       estadoHtml="<select class=\"ctrl carga-select\" data-pid=\""+p.id+"\" style=\"width:100%"+(pendiente?";border-color:#e74c3c;background:#fff5f5":"")+"\" onchange=\"onCargaEstadoChange(this)\">"
         +"<option value=\"\""+(pendiente?" selected":"")+">— Sin cargar —</option>"
