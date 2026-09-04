@@ -65,6 +65,26 @@ async function leerColeccionChunked(nombreCol, cacheConf) {
   return recs;
 }
 
+// Sube numChunks al valor pedido SÓLO si es mayor al que ya hay en
+// Firestore — nunca lo baja. Corre dentro de una transacción (lee el
+// valor actual y escribe en la misma operación atómica) para que dos
+// altas/imports que se superpongan no puedan pisarse: sin esto, un import
+// que arrancó con una foto vieja de numChunks podía terminar escribiendo
+// un valor MENOR al que otro import (u otra alta) ya había dejado,
+// "escondiendo" chunks que sí existen en Firestore. Así se detectó y
+// arregló un caso real en novedades: numChunks decía 8 con 26 chunks
+// reales guardados (8663 registros invisibles para la app).
+async function bumpNumChunksSiHaceFalta(nombreCol, numChunksNecesario) {
+  const metaRef = window._fDoc(window._db, nombreCol+'_meta', 'index');
+  await window._fRunTransaction(window._db, async (tx) => {
+    const snap = await tx.get(metaRef);
+    const actual = snap.exists() ? (snap.data().numChunks || 0) : 0;
+    if (numChunksNecesario > actual) {
+      tx.set(metaRef, { numChunks: numChunksNecesario }, { merge: true });
+    }
+  });
+}
+
 // Alta o edición de UN registro. Si ya tiene "_chunk" (venía de una lectura
 // previa) actualiza sólo esa clave del chunk; si es nuevo, lo agrega al
 // último chunk (o crea uno nuevo si el último está lleno).
@@ -76,7 +96,7 @@ async function guardarRegistroChunked(nombreCol, cacheConf, registro, coleccionA
     const numChunks = (metaSnap && metaSnap.exists()) ? (metaSnap.data().numChunks||0) : 0;
     chunkIdx = Math.min(Math.floor(coleccionActual.length / CHUNK_SIZE), numChunks);
     if (chunkIdx >= numChunks) {
-      await window._fSetDoc(window._fDoc(window._db, nombreCol+'_meta','index'), { numChunks: chunkIdx+1 }, { merge:true });
+      await bumpNumChunksSiHaceFalta(nombreCol, chunkIdx + 1);
     }
   }
   await window._fUpdateOrCrear(window._fDoc(window._db, nombreCol+'_chunks', 'chunk_'+chunkIdx), { ['registros.'+id]: datos });
@@ -117,7 +137,7 @@ async function guardarRegistrosBulkChunked(nombreCol, cacheConf, lista, coleccio
     registro._chunk = chunkIdx;
   });
 
-  await window._fSetDoc(window._fDoc(window._db, nombreCol+'_meta','index'), { numChunks }, { merge:true });
+  await bumpNumChunksSiHaceFalta(nombreCol, numChunks);
   await Promise.all(Object.entries(porChunk).map(([idx, campos]) =>
     window._fUpdateOrCrear(window._fDoc(window._db, nombreCol+'_chunks', 'chunk_'+idx), campos)
   ));

@@ -253,13 +253,13 @@
 <script>window.MODULO_ID='asignacion';</script>
 <script src="personal-auth.js?v=9"></script>
 <script src="personal-dominio.js?v=8"></script>
-<script src="personal-datos.js?v=3"></script>
+<script src="personal-datos.js?v=4"></script>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, collection, collectionGroup, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, collection, collectionGroup, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
@@ -283,6 +283,7 @@ window._fGetDocs= getDocs;
 window._fSetDoc = setDoc;
 window._fDelDoc = deleteDoc;
 window._fCol    = collection;
+window._fRunTransaction = runTransaction;
 window._fColGroup = collectionGroup;
 window._fBatch  = writeBatch;
 window._fDeleteField = deleteField;

@@ -226,13 +226,13 @@
 <script>window.MODULO_ID='personal';</script>
 <script src="personal-auth.js?v=9"></script>
 <script src="personal-dominio.js?v=8"></script>
-<script src="personal-datos.js?v=3"></script>
+<script src="personal-datos.js?v=4"></script>
 
 <!-- Firebase module -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
-import { getFirestore, doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteField, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
@@ -254,6 +254,7 @@ window._fDoc    = doc;
 window._fGetDoc = getDoc;
 window._fGetDocs= getDocs;
 window._fCol    = collection;
+window._fRunTransaction = runTransaction;
 window._fSetDoc = setDoc;
 window._fDeleteField = deleteField;
 window._auth = auth;
