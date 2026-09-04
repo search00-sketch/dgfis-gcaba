@@ -619,10 +619,7 @@ function poblarSelects(){
   const rt=document.getElementById("rank-turno");
   if(rt) rt.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   const ct=document.getElementById("carga-turno");
-  // Administrativo/Gerencia no aparecen en Carga diaria (ver renderCargaDiaria),
-  // así que tampoco tiene sentido ofrecerlos como opción de filtro acá.
-  if(ct) ct.innerHTML="<option value=\"\">Todos los turnos</option>"
-    +TURNOS.filter(t=>t!=="Administrativo"&&t!=="Gerencia").map(t=>"<option value=\""+t+"\">"+t+"</option>").join("");
+  if(ct) ct.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   const cz=document.getElementById("carga-zona");
   if(cz) cz.innerHTML="<option value=\"\">Todas las zonas</option><option value=\"__sin__\">Sin asignar</option>"
     +allZonas().map(z=>"<option value=\""+esc(z)+"\">"+esc(z)+"</option>").join("");
@@ -691,16 +688,24 @@ function renderCargaDiaria(){
   const filtEstado=document.getElementById("carga-estado")?.value||"";
   const dist=window.distribuciones[fecha]||{};
 
+  // Administrativo/Gerencia: no hacen patrulla, así que se los da por
+  // "Presente" en su zona de oficina por defecto salvo que se les cargue
+  // una excepción puntual (licencia, ausencia, etc.) — no necesitan que
+  // alguien los procese a mano todos los días como al resto del personal.
+  const esOficina=p=>p.turno==="Administrativo"||p.turno==="Gerencia";
+  const ZONA_OFICINA="ADMINISTRATIVO/A";
+
   let activos=window.nomina.filter(p=>{
     if(getEstadoPersona(p,fecha)==="Baja") return false;
-    if(p.turno==="Administrativo" || p.turno==="Gerencia") return false;
     if(!trabajaHoy(p,fecha)) return false;
     if(filtTurno && p.turno!==filtTurno) return false;
-    if(filtZona==="__sin__" && dist[p.id]) return false;
-    if(filtZona && filtZona!=="__sin__" && dist[p.id]!==filtZona) return false;
+    const zonaEfectiva=dist[p.id]||(esOficina(p)?ZONA_OFICINA:"");
+    if(filtZona==="__sin__" && zonaEfectiva) return false;
+    if(filtZona && filtZona!=="__sin__" && zonaEfectiva!==filtZona) return false;
     if(filtEstado){
       const existente=novedadDePersonaEnFecha(p.id,fecha);
-      const estadoActual=existente?existente.tipo:"";
+      let estadoActual=existente?existente.tipo:"";
+      if(!estadoActual && esOficina(p)) estadoActual="Presente";
       if(filtEstado==="__sin__" && estadoActual!=="") return false;
       if(filtEstado!=="__sin__" && estadoActual!==filtEstado) return false;
     }
@@ -722,10 +727,14 @@ function renderCargaDiaria(){
     const existente=novedadDePersonaEnFecha(p.id,fecha);
     const editable=!existente||existente.tipo==="Presente";
     const valorActual=existente?existente.tipo:"";
-    if(editable && !existente) sinCargar++; else if(!editable) conExcepcion++;
+    const presenteAutomatico=esOficina(p)&&!existente;
+    if(presenteAutomatico){ /* no cuenta ni como pendiente ni como excepción */ }
+    else if(editable && !existente) sinCargar++; else if(!editable) conExcepcion++;
 
     let estadoHtml;
-    if(editable){
+    if(presenteAutomatico){
+      estadoHtml=badgeNov("Presente")+"<span style=\"font-size:10px;color:#aaa;margin-left:6px\" title=\"Administrativo/Gerencia: presente por defecto salvo que se cargue una excepción desde Nómina\">🏢</span>";
+    } else if(editable){
       const pendiente=valorActual==="";
       estadoHtml="<select class=\"ctrl carga-select\" data-pid=\""+p.id+"\" style=\"width:100%"+(pendiente?";border-color:#e74c3c;background:#fff5f5":"")+"\" onchange=\"onCargaEstadoChange(this)\">"
         +"<option value=\"\""+(pendiente?" selected":"")+">— Sin cargar —</option>"
@@ -739,7 +748,7 @@ function renderCargaDiaria(){
         +"<span style=\"font-size:10px;color:#aaa;margin-left:6px\" title=\"Ya tiene un registro para este día — editalo desde Historial o abajo en Novedades activas\">🔒</span>";
     }
 
-    const zona=dist[p.id]||"";
+    const zona=dist[p.id]||(esOficina(p)?ZONA_OFICINA:"");
     const zonaOpts="<option value=\"\">— Sin asignar —</option>"+allZonas().map(z=>"<option value=\""+esc(z)+"\""+(z===zona?" selected":"")+">"+esc(z)+"</option>").join("");
     return "<div class=\"table-row grid-carga\">"
       +"<span style=\"font-weight:600\">"+esc(p.nombre)+"</span>"
