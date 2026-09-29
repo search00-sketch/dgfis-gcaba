@@ -11,6 +11,7 @@ dgf/
 ├── novedades_personal.html       ← Novedades de personal (módulo)
 ├── asignacion_zonas.html         ← Asignación de zonas (módulo)
 ├── relevamientos_operativos.html ← Relevamientos operativos (módulo)
+├── urbetrack_venta.html          ← Urbetrack — Venta sin permiso: carga de exports, buscador, control de cargas/SLA, días home (módulo)
 ├── personal-auth.js              ← Login compartido (Firebase Authentication)
 ├── personal-nav.js, personal-dominio.js, personal-datos.js, utils.js
 ├── firestore.rules               ← Reglas de acceso a Firestore (se despliega con firebase deploy)
