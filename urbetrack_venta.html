@@ -389,7 +389,12 @@ if (window.restaurarSesion) window.restaurarSesion().then(() => { if (window.car
 //   urbetrack_meta/index            → {meses:{"AAAA-MM":{chunks,count,v}},
 //                                      totalRegistros, primeraFecha,
 //                                      ultimaFecha, cargas:[…últimas 40]}
-//   urbetrack_chunks/AAAA-MM_N      → {mes, registros:{N°incidencia:{…}}}
+//   urbetrack_chunks/AAAA-MM_N      → {mes, n, datos:'{"N°incidencia":{…}}'}
+//     "datos" es el mapa de incidencias como TEXTO JSON, no como mapa de
+//     Firestore: Firestore indexa cada campo de cada mapa anidado y corta
+//     en 40.000 entradas de índice por documento (~1.300 incidencias × ~20
+//     campos lo superaba: "too many index entries"). Un string es una sola
+//     entrada de índice, sin tener que tocar firestore.indexes.json.
 //   urbetrack_config/cronograma     → {lista:[{usuario, personaId, alias,
 //                                      modalidad, homeDias:[1..5]}]}
 //  Las incidencias se agrupan por MES de la fecha de inspección: buscar un
@@ -403,7 +408,7 @@ const COL_META   = 'urbetrack_meta';
 const COL_CONFIG = 'urbetrack_config';
 // Tope por documento: Firestore admite 1 MiB; se deja margen para los
 // nombres de campo y el overhead de cada entrada del mapa.
-const MAX_BYTES_CHUNK = 800000;
+const MAX_BYTES_CHUNK = 900000;
 const MAX_CARGAS_LOG = 40;
 const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const MODOS = [
@@ -415,6 +420,13 @@ const MODOS = [
 ];
 
 let META = null;               // urbetrack_meta/index
+// Lee el mapa de incidencias de un documento de urbetrack_chunks (acepta
+// también el formato viejo {registros:{…}} por las dudas).
+function registrosDeDoc(d){
+  if(!d)return {};
+  if(typeof d.datos==='string'){try{return JSON.parse(d.datos);}catch(e){console.error('Chunk ilegible',e);return {};}}
+  return d.registros||{};
+}
 const MESES = {};              // "AAAA-MM" → [registros] (en memoria)
 let REGS = [];                 // registros de los meses cargados (plano)
 let CRONO = [];                // cronograma (Firestore)
@@ -507,7 +519,7 @@ async function asegurarMes(mes){
   const snaps=await Promise.all(Array.from({length:info.chunks||0},(_,i)=>
     window._fGetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i))));
   const regs=[];
-  snaps.forEach(s=>{if(s.exists())Object.values(s.data().registros||{}).forEach(r=>regs.push(r));});
+  snaps.forEach(s=>{if(s.exists())Object.values(registrosDeDoc(s.data())).forEach(r=>regs.push(r));});
   // Se guarda ANTES de prepararRegs (sin los campos derivados _q/_lag…).
   await cacheSet(mes,{v:info.v,regs:JSON.parse(JSON.stringify(regs))});
   MESES[mes]=prepararRegs(regs);MESES[mes]._v=info.v;
@@ -1153,11 +1165,11 @@ async function subirAFirestore(){
       t.textContent='☁️ '+fmtMes(mes)+': leyendo lo que ya hay…';
       const prev=META.meses[mes]||{chunks:0};
       const snaps=await Promise.all(Array.from({length:prev.chunks||0},(_,i)=>window._fGetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i))));
-      const mapa={};snaps.forEach(s=>{if(s.exists())Object.assign(mapa,s.data().registros||{});});
+      const mapa={};snaps.forEach(s=>{if(s.exists())Object.assign(mapa,registrosDeDoc(s.data()));});
       porMes[mes].forEach(r=>{const key=claveId(r.id);if(mapa[key])actualizadas++;else nuevas++;mapa[key]={...r,cargadoPor:u?u.nombre:'',cargadoEn:ahora};});
       const chunks=partirEnChunks(mapa);
       t.textContent='💾 '+fmtMes(mes)+': guardando '+fmtInt(Object.keys(mapa).length)+' incidencias en '+chunks.length+' documento'+(chunks.length===1?'':'s')+'…';
-      await Promise.all(chunks.map((reg,i)=>window._fSetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i),{mes,registros:reg,actualizadoEn:ahora})));
+      await Promise.all(chunks.map((reg,i)=>window._fSetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i),{mes,n:Object.keys(reg).length,datos:JSON.stringify(reg),actualizadoEn:ahora})));
       // Documentos sobrantes de una versión anterior del mes más grande.
       for(let i=chunks.length;i<(prev.chunks||0);i++)await window._fDeleteDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i));
       escrituras+=chunks.length;

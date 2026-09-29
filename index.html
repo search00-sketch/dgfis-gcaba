@@ -488,7 +488,12 @@ window.exportarBackupCompleto = async function() {
       Array.from({length: info.chunks || 0}, (_, i) => mes + '_' + i));
     const snaps = await Promise.all(docs.map(id => getDoc(doc(db, 'urbetrack_chunks', id))));
     const recs = [];
-    snaps.forEach(s => { if (s.exists()) recs.push(...Object.values(s.data().registros || {})); });
+    // "datos" = mapa de incidencias como texto JSON (ver urbetrack_venta.html)
+    snaps.forEach(s => {
+      if (!s.exists()) return;
+      const d = s.data();
+      recs.push(...Object.values(typeof d.datos === 'string' ? JSON.parse(d.datos) : (d.registros || {})));
+    });
     return recs;
   });
   await intentar('urbetrack_config', async () => {
