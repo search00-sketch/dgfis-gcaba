@@ -212,7 +212,7 @@ table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1p
   <button type="button" class="mob-filter-toggle" id="bFiltrosBtn" onclick="toggleFiltrosPanel('bFiltros')">⚙️ Filtros</button>
   <div class="filtros-urb mob-filter-panel" id="bFiltros">
     <div class="mob-filter-head"><span>Filtros</span><button type="button" onclick="toggleFiltrosPanel('bFiltros',true)">✕</button></div>
-    <div class="ff grow"><label>Buscar</label><input type="text" id="bTexto" placeholder="N° incidencia, calle, comentario, usuario…" oninput="aplicarFiltrosDebounced()"></div>
+    <div class="ff grow"><label>Buscar</label><input type="text" id="bTexto" placeholder="N° incidencia, código/acta, calle, comentario, usuario…" oninput="aplicarFiltrosDebounced()"></div>
     <div class="ff"><label>Desde (inspección)</label><input type="date" id="bDesde" onchange="onRangoBuscarChange()"></div>
     <div class="ff"><label>Hasta</label><input type="date" id="bHasta" onchange="onRangoBuscarChange()"></div>
     <div class="ff"><label>Usuario</label><select id="bUsuario" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
@@ -220,7 +220,10 @@ table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1p
     <div class="ff"><label>Barrio</label><select id="bBarrio" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
     <div class="ff"><label>Tipo de servicio</label><select id="bTipo" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
     <div class="ff"><label>Detalle</label><select id="bDetalle" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
-    <div class="ff"><label>Solicitante / equipo</label><select id="bSolicitante" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Solicitante</label><select id="bSolicitante" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Grupo / operatoria</label><select id="bGrupo" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Turno (plazo)</label><select id="bPlazo" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <label class="ff-check"><input type="checkbox" id="bConCodigo" onchange="aplicarFiltros()"> Sólo con código / acta</label>
     <label class="ff-check"><input type="checkbox" id="bSinFoto" onchange="aplicarFiltros()"> Sólo sin fotos</label>
     <label class="ff-check"><input type="checkbox" id="bSlaTarde" onchange="aplicarFiltros()"> Sólo cargadas fuera de SLA (24 h)</label>
     <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosBuscar()">✕ Limpiar</button>
@@ -237,7 +240,7 @@ table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1p
   <div class="table-info" id="bInfo"></div>
   <div class="urb-scroll">
     <table class="urb">
-      <thead><tr><th>Incidencia</th><th>Fecha</th><th>Alta</th><th>SLA</th><th>Usuario</th><th>Dirección</th><th>Comuna / Barrio</th><th>Tipo / Detalle</th><th>Comentario</th><th>Fotos</th></tr></thead>
+      <thead><tr><th>Incidencia / código</th><th>Fecha</th><th>Alta</th><th>SLA</th><th>Usuario</th><th>Dirección</th><th>Comuna / Barrio</th><th>Tipo / Detalle / Grupo</th><th>Comentario</th><th>Fotos</th></tr></thead>
       <tbody id="bBody"></tbody>
     </table>
     <div class="pager">
@@ -392,7 +395,8 @@ if (window.restaurarSesion) window.restaurarSesion().then(() => { if (window.car
 //  Las incidencias se agrupan por MES de la fecha de inspección: buscar un
 //  rango lee sólo los meses que toca (1 lectura por documento), y cada mes
 //  queda cacheado en la pestaña con su versión "v" — si nadie subió nada
-//  nuevo a ese mes, volver a entrar no lo relee (sólo el índice).
+//  nuevo a ese mes, volver a entrar no lo relee (sólo el índice). El caché
+//  vive en IndexedDB del navegador (sobrevive entre sesiones).
 // ============================================================
 const COL_CHUNKS = 'urbetrack_chunks';
 const COL_META   = 'urbetrack_meta';
@@ -459,7 +463,34 @@ const fmtInt=n=>(n||0).toLocaleString('es-AR');
 // ============================================================
 //  LECTURA
 // ============================================================
-function cacheKeyMes(mes){return 'dgf_urb_mes_'+mes;}
+// Caché por mes en IndexedDB (no sessionStorage: un mes real de Urbetrack
+// pesa ~5 MB y no entra en los ~5 MB que da sessionStorage — fallaba en
+// silencio y cada visita volvía a leer todo el mes). Cada entrada lleva la
+// versión "v" del índice: si alguien sube datos nuevos a ese mes, cambia la
+// versión y se relee. Si IndexedDB no está disponible, se sigue sin caché.
+const IDB_NAME='dgf_urbetrack',IDB_STORE='meses';
+let _idbP=null;
+function idb(){
+  if(!_idbP)_idbP=new Promise((res)=>{
+    try{const rq=indexedDB.open(IDB_NAME,1);
+      rq.onupgradeneeded=()=>rq.result.createObjectStore(IDB_STORE);
+      rq.onsuccess=()=>res(rq.result);rq.onerror=()=>res(null);
+    }catch(e){res(null);}
+  });
+  return _idbP;
+}
+async function cacheGet(mes){
+  const db=await idb();if(!db)return null;
+  return new Promise(res=>{try{const rq=db.transaction(IDB_STORE).objectStore(IDB_STORE).get(mes);rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>res(null);}catch(e){res(null);}});
+}
+async function cacheSet(mes,val){
+  const db=await idb();if(!db)return;
+  return new Promise(res=>{try{const tx=db.transaction(IDB_STORE,'readwrite');val===null?tx.objectStore(IDB_STORE).delete(mes):tx.objectStore(IDB_STORE).put(val,mes);tx.oncomplete=()=>res();tx.onerror=()=>res();}catch(e){res();}});
+}
+async function cacheClearAll(){
+  const db=await idb();if(!db)return;
+  return new Promise(res=>{try{const tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).clear();tx.oncomplete=()=>res();tx.onerror=()=>res();}catch(e){res();}});
+}
 async function leerMeta(){
   const snap=await window._fGetDoc(window._fDoc(window._db,COL_META,'index'));
   META=snap.exists()?snap.data():{meses:{},cargas:[]};
@@ -471,15 +502,14 @@ async function asegurarMes(mes){
   const info=META.meses[mes];
   if(!info){MESES[mes]=[];return 0;}
   if(MESES[mes]&&MESES[mes]._v===info.v)return 0;
-  try{
-    const c=JSON.parse(sessionStorage.getItem(cacheKeyMes(mes))||'null');
-    if(c&&c.v===info.v){MESES[mes]=prepararRegs(c.regs);MESES[mes]._v=info.v;return 0;}
-  }catch(e){}
+  const c=await cacheGet(mes);
+  if(c&&c.v===info.v){MESES[mes]=prepararRegs(c.regs);MESES[mes]._v=info.v;return 0;}
   const snaps=await Promise.all(Array.from({length:info.chunks||0},(_,i)=>
     window._fGetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i))));
   const regs=[];
   snaps.forEach(s=>{if(s.exists())Object.values(s.data().registros||{}).forEach(r=>regs.push(r));});
-  try{sessionStorage.setItem(cacheKeyMes(mes),JSON.stringify({v:info.v,regs}));}catch(e){/* caché llena: se sigue sin cachear */}
+  // Se guarda ANTES de prepararRegs (sin los campos derivados _q/_lag…).
+  await cacheSet(mes,{v:info.v,regs:JSON.parse(JSON.stringify(regs))});
   MESES[mes]=prepararRegs(regs);MESES[mes]._v=info.v;
   return snaps.length;
 }
@@ -489,7 +519,9 @@ function prepararRegs(regs){
     r._lag=lagMin(r);
     r._dia=(r.fecha||r.alta||'').slice(0,10);
     r._diaAlta=(r.alta||r.fecha||'').slice(0,10);
-    r._q=norm([r.id,r.usuario,r.calle,r.altura,r.barrio,r.comuna,r.tipo,r.detalle,r.comentario,r.solicitante,r.grupo,r.estado].join(' '));
+    if(r.fotos)r.fotos=r.fotos.map(expandirFoto);
+    r.grupo=r.grupo?r.grupo.trim():r.grupo;
+    r._q=norm([r.id,r.codigo,r.sap,r.usuario,r.calle,r.altura,r.esquina,r.barrio,r.comuna,r.tipo,r.detalle,r.comentario,r.solicitante,r.grupo,r.plazo,r.estado].join(' '));
   });
   return regs;
 }
@@ -522,8 +554,11 @@ window.cargarTodo=async function(){
     // Rango inicial: los últimos 30 días con datos (no "hoy", por si la
     // última carga es de hace unos días).
     const fin=META.ultimaFecha||hoyISO();
-    if(!document.getElementById('bHasta').value){document.getElementById('bHasta').value=fin;document.getElementById('bDesde').value=sumarDias(fin,-29);}
-    if(!document.getElementById('cHasta').value){document.getElementById('cHasta').value=fin;document.getElementById('cDesde').value=sumarDias(fin,-27);}
+    // …pero nunca antes del primer día con datos: días sin datos cargados
+    // se leerían como "no cargó nada" en el Control de cargas.
+    const desdeMin=d=>META.primeraFecha&&d<META.primeraFecha?META.primeraFecha:d;
+    if(!document.getElementById('bHasta').value){document.getElementById('bHasta').value=fin;document.getElementById('bDesde').value=desdeMin(sumarDias(fin,-29));}
+    if(!document.getElementById('cHasta').value){document.getElementById('cHasta').value=fin;document.getElementById('cDesde').value=desdeMin(sumarDias(fin,-27));}
     await asegurarRango(document.getElementById('bDesde').value,document.getElementById('bHasta').value);
     poblarFiltros();aplicarFiltros();
     renderCargas();
@@ -531,12 +566,15 @@ window.cargarTodo=async function(){
     if(activo&&activo.id!=='panel-buscar')window._cambiarTabExtra(activo.id.replace('panel-',''));
   }catch(e){console.error(e);setSync('err','⚠️ Error: '+e.message);}
 };
-window.forzarRecarga=function(){
-  Object.keys(sessionStorage).filter(k=>k.startsWith('dgf_urb_mes_')).forEach(k=>sessionStorage.removeItem(k));
+window.forzarRecarga=async function(){
+  await cacheClearAll();
   Object.keys(MESES).forEach(k=>delete MESES[k]);
   NOMINA=null;NOVEDADES=null;
   window.cargarTodo();
 };
+// Al salir se borra el caché local de incidencias (PC compartida).
+const _doLogoutOriginal=doLogout;
+doLogout=async function(){await cacheClearAll();_doLogoutOriginal();};
 window._onLogin=function(){
   document.getElementById('tabCarga').style.display=puedeEditar()?'':'none';
 };
@@ -563,6 +601,8 @@ function poblarFiltros(){
   poblarSel('bTipo',REGS.map(r=>r.tipo),'Todos');
   poblarSel('bDetalle',REGS.map(r=>r.detalle),'Todos');
   poblarSel('bSolicitante',REGS.map(r=>r.solicitante),'Todos');
+  poblarSel('bGrupo',REGS.map(r=>r.grupo),'Todos');
+  poblarSel('bPlazo',REGS.map(r=>r.plazo),'Todos');
 }
 async function onRangoBuscarChange(){
   const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
@@ -571,7 +611,8 @@ async function onRangoBuscarChange(){
 }
 function rangoRapido(dias){
   const fin=META&&META.ultimaFecha||hoyISO();
-  document.getElementById('bHasta').value=fin;document.getElementById('bDesde').value=sumarDias(fin,-(dias-1));
+  const desde=sumarDias(fin,-(dias-1));
+  document.getElementById('bHasta').value=fin;document.getElementById('bDesde').value=META&&META.primeraFecha&&desde<META.primeraFecha?META.primeraFecha:desde;
   onRangoBuscarChange();
 }
 function rangoTodo(){
@@ -586,13 +627,14 @@ function aplicarFiltros(){
   actualizarBadgeFiltros('bFiltros','bFiltrosBtn');
   const g=id=>document.getElementById(id).value;
   const q=norm(g('bTexto')),desde=g('bDesde'),hasta=g('bHasta');
-  const f={usuario:g('bUsuario'),comuna:g('bComuna'),barrio:g('bBarrio'),tipo:g('bTipo'),detalle:g('bDetalle'),solicitante:g('bSolicitante')};
-  const sinFoto=document.getElementById('bSinFoto').checked,slaTarde=document.getElementById('bSlaTarde').checked;
+  const f={usuario:g('bUsuario'),comuna:g('bComuna'),barrio:g('bBarrio'),tipo:g('bTipo'),detalle:g('bDetalle'),solicitante:g('bSolicitante'),grupo:g('bGrupo'),plazo:g('bPlazo')};
+  const sinFoto=document.getElementById('bSinFoto').checked,slaTarde=document.getElementById('bSlaTarde').checked,conCod=document.getElementById('bConCodigo').checked;
   FILTRADOS=REGS.filter(r=>{
     if(desde&&r._dia<desde)return false;
     if(hasta&&r._dia>hasta)return false;
     for(const k in f)if(f[k]&&r[k]!==f[k])return false;
     if(sinFoto&&(r.fotos||[]).length)return false;
+    if(conCod&&!r.codigo)return false;
     if(slaTarde&&!(r._lag!=null&&r._lag>24*60))return false;
     if(q&&!coincideTexto(r._q,q))return false;
     return true;
@@ -600,8 +642,8 @@ function aplicarFiltros(){
   bPage=1;renderKpis();renderTablaBuscar();
 }
 function limpiarFiltrosBuscar(){
-  ['bTexto','bUsuario','bComuna','bBarrio','bTipo','bDetalle','bSolicitante'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('bSinFoto').checked=false;document.getElementById('bSlaTarde').checked=false;
+  ['bTexto','bUsuario','bComuna','bBarrio','bTipo','bDetalle','bSolicitante','bGrupo','bPlazo'].forEach(id=>document.getElementById(id).value='');
+  ['bSinFoto','bSlaTarde','bConCodigo'].forEach(id=>document.getElementById(id).checked=false);
   aplicarFiltros();
 }
 function renderKpis(){
@@ -625,14 +667,14 @@ function renderTablaBuscar(){
   document.getElementById('bBody').innerHTML=slice.map((r,i)=>{
     const sla=r._lag==null?'—':'<span class="'+(r._lag>24*60?'sla-late':'sla-ok')+'">'+fmtDur(r._lag)+'</span>';
     return '<tr onclick="verDetalle('+((bPage-1)*B_PER+i)+')">'
-      +'<td class="num"><b>'+esc(r.id)+'</b></td>'
+      +'<td class="num"><b>'+esc(r.id)+'</b>'+(r.codigo?'<div class="muted" style="font-size:.72rem">'+esc(r.codigo)+'</div>':'')+'</td>'
       +'<td class="num">'+fmtDT(r.fecha)+'</td>'
       +'<td class="num muted">'+fmtDT(r.alta)+'</td>'
       +'<td class="num">'+sla+'</td>'
       +'<td>'+esc(r.usuario||'—')+'</td>'
       +'<td style="white-space:nowrap">'+esc([r.calle,r.altura].filter(Boolean).join(' ')||'—')+'</td>'
       +'<td>'+esc([r.comuna,r.barrio].filter(Boolean).join(' · ')||'—')+'</td>'
-      +'<td>'+esc(r.tipo||'—')+(r.detalle?'<div class="muted" style="font-size:.72rem">'+esc(r.detalle)+'</div>':'')+'</td>'
+      +'<td>'+esc(r.tipo||'—')+(r.detalle?'<div class="muted" style="font-size:.72rem">'+esc(r.detalle)+'</div>':'')+(r.grupo?'<div class="muted" style="font-size:.72rem">'+esc(r.grupo)+'</div>':'')+'</td>'
       +'<td><div class="trunc" title="'+esc(r.comentario||'')+'">'+esc(r.comentario||'—')+'</div></td>'
       +'<td class="num">'+((r.fotos||[]).length?'📷 '+r.fotos.length:'<span class="muted">—</span>')+'</td>'
       +'</tr>';
@@ -643,22 +685,24 @@ function verDetalle(idx){
   const r=FILTRADOS[idx];if(!r)return;
   document.getElementById('det-title').textContent='Incidencia '+r.id;
   const campos=[['Fecha inspección',fmtDT(r.fecha)],['Fecha alta (carga)',fmtDT(r.alta)],['SLA de carga',fmtDur(r._lag)],['Usuario',r.usuario],
-    ['Solicitante / equipo',r.solicitante],['Grupo',r.grupo],['Estado',r.estado],['Plazo',r.plazo],
-    ['Dirección',[r.calle,r.altura].filter(Boolean).join(' ')],['Comuna / Barrio',[r.comuna,r.barrio].filter(Boolean).join(' · ')],
+    ['Código / acta',r.codigo],['N° orden SAP',r.sap],
+    ['Solicitante',r.solicitante],['Grupo / operatoria',r.grupo],['Turno (plazo)',r.plazo],['Estado',[r.estado,r.vencimiento].filter(Boolean).join(' · ')],
+    ['Dirección',[r.calle,r.altura].filter(Boolean).join(' ')+(r.esquina?' y '+r.esquina:'')],['Comuna / Barrio',[r.comuna,r.barrio].filter(Boolean).join(' · ')],
     ['Tipo de servicio',r.tipo],['Detalle de servicio',r.detalle],['Archivo de origen',r.archivo]];
   document.getElementById('det-grid').innerHTML=campos.filter(([,v])=>v).map(([k,v])=>'<div class="det-item"><div class="det-k">'+esc(k)+'</div><div class="det-v">'+esc(v)+'</div></div>').join('');
   document.getElementById('det-com').textContent=r.comentario||'(sin comentario)';
   const fotos=(r.fotos||[]).map(safeHref).filter(Boolean);
-  document.getElementById('det-fotos').innerHTML=fotos.length?fotos.map((u,i)=>'<a href="'+esc(u)+'" target="_blank" rel="noopener">📷 Foto '+(i+1)+'</a>').join(''):'<span class="muted" style="font-size:.8rem">Sin fotos</span>';
+  const mapa=(r.lat&&r.lng)?'<a href="https://www.google.com/maps?q='+r.lat+','+r.lng+'" target="_blank" rel="noopener">📍 Ver en el mapa</a>':'';
+  document.getElementById('det-fotos').innerHTML=mapa+(fotos.length?fotos.map((u,i)=>'<a href="'+esc(u)+'" target="_blank" rel="noopener">📷 Foto '+(i+1)+'</a>').join(''):'<span class="muted" style="font-size:.8rem">Sin fotos</span>');
   document.getElementById('modal-det').classList.add('open');
 }
 function exportarBusquedaExcel(){
   if(!FILTRADOS.length){toast('No hay incidencias para exportar.');return;}
-  const rows=FILTRADOS.map(r=>({'Incidencia':r.id,'Fecha':r.fecha||'','Fecha alta':r.alta||'','SLA (min)':r._lag??'','Usuario':r.usuario||'','Solicitante':r.solicitante||'',
+  const rows=FILTRADOS.map(r=>({'Incidencia':r.id,'Código':r.codigo||'','N° SAP':r.sap||'','Fecha':r.fecha||'','Fecha alta':r.alta||'','SLA (min)':r._lag??'','Usuario':r.usuario||'','Solicitante':r.solicitante||'',
     'Calle':r.calle||'','Altura':r.altura||'','Comuna':r.comuna||'','Barrio':r.barrio||'','Tipo de servicio':r.tipo||'','Detalle de servicio':r.detalle||'',
-    'Grupo':r.grupo||'','Estado':r.estado||'','Comentario':r.comentario||'','Fotos':(r.fotos||[]).join('\n')}));
+    'Grupo':r.grupo||'','Turno (plazo)':r.plazo||'','Estado':r.estado||'','Latitud':r.lat??'','Longitud':r.lng??'','Comentario':r.comentario||'','Fotos':(r.fotos||[]).join('\n')}));
   const ws=XLSX.utils.json_to_sheet(rows);
-  ws['!cols']=[{wch:12},{wch:17},{wch:17},{wch:9},{wch:16},{wch:22},{wch:24},{wch:8},{wch:10},{wch:18},{wch:24},{wch:28},{wch:16},{wch:14},{wch:60},{wch:40}];
+  ws['!cols']=[{wch:12},{wch:12},{wch:10},{wch:17},{wch:17},{wch:9},{wch:16},{wch:22},{wch:24},{wch:8},{wch:10},{wch:18},{wch:24},{wch:28},{wch:16},{wch:14},{wch:14},{wch:11},{wch:11},{wch:60},{wch:40}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Incidencias');
   XLSX.writeFile(wb,'urbetrack_venta_'+document.getElementById('bDesde').value+'_'+document.getElementById('bHasta').value+'.xlsx');
   toast('✅ Exportadas '+fmtInt(rows.length)+' incidencias');
@@ -1006,7 +1050,14 @@ const COLS={
   id:['incidencia'],fecha:['fecha'],alta:['fecha alta'],usuario:['usuario'],solicitante:['solicitante','grupo de trabajo'],
   calle:['calle'],altura:['altura'],comuna:['comuna'],barrio:['barrio'],tipo:['tipo de servicio'],detalle:['detalle de servicio'],
   grupo:['grupo'],estado:['estado'],plazo:['plazo'],comentario:['comentario del vecino','comentario','observaciones','observacion'],fotos:['fotos','foto'],
+  codigo:['codigo'],sap:['numero orden sap'],esquina:['esquina'],lat:['latitud'],lng:['longitud'],vencimiento:['vencimiento'],
 };
+// Casi todas las fotos de Urbetrack comparten este prefijo (~85 caracteres
+// de ~180): se guarda "~/" en su lugar y se expande al leer. En un mes real
+// (~11.000 incidencias) eso ahorra ~1 MB, o sea documentos (y lecturas).
+const FOTO_PREFIX='https://fleetcloudfilestorage.blob.core.windows.net/urbetrack-file-container-claro/';
+function comprimirFoto(u){return u.startsWith(FOTO_PREFIX)?'~/'+u.slice(FOTO_PREFIX.length):u;}
+function expandirFoto(u){return String(u).startsWith('~/')?FOTO_PREFIX+String(u).slice(2):u;}
 function parsearWorkbook(wb,archivo){
   const hoja=wb.SheetNames.includes('Informe')?'Informe':wb.SheetNames[0];
   const ws=wb.Sheets[hoja];
@@ -1025,8 +1076,9 @@ function parsearWorkbook(wb,archivo){
     const al=idx.alta!==undefined?excelADate(r[idx.alta]):null;
     if(!fe&&!al){omitidas++;return;}
     const rec={id,fecha:fmtDTGuardar(fe||al),alta:fmtDTGuardar(al),archivo};
-    ['usuario','solicitante','calle','altura','comuna','barrio','tipo','detalle','grupo','estado','plazo','comentario'].forEach(k=>{const v=val(r,k);if(v)rec[k]=v;});
-    const fotos=val(r,'fotos');if(fotos)rec.fotos=fotos.split(/\s*[\n,;]\s*/).filter(Boolean);
+    ['usuario','solicitante','calle','altura','esquina','comuna','barrio','tipo','detalle','grupo','estado','plazo','comentario','codigo','sap','vencimiento'].forEach(k=>{const v=val(r,k);if(v)rec[k]=v;});
+    ['lat','lng'].forEach(k=>{const v=parseFloat(val(r,k));if(!isNaN(v)&&v!==0)rec[k]=Math.round(v*1e6)/1e6;});
+    const fotos=val(r,'fotos');if(fotos)rec.fotos=fotos.split(/\s*[\n,;]\s*/).filter(Boolean).map(comprimirFoto);
     regs.push(rec);
   });
   return {regs,omitidas,hoja};
@@ -1130,7 +1182,7 @@ async function subirAFirestore(){
     t.className='toast-msg ok';
     t.textContent='✅ '+fmtInt(regs.length)+' incidencias guardadas ('+fmtInt(nuevas)+' nuevas, '+fmtInt(actualizadas)+' actualizadas) en '+escrituras+' documento'+(escrituras===1?'':'s')+' de '+meses.length+' mes'+(meses.length===1?'':'es')+'.';
     PARSEADOS=[];renderPreviewCarga();
-    meses.forEach(m=>{delete MESES[m];try{sessionStorage.removeItem(cacheKeyMes(m));}catch(e){}});
+    for(const m of meses){delete MESES[m];await cacheSet(m,null);}
     await leerMeta();
     // Mostrar lo recién cargado en Buscar.
     document.getElementById('bDesde').value=fechas[0];document.getElementById('bHasta').value=fechas[fechas.length-1];

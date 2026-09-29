@@ -1,0 +1,32 @@
+# Despliega firestore.rules cuando cambia en main (el deploy de Hosting de
+# firebase-hosting-merge.yml NO publica las reglas). También se puede
+# correr a mano desde la pestaña Actions ("Run workflow").
+#
+# Usa la misma service account que el deploy de Hosting. Si falla con
+# 403/permission denied, a esa cuenta le falta el rol "Firebase Rules
+# Admin" (Google Cloud Console → IAM, proyecto dgfis-gcaba).
+name: Deploy Firestore rules
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - firestore.rules
+  workflow_dispatch:
+jobs:
+  deploy_rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar Firebase CLI
+        run: npm install -g firebase-tools
+      - name: Desplegar reglas
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DGFIS_GCABA }}
+        run: |
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          firebase deploy --only firestore:rules --project dgfis-gcaba --non-interactive
