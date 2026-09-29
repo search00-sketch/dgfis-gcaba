@@ -103,6 +103,16 @@ table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1p
 .det-k{font-size:.68rem;color:var(--c-ink-mut)}
 .det-v{font-size:.85rem;font-weight:600;overflow-wrap:anywhere}
 .det-com{background:var(--c-bg);padding:10px;font-size:.84rem;white-space:pre-wrap;margin-bottom:10px}
+.err-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.err-chips .lbl{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut);margin-right:4px}
+.err-chip{border:1px solid var(--c-line-soft);background:#fff;padding:5px 10px;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--c-ink)}
+.err-chip .c{color:var(--c-ink-mut);font-weight:500;margin-left:3px}
+.err-chip.on{background:#fff7ed;border-color:var(--c-warn);color:#9a3412}
+.err-chip.ok.on{background:#ecfdf5;border-color:var(--c-ok);color:var(--c-ok)}
+.pill-err{display:inline-block;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-size:.7rem;font-weight:700;padding:1px 6px;white-space:nowrap}
+.pill-ok{display:inline-block;background:#ecfdf5;border:1px solid #86efac;color:var(--c-ok);font-size:.7rem;font-weight:700;padding:1px 6px;white-space:nowrap}
+.det-err{border-left:3px solid var(--c-warn);background:#fff7ed;padding:8px 10px;font-size:.82rem;margin-bottom:10px}
+.det-okc{border-left:3px solid var(--c-ok);background:#ecfdf5;padding:8px 10px;font-size:.82rem;margin-bottom:10px}
 .fotos a{display:inline-block;margin:0 8px 6px 0;color:var(--c-brand-2);font-weight:600;text-decoration:none}
 @media(max-width:768px){.det-grid{grid-template-columns:1fr}.srow{flex-wrap:wrap}.st{min-width:40%}}
 </style>
@@ -200,6 +210,7 @@ table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1p
 <div class="layout-row">
 <div class="tabs">
   <button class="tab active" onclick="window.cambiarTab('buscar',this)">🔎 Buscar</button>
+  <button class="tab" onclick="window.cambiarTab('errores',this)">⚠️ Errores de carga</button>
   <button class="tab" onclick="window.cambiarTab('control',this)">📈 Control de cargas</button>
   <button class="tab" onclick="window.cambiarTab('cronograma',this)">🗓️ Cronograma / home</button>
   <button class="tab" id="tabCarga" style="display:none" onclick="window.cambiarTab('carga',this)">📥 Cargar Excel</button>
@@ -228,6 +239,7 @@ table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1p
     <label class="ff-check"><input type="checkbox" id="bSlaTarde" onchange="aplicarFiltros()"> Sólo cargadas fuera de SLA (24 h)</label>
     <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosBuscar()">✕ Limpiar</button>
   </div>
+  <div class="err-chips" id="bErrChips"></div>
   <div class="toolbar">
     <button class="btn btn-gris btn-sm" onclick="rangoRapido(7)">Últimos 7 días</button>
     <button class="btn btn-gris btn-sm" onclick="rangoRapido(30)">Últimos 30 días</button>
@@ -240,7 +252,7 @@ table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1p
   <div class="table-info" id="bInfo"></div>
   <div class="urb-scroll">
     <table class="urb">
-      <thead><tr><th>Incidencia / código</th><th>Fecha</th><th>Alta</th><th>SLA</th><th>Usuario</th><th>Dirección</th><th>Comuna / Barrio</th><th>Tipo / Detalle / Grupo</th><th>Comentario</th><th>Fotos</th></tr></thead>
+      <thead><tr><th>Incidencia / código</th><th>Fecha</th><th>Alta</th><th>SLA</th><th>Usuario</th><th>Dirección</th><th>Comuna / Barrio</th><th>Tipo / Detalle / Grupo</th><th>Comentario</th><th>Fotos</th><th>Errores</th></tr></thead>
       <tbody id="bBody"></tbody>
     </table>
     <div class="pager">
@@ -249,6 +261,21 @@ table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1p
       <button class="btn btn-gris btn-sm" onclick="paginaBuscar(1)">Sig →</button>
     </div>
   </div>
+</div>
+
+<!-- ===================== ERRORES ===================== -->
+<div class="panel" id="panel-errores">
+  <div class="note">
+    Errores de carga detectados en las incidencias del <b>rango elegido en Buscar</b> (<span id="eRango"></span>).
+    Cuando el usuario corrige la incidencia en Urbetrack y se vuelve a subir el export, la incidencia se reemplaza por su versión nueva
+    (mismo N° de incidencia, no se duplica): los errores que ya no están desaparecen y queda marcada como <b>✔ corregida</b>, con qué se corrigió y cuándo.
+  </div>
+  <div class="kpigrid" id="eKpis"></div>
+  <div class="err-chips" id="eErrChips"></div>
+  <div class="urb-scroll">
+    <table class="urb" id="eTabla"><thead></thead><tbody></tbody></table>
+  </div>
+  <div class="table-info" style="margin-top:6px">Clic en un usuario para ver sus incidencias con errores en Buscar. Exportá desde Buscar para mandarle la lista a corregir.</div>
 </div>
 
 <!-- ===================== CONTROL DE CARGAS ===================== -->
@@ -322,7 +349,7 @@ table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1p
     <div class="gz-title">🧾 Historial de cargas</div>
     <div style="overflow-x:auto">
       <table class="cfg">
-        <thead><tr><th>Cuándo</th><th>Quién</th><th>Archivo(s)</th><th>Filas</th><th>Nuevas</th><th>Actualizadas</th><th>Rango de fechas</th></tr></thead>
+        <thead><tr><th>Cuándo</th><th>Quién</th><th>Archivo(s)</th><th>Filas</th><th>Nuevas</th><th>Actualizadas</th><th>Corregidas</th><th>Rango de fechas</th></tr></thead>
         <tbody id="cargasBody"></tbody>
       </table>
     </div>
@@ -543,6 +570,7 @@ async function asegurarRango(desde,hasta){
   if(pend.length)setSync('loading','Leyendo '+pend.map(fmtMes).join(', ')+'…');
   const lecturas=(await Promise.all(pend.map(asegurarMes))).reduce((a,b)=>a+b,0);
   REGS=Object.keys(MESES).sort().flatMap(m=>MESES[m]);
+  marcarDuplicados(REGS);
   actualizarSync(lecturas);
 }
 function actualizarSync(lecturas){
@@ -595,7 +623,103 @@ window._cambiarTabExtra=async function(id){
   if(id==='control'){await prepararControl();}
   else if(id==='cronograma'){await asegurarPersonal();detectarUsuariosCfg(false);renderCronograma();}
   else if(id==='carga'){renderCargas();}
+  else if(id==='errores'){renderErrores();}
 };
+
+// ============================================================
+//  ERRORES DE CARGA (adaptado del Explorador de GOIEP a Venta ilegal,
+//  calibrado con un export real de sep 2026). Se calculan al leer — no se
+//  guardan — así, si se cambia una regla, se aplica también a lo viejo.
+// ============================================================
+const ERR_DEFS=[
+  {k:'sinfoto',  l:'Sin foto'},
+  {k:'sindet',   l:'Sin detalle de servicio'},
+  {k:'sincom',   l:'Hallazgo sin comentario'},
+  {k:'actasincod',l:'Secuestro / comprobación sin N° de acta'},
+  {k:'codsininc',l:'Tiene acta pero dice "sin incidencias"'},
+  {k:'codfmt',   l:'N° de acta con formato dudoso'},
+  {k:'dir',      l:'Dirección incompleta'},
+  {k:'altaantes',l:'Alta anterior a la inspección'},
+  {k:'dup',      l:'Foto repetida en otra incidencia'},
+];
+const ERR_LABEL=Object.fromEntries(ERR_DEFS.map(e=>[e.k,e.l]));
+const esSinIncidencias=s=>/^sin in[cs]idencias?/.test(norm(s));
+const esTipoActa=s=>/^(secuestro|comprobacion|intimacion)/.test(norm(s));
+// "AS 43312", "A/S 64714", "A.S.: 6", "AI 12" → válidos; "43312" solo o dos
+// actas en el mismo campo → dudoso.
+const CODIGO_OK=/^(AS|AC|AI|IN)\d{2,}$/;
+function codigoNorm(c){return String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+// Errores propios del registro (sin mirar a los demás).
+function erroresPropios(r){
+  const e=[];
+  if(!(r.fotos||[]).length)e.push('sinfoto');
+  if(!r.detalle)e.push('sindet');
+  if(r.detalle&&!esSinIncidencias(r.detalle)&&!r.comentario)e.push('sincom');
+  if(esTipoActa(r.tipo)&&!r.codigo)e.push('actasincod');
+  if(r.codigo&&esSinIncidencias(r.detalle))e.push('codsininc');
+  if(r.codigo&&!CODIGO_OK.test(codigoNorm(r.codigo)))e.push('codfmt');
+  if(!r.calle||(!r.altura&&!r.esquina)||!r.comuna)e.push('dir');
+  const a=parseDT(r.alta),f=parseDT(r.fecha);if(a&&f&&a<f)e.push('altaantes');
+  return e;
+}
+// Carga duplicada: la MISMA foto usada en más de una incidencia. (Se probó
+// "mismo usuario + misma dirección en pocos minutos" con el export real y
+// marcaba ~15%: son pasadas repetidas legítimas por el mismo punto, cada
+// una con su foto propia — no sirve como señal de error.)
+function marcarDuplicados(regs){
+  const porFoto={};
+  regs.forEach(r=>{r._dup=false;(r.fotos||[]).forEach(f=>(porFoto[f]=porFoto[f]||[]).push(r));});
+  Object.values(porFoto).forEach(a=>{if(a.length>1&&new Set(a.map(r=>r.id)).size>1)a.forEach(r=>{r._dup=true;});});
+  regs.forEach(r=>{r._err=erroresPropios(r);if(r._dup)r._err.push('dup');});
+}
+const ERR_SEL=new Set();
+function renderChips(elId,lista,conCorregidas){
+  const cnt={};ERR_DEFS.forEach(d=>cnt[d.k]=0);let corr=0;
+  lista.forEach(r=>{r._err.forEach(k=>cnt[k]++);if(r.corregido)corr++;});
+  document.getElementById(elId).innerHTML='<span class="lbl">Errores</span>'
+    +ERR_DEFS.map(d=>'<button type="button" class="err-chip'+(ERR_SEL.has(d.k)?' on':'')+'" onclick="toggleErr(\''+d.k+'\')">'+esc(d.l)+'<span class="c">('+fmtInt(cnt[d.k])+')</span></button>').join('')
+    +(conCorregidas?'<button type="button" class="err-chip ok'+(ERR_SEL.has('corregido')?' on':'')+'" onclick="toggleErr(\'corregido\')">✔ Corregidas<span class="c">('+fmtInt(corr)+')</span></button>':'')
+    +(ERR_SEL.size?'<button type="button" class="btn btn-gris btn-sm" onclick="ERR_SEL.clear();aplicarFiltros();renderErrores()">✕ Quitar</button>':'');
+}
+function toggleErr(k){ERR_SEL.has(k)?ERR_SEL.delete(k):ERR_SEL.add(k);aplicarFiltros();if(document.getElementById('panel-errores').classList.contains('active'))renderErrores();}
+function pasaErr(r){
+  if(!ERR_SEL.size)return true;
+  // Unión (como en GOIEP): alcanza con tener alguno de los tildados.
+  for(const k of ERR_SEL){if(k==='corregido'?!!r.corregido:r._err.includes(k))return true;}
+  return false;
+}
+function enRangoBuscar(r){
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  return !(d&&r._dia<d)&&!(h&&r._dia>h);
+}
+function renderErrores(){
+  if(!META)return;
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  document.getElementById('eRango').textContent=d&&h?fmtD(d)+' – '+fmtD(h):'todo lo cargado';
+  const L=REGS.filter(enRangoBuscar);
+  renderChips('eErrChips',L,true);
+  const conErr=L.filter(r=>r._err.length).length,corr=L.filter(r=>r.corregido).length;
+  const k=(v,l,cls)=>'<div class="kpi'+(cls?' '+cls:'')+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div></div>';
+  document.getElementById('eKpis').innerHTML=k(fmtInt(L.length),'Incidencias en el rango')+k(fmtInt(conErr),'Con algún error',conErr?'warn':'')
+    +k(L.length?Math.round(conErr/L.length*100)+'%':'—','% con errores')+k(fmtInt(corr),'Corregidas al re-subir');
+  const por={};
+  L.forEach(r=>{const u=r.usuario||'(sin usuario)';const o=por[u]||(por[u]={u,n:0,e:0,c:0,k:{}});o.n++;if(r._err.length){o.e++;r._err.forEach(x=>o.k[x]=(o.k[x]||0)+1);}if(r.corregido)o.c++;});
+  const filas=Object.values(por).sort((a,b)=>b.e-a.e||b.n-a.n);
+  const t=document.getElementById('eTabla');
+  t.querySelector('thead').innerHTML='<tr><th>Usuario</th><th>Incidencias</th><th>Con errores</th><th>%</th>'+ERR_DEFS.map(d=>'<th title="'+esc(d.l)+'">'+esc(d.l)+'</th>').join('')+'<th>Corregidas</th></tr>';
+  t.querySelector('tbody').innerHTML=filas.map(o=>'<tr onclick="verErroresDe(\''+escJsAttr(o.u)+'\')">'
+    +'<td><b>'+esc(o.u)+'</b></td><td class="num">'+fmtInt(o.n)+'</td><td class="num">'+(o.e?'<span class="pill-err">'+fmtInt(o.e)+'</span>':'0')+'</td>'
+    +'<td class="num">'+(o.n?Math.round(o.e/o.n*100)+'%':'—')+'</td>'
+    +ERR_DEFS.map(d=>'<td class="num'+(o.k[d.k]?'':' muted')+'">'+(o.k[d.k]?fmtInt(o.k[d.k]):'·')+'</td>').join('')
+    +'<td class="num">'+(o.c?'<span class="pill-ok">'+fmtInt(o.c)+'</span>':'·')+'</td></tr>').join('')
+    ||'<tr><td colspan="'+(ERR_DEFS.length+5)+'" style="padding:16px;color:#999;cursor:default">Sin incidencias en el rango.</td></tr>';
+}
+function verErroresDe(u){
+  document.getElementById('bUsuario').value=u;
+  if(!ERR_SEL.size)ERR_DEFS.forEach(d=>ERR_SEL.add(d.k));
+  aplicarFiltros();
+  window.cambiarTab('buscar',document.querySelector('.tabs .tab'));
+}
 
 // ============================================================
 //  BUSCAR
@@ -647,15 +771,18 @@ function aplicarFiltros(){
     for(const k in f)if(f[k]&&r[k]!==f[k])return false;
     if(sinFoto&&(r.fotos||[]).length)return false;
     if(conCod&&!r.codigo)return false;
+    if(!pasaErr(r))return false;
     if(slaTarde&&!(r._lag!=null&&r._lag>24*60))return false;
     if(q&&!coincideTexto(r._q,q))return false;
     return true;
   }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   bPage=1;renderKpis();renderTablaBuscar();
+  renderChips('bErrChips',REGS.filter(enRangoBuscar),true);
 }
 function limpiarFiltrosBuscar(){
   ['bTexto','bUsuario','bComuna','bBarrio','bTipo','bDetalle','bSolicitante','bGrupo','bPlazo'].forEach(id=>document.getElementById(id).value='');
   ['bSinFoto','bSlaTarde','bConCodigo'].forEach(id=>document.getElementById(id).checked=false);
+  ERR_SEL.clear();
   aplicarFiltros();
 }
 function renderKpis(){
@@ -689,12 +816,14 @@ function renderTablaBuscar(){
       +'<td>'+esc(r.tipo||'—')+(r.detalle?'<div class="muted" style="font-size:.72rem">'+esc(r.detalle)+'</div>':'')+(r.grupo?'<div class="muted" style="font-size:.72rem">'+esc(r.grupo)+'</div>':'')+'</td>'
       +'<td><div class="trunc" title="'+esc(r.comentario||'')+'">'+esc(r.comentario||'—')+'</div></td>'
       +'<td class="num">'+((r.fotos||[]).length?'📷 '+r.fotos.length:'<span class="muted">—</span>')+'</td>'
+      +'<td>'+(r._err.length?'<span class="pill-err" title="'+esc(r._err.map(e=>ERR_LABEL[e]).join(' · '))+'">⚠ '+r._err.length+'</span>':'')+(r.corregido?' <span class="pill-ok" title="Corregida: '+esc((r.corregido.errores||[]).map(e=>ERR_LABEL[e]||e).join(', '))+'">✔ corregida</span>':'')+'</td>'
       +'</tr>';
-  }).join('')||'<tr><td colspan="10" style="padding:20px;text-align:center;color:#999;cursor:default">'+(META&&Object.keys(META.meses).length?'Sin incidencias para estos filtros.':'Todavía no hay datos: cargá un export de Urbetrack desde la pestaña "Cargar Excel".')+'</td></tr>';
+  }).join('')||'<tr><td colspan="11" style="padding:20px;text-align:center;color:#999;cursor:default">'+(META&&Object.keys(META.meses).length?'Sin incidencias para estos filtros.':'Todavía no hay datos: cargá un export de Urbetrack desde la pestaña "Cargar Excel".')+'</td></tr>';
 }
 function paginaBuscar(d){const pages=Math.max(1,Math.ceil(FILTRADOS.length/B_PER));bPage=Math.min(pages,Math.max(1,bPage+d));renderTablaBuscar();}
 function verDetalle(idx){
   const r=FILTRADOS[idx];if(!r)return;
+  const prev=document.getElementById('det-extra');if(prev)prev.remove();
   document.getElementById('det-title').textContent='Incidencia '+r.id;
   const campos=[['Fecha inspección',fmtDT(r.fecha)],['Fecha alta (carga)',fmtDT(r.alta)],['SLA de carga',fmtDur(r._lag)],['Usuario',r.usuario],
     ['Código / acta',r.codigo],['N° orden SAP',r.sap],
@@ -703,6 +832,10 @@ function verDetalle(idx){
     ['Tipo de servicio',r.tipo],['Detalle de servicio',r.detalle],['Archivo de origen',r.archivo]];
   document.getElementById('det-grid').innerHTML=campos.filter(([,v])=>v).map(([k,v])=>'<div class="det-item"><div class="det-k">'+esc(k)+'</div><div class="det-v">'+esc(v)+'</div></div>').join('');
   document.getElementById('det-com').textContent=r.comentario||'(sin comentario)';
+  let extra='';
+  if(r._err.length)extra+='<div class="det-err"><b>⚠ Errores de carga</b><br>'+r._err.map(k=>esc(ERR_LABEL[k])).join('<br>')+'</div>';
+  if(r.corregido)extra+='<div class="det-okc"><b>✔ Corregida</b> el '+esc(fmtDT((r.corregido.en||'').replace('T',' ')))+(r.corregido.archivo?' (archivo '+esc(r.corregido.archivo)+')':'')+': '+(r.corregido.errores||[]).map(k=>esc(ERR_LABEL[k]||k)).join(', ')+'</div>';
+  document.getElementById('det-grid').insertAdjacentHTML('afterend','<div id="det-extra">'+extra+'</div>');
   const fotos=(r.fotos||[]).map(safeHref).filter(Boolean);
   const mapa=(r.lat&&r.lng)?'<a href="https://www.google.com/maps?q='+r.lat+','+r.lng+'" target="_blank" rel="noopener">📍 Ver en el mapa</a>':'';
   document.getElementById('det-fotos').innerHTML=mapa+(fotos.length?fotos.map((u,i)=>'<a href="'+esc(u)+'" target="_blank" rel="noopener">📷 Foto '+(i+1)+'</a>').join(''):'<span class="muted" style="font-size:.8rem">Sin fotos</span>');
@@ -712,7 +845,7 @@ function exportarBusquedaExcel(){
   if(!FILTRADOS.length){toast('No hay incidencias para exportar.');return;}
   const rows=FILTRADOS.map(r=>({'Incidencia':r.id,'Código':r.codigo||'','N° SAP':r.sap||'','Fecha':r.fecha||'','Fecha alta':r.alta||'','SLA (min)':r._lag??'','Usuario':r.usuario||'','Solicitante':r.solicitante||'',
     'Calle':r.calle||'','Altura':r.altura||'','Comuna':r.comuna||'','Barrio':r.barrio||'','Tipo de servicio':r.tipo||'','Detalle de servicio':r.detalle||'',
-    'Grupo':r.grupo||'','Turno (plazo)':r.plazo||'','Estado':r.estado||'','Latitud':r.lat??'','Longitud':r.lng??'','Comentario':r.comentario||'','Fotos':(r.fotos||[]).join('\n')}));
+    'Grupo':r.grupo||'','Turno (plazo)':r.plazo||'','Estado':r.estado||'','Latitud':r.lat??'','Longitud':r.lng??'','Comentario':r.comentario||'','Errores de carga':r._err.map(k=>ERR_LABEL[k]).join('; '),'Corregida':r.corregido?('Sí ('+(r.corregido.errores||[]).map(k=>ERR_LABEL[k]||k).join(', ')+')'):'','Fotos':(r.fotos||[]).join('\n')}));
   const ws=XLSX.utils.json_to_sheet(rows);
   ws['!cols']=[{wch:12},{wch:12},{wch:10},{wch:17},{wch:17},{wch:9},{wch:16},{wch:22},{wch:24},{wch:8},{wch:10},{wch:18},{wch:24},{wch:28},{wch:16},{wch:14},{wch:14},{wch:11},{wch:11},{wch:60},{wch:40}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Incidencias');
@@ -1157,16 +1290,33 @@ async function subirAFirestore(){
   const u=usuarioActual(),ahora=new Date().toISOString();
   try{
     await leerMeta();   // índice fresco por si otro subió algo mientras tanto
+    const baseVacia=!Object.keys(META.meses).length;
     const porMes={};regs.forEach(r=>{(porMes[mesDe(r.fecha)]=porMes[mesDe(r.fecha)]||[]).push(r);});
     const meses=Object.keys(porMes).sort();
-    let nuevas=0,actualizadas=0,escrituras=0;const infoMeses={};
+    let nuevas=0,actualizadas=0,escrituras=0,corregidas=0,siguenConError=0,nuevasConError=0;const infoMeses={};
     for(let k=0;k<meses.length;k++){
       const mes=meses[k];
       t.textContent='☁️ '+fmtMes(mes)+': leyendo lo que ya hay…';
       const prev=META.meses[mes]||{chunks:0};
       const snaps=await Promise.all(Array.from({length:prev.chunks||0},(_,i)=>window._fGetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i))));
       const mapa={};snaps.forEach(s=>{if(s.exists())Object.assign(mapa,registrosDeDoc(s.data()));});
-      porMes[mes].forEach(r=>{const key=claveId(r.id);if(mapa[key])actualizadas++;else nuevas++;mapa[key]={...r,cargadoPor:u?u.nombre:'',cargadoEn:ahora};});
+      porMes[mes].forEach(r=>{
+        const key=claveId(r.id),viejo=mapa[key];
+        const nuevo={...r,cargadoPor:u?u.nombre:'',cargadoEn:ahora};
+        const errN=erroresPropios(nuevo);
+        if(viejo){
+          actualizadas++;
+          nuevo.primeraCarga=viejo.primeraCarga||viejo.cargadoEn||'';
+          // ¿Se corrigió algo? (errores que tenía la versión anterior y la
+          // nueva ya no tiene). Se conserva la marca de una corrección previa.
+          const antes=erroresPropios({...viejo,fotos:(viejo.fotos||[])});
+          const arreglados=antes.filter(k=>!errN.includes(k));
+          if(arreglados.length){corregidas++;nuevo.corregido={en:ahora,por:u?u.nombre:'',archivo:r.archivo||'',errores:arreglados};}
+          else if(viejo.corregido)nuevo.corregido=viejo.corregido;
+          if(errN.length)siguenConError++;
+        }else{nuevas++;nuevo.primeraCarga=ahora;if(errN.length)nuevasConError++;}
+        mapa[key]=nuevo;
+      });
       const chunks=partirEnChunks(mapa);
       t.textContent='💾 '+fmtMes(mes)+': guardando '+fmtInt(Object.keys(mapa).length)+' incidencias en '+chunks.length+' documento'+(chunks.length===1?'':'s')+'…';
       await Promise.all(chunks.map((reg,i)=>window._fSetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i),{mes,n:Object.keys(reg).length,datos:JSON.stringify(reg),actualizadoEn:ahora})));
@@ -1178,7 +1328,7 @@ async function subirAFirestore(){
     }
     // Índice: transacción para no pisar meses que otro haya subido en paralelo.
     const fechas=regs.map(r=>r.fecha.slice(0,10)).sort();
-    const carga={en:ahora,por:u?u.nombre:'',archivos:PARSEADOS.filter(p=>!p.error).map(p=>p.archivo),filas:regs.length,nuevas,actualizadas,desde:fechas[0],hasta:fechas[fechas.length-1]};
+    const carga={en:ahora,por:u?u.nombre:'',archivos:PARSEADOS.filter(p=>!p.error).map(p=>p.archivo),filas:regs.length,nuevas,actualizadas,corregidas,desde:fechas[0],hasta:fechas[fechas.length-1]};
     const metaRef=window._fDoc(window._db,COL_META,'index');
     await window._fRunTransaction(window._db,async tx=>{
       const s=await tx.get(metaRef);const m=s.exists()?s.data():{};
@@ -1192,13 +1342,19 @@ async function subirAFirestore(){
     });
     pf.style.width='100%';
     t.className='toast-msg ok';
-    t.textContent='✅ '+fmtInt(regs.length)+' incidencias guardadas ('+fmtInt(nuevas)+' nuevas, '+fmtInt(actualizadas)+' actualizadas) en '+escrituras+' documento'+(escrituras===1?'':'s')+' de '+meses.length+' mes'+(meses.length===1?'':'es')+'.';
+    t.textContent='✅ '+fmtInt(regs.length)+' incidencias guardadas ('+fmtInt(nuevas)+' nuevas, '+fmtInt(actualizadas)+' actualizadas) en '+escrituras+' documento'+(escrituras===1?'':'s')+' de '+meses.length+' mes'+(meses.length===1?'':'es')+'.'
+      +(actualizadas?' Errores: '+fmtInt(corregidas)+' incidencias corregidas desde la carga anterior, '+fmtInt(siguenConError)+' actualizadas siguen con algún error':'')
+      +(nuevas?(actualizadas?';':' Errores:')+' '+fmtInt(nuevasConError)+' nuevas con algún error':'')+'. El detalle, en la pestaña "Errores de carga".';
     PARSEADOS=[];renderPreviewCarga();
     for(const m of meses){delete MESES[m];await cacheSet(m,null);}
     await leerMeta();
-    // Mostrar lo recién cargado en Buscar.
-    document.getElementById('bDesde').value=fechas[0];document.getElementById('bHasta').value=fechas[fechas.length-1];
-    await asegurarRango(fechas[0],fechas[fechas.length-1]);poblarFiltros();aplicarFiltros();renderCargas();
+    // Mostrar lo recién cargado en Buscar: se AMPLÍA el rango si hace
+    // falta, nunca se achica (re-subir un archivo parcial de correcciones
+    // no debe esconder el resto).
+    const bd=document.getElementById('bDesde'),bh=document.getElementById('bHasta');
+    if(baseVacia||!bd.value||fechas[0]<bd.value)bd.value=fechas[0];
+    if(baseVacia||!bh.value||fechas[fechas.length-1]>bh.value)bh.value=fechas[fechas.length-1];
+    await asegurarRango(bd.value,bh.value);poblarFiltros();aplicarFiltros();renderCargas();
   }catch(e){
     console.error(e);t.className='toast-msg err';t.textContent='❌ Error: '+e.message+' — lo que ya se guardó queda guardado; podés volver a subir el mismo archivo sin duplicar.';
   }finally{
@@ -1208,8 +1364,8 @@ async function subirAFirestore(){
 }
 function renderCargas(){
   if(!META)return;
-  document.getElementById('cargasBody').innerHTML=(META.cargas||[]).map(c=>'<tr><td class="num">'+esc(fmtDT((c.en||'').replace('T',' ')))+'</td><td>'+esc(c.por||'—')+'</td><td style="font-size:.76rem">'+(c.archivos||[]).map(esc).join('<br>')+'</td><td class="num">'+fmtInt(c.filas)+'</td><td class="num">'+fmtInt(c.nuevas)+'</td><td class="num">'+fmtInt(c.actualizadas)+'</td><td class="num">'+fmtD(c.desde)+' – '+fmtD(c.hasta)+'</td></tr>').join('')
-    ||'<tr><td colspan="7" style="padding:12px;color:#999">Todavía no se cargó ningún archivo.</td></tr>';
+  document.getElementById('cargasBody').innerHTML=(META.cargas||[]).map(c=>'<tr><td class="num">'+esc(fmtDT((c.en||'').replace('T',' ')))+'</td><td>'+esc(c.por||'—')+'</td><td style="font-size:.76rem">'+(c.archivos||[]).map(esc).join('<br>')+'</td><td class="num">'+fmtInt(c.filas)+'</td><td class="num">'+fmtInt(c.nuevas)+'</td><td class="num">'+fmtInt(c.actualizadas)+'</td><td class="num">'+(c.corregidas!=null?fmtInt(c.corregidas):'—')+'</td><td class="num">'+fmtD(c.desde)+' – '+fmtD(c.hasta)+'</td></tr>').join('')
+    ||'<tr><td colspan="8" style="padding:12px;color:#999">Todavía no se cargó ningún archivo.</td></tr>';
   const meses=Object.keys(META.meses).sort().reverse();
   document.getElementById('mesesInfo').innerHTML=meses.length?'<b>En la base:</b> '+meses.map(m=>fmtMes(m)+' ('+fmtInt(META.meses[m].count)+' · '+META.meses[m].chunks+' doc)').join(' · '):'';
 }
