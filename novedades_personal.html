@@ -16,6 +16,14 @@
 .grid-nom{grid-template-columns:2fr .9fr .9fr .8fr 120px}
 .grid-hist{grid-template-columns:90px 2fr 1fr 2fr 64px}
 .grid-carga{grid-template-columns:2fr .9fr 1.1fr 1.2fr}
+.grid-comp{grid-template-columns:2fr 1fr .8fr .8fr .8fr .8fr}
+.grid-comp-mov{grid-template-columns:90px 1.3fr .7fr 1fr 2fr 64px}
+.comp-mov-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}
+.comp-mov-btn{border:1.5px solid var(--bor);padding:8px 6px;text-align:center;font-size:12px;cursor:pointer;background:#fff;line-height:1.3}
+.comp-mov-btn.sel{font-weight:700;border-color:var(--azul);border-width:2px}
+.comp-mov-btn small{display:block;font-weight:400;color:#777;font-size:10.5px}
+.comp-saldo-pos{color:var(--c-ok);font-weight:800}
+.comp-saldo-neg{color:var(--c-danger);font-weight:800}
 .bdg-nov-presente{color:#2e7d32}
 
 .tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
@@ -129,6 +137,7 @@
   <button class="tab active" onclick="window.cambiarTab('novedades',this)">📋 Novedades del día</button>
   <button class="tab" onclick="window.cambiarTab('nomina',this)">👥 Nómina</button>
   <button class="tab" onclick="window.cambiarTab('historial',this)">📅 Historial</button>
+  <button class="tab" onclick="window.cambiarTab('compensatorios',this)">⚖️ Compensatorios</button>
   <button class="tab" onclick="window.cambiarTab('ranking',this)">🏆 Ranking</button>
   <button class="tab" id="tabCargaNomina" style="display:none" onclick="window.cambiarTab('carga',this)">📥 Cargar Nómina</button>
   <button class="tab" id="tabImportAsistencia" style="display:none" onclick="window.cambiarTab('asistencia',this)">📊 Importar Asistencia</button>
@@ -224,6 +233,44 @@
   <div class="table-wrap">
     <div class="table-head grid-hist mob-hide-head" id="hist-head"></div>
     <div class="table-body mob-migrated" id="hist-body"></div>
+  </div>
+</div>
+
+<!-- PANEL COMPENSATORIOS -->
+<div class="panel" id="panel-compensatorios">
+  <div class="toolbar">
+    <button class="btn btn-azul" onclick="abrirModalCompensatorio()">+ Cargar compensatorio</button>
+    <input class="search-input" id="comp-buscar" placeholder="🔍 Buscar persona…" oninput="renderCompensatorios()" style="flex:0 1 200px">
+    <select class="ctrl" id="comp-turno" onchange="renderCompensatorios()"><option value="">Todos los turnos</option></select>
+    <select class="ctrl" id="comp-saldo" onchange="renderCompensatorios()">
+      <option value="">Todos los saldos</option>
+      <option value="pos">Con saldo a favor</option>
+      <option value="neg">Que deben días</option>
+      <option value="cero">En cero</option>
+    </select>
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Desde<input type="date" class="pinput" id="comp-desde" onchange="renderCompensatorios()"></label>
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Hasta<input type="date" class="pinput" id="comp-hasta" onchange="renderCompensatorios()"></label>
+    <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosComp()">✕ Limpiar filtros</button>
+    <button class="btn btn-verde" onclick="exportarCompensatoriosExcel()">⬇ Exportar Excel</button>
+  </div>
+  <p style="font-size:.8rem;color:#777;margin-bottom:10px">Saldo en <b>días</b> = a favor − tomados. Cuentan los compensatorios aprobados (los pendientes o "a la espera" se muestran aparte y no mueven el saldo; los rechazados no cuentan). Los compensatorios cargados desde Carga diaria o el import de Asistencia cuentan como 1 día tomado. Hacé clic en una persona para ver sus movimientos.</p>
+  <div class="table-info" id="comp-info"></div>
+  <div class="table-wrap">
+    <div class="table-head grid-comp mob-hide-head" id="comp-head"></div>
+    <div class="table-body mob-migrated" id="comp-body"></div>
+  </div>
+  <div id="comp-detalle" style="display:none;margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <div style="font-weight:700;font-size:14px;color:var(--azul)" id="comp-detalle-titulo"></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-azul btn-sm" id="comp-detalle-cargar">+ Movimiento</button>
+        <button class="btn btn-gris btn-sm" onclick="cerrarDetalleComp()">✕ Cerrar</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-head grid-comp-mov mob-hide-head"><span>Fecha</span><span>Movimiento</span><span>Días</span><span>Estado</span><span>Detalle</span><span></span></div>
+      <div class="table-body" id="comp-detalle-body"></div>
+    </div>
   </div>
 </div>
 
@@ -373,8 +420,21 @@
           <div class="form-field"><label class="fl">Fin</label><input type="date" class="form-input" id="mn-lic-fin"></div>
         </div>
       </div>
+      <div id="mn-comp-campos" style="display:none;margin-bottom:12px">
+        <div class="nov-info">⚖️ El compensatorio mueve el saldo de días de la persona (ver pestaña Compensatorios).</div>
+        <label class="fl">Movimiento</label>
+        <div class="comp-mov-btns" id="mn-comp-mov-btns">
+          <button type="button" class="comp-mov-btn" data-mov="otorgado" onclick="selCompMov('otorgado')">➕ A favor<small>otorgado por gerencia</small></button>
+          <button type="button" class="comp-mov-btn" data-mov="descontado" onclick="selCompMov('descontado')">➖ Tomado<small>descuenta del saldo</small></button>
+          <button type="button" class="comp-mov-btn" data-mov="debe" onclick="selCompMov('debe')">➖ Sin saldo<small>se lo tomó, queda debiendo</small></button>
+        </div>
+        <div class="lic-dates">
+          <div class="form-field" id="mn-comp-hasta-wrap"><label class="fl">Hasta (si se toma varios días)</label><input type="date" class="form-input" id="mn-comp-hasta" onchange="onCompHastaChange()"></div>
+          <div class="form-field"><label class="fl">Días</label><input type="number" min="0.5" step="0.5" class="form-input" id="mn-comp-dias" placeholder="Ej: 1"></div>
+        </div>
+      </div>
       <div id="mn-lic-estado" style="display:none;margin-bottom:12px">
-        <label class="fl">Estado de la licencia</label>
+        <label class="fl" id="mn-lic-estado-label">Estado de la licencia</label>
         <select class="form-input" id="mn-lic-estado-sel">
           <option value="Pendiente">Pendiente</option>
           <option value="Aprobada">Aprobada</option>
@@ -460,7 +520,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-dominio.js?v=8"></script>
+<script src="personal-dominio.js?v=9"></script>
 <script src="personal-datos.js?v=4"></script>
 
 <script type="module">
@@ -592,6 +652,7 @@ function actualizarBadgeActivos(){const h=getFecha();const a=window.nomina.filte
 window._cambiarTabExtra = function(id) {
   if(id==="historial") renderHistorial();
   else if(id==="ranking") renderRanking();
+  else if(id==="compensatorios") renderCompensatorios();
   else if(id==="asistencia") cargarSelectHojasAsistencia();
   else if(id==="tiposnovedad") renderTiposNovedad();
   else if(id!=="carga") { renderNovedades(); renderCargaDiaria(); }
@@ -618,6 +679,8 @@ function poblarSelects(){
   if(tn) tn.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   const rt=document.getElementById("rank-turno");
   if(rt) rt.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
+  const cpt=document.getElementById("comp-turno");
+  if(cpt) cpt.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   const ct=document.getElementById("carga-turno");
   if(ct) ct.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   const cz=document.getElementById("carga-zona");
@@ -816,6 +879,8 @@ async function guardarCargaDiaria(){
       tipo:sel.value,
       detalle:(sel.value!=="Presente"&&obs)?obs.value.trim():"",
     };
+    // Compensatorio marcado como estado del día = ese día se lo tomó.
+    if(esCompensatorio(r.tipo)){r.compMovimiento="descontado";r.compDias=1;}
     return conAuditoria(r,original);
   });
   toast("Guardando…");
@@ -856,7 +921,8 @@ function historialFiltrado(){
     if(desde&&n.fecha<desde)return false;
     if(hasta&&n.fecha>hasta)return false;
     const esLic=n.tipo.toLowerCase().includes("licencia");
-    if(filtEstado&&(esLic?(n.estadoLic||"Pendiente"):null)!==filtEstado)return false;
+    const estado=esLic?(n.estadoLic||"Pendiente"):esCompensatorio(n.tipo)?(n.estadoLic||"Aprobada"):null;
+    if(filtEstado&&estado!==filtEstado)return false;
     return true;
   });
 }
@@ -914,7 +980,8 @@ function renderHistorial(){
   document.getElementById("hist-body").innerHTML=hist.map(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:"—"};
     const extra=n.licIni?fmtDate(n.licIni)+"→"+fmtDate(n.licFin):"";
-    const detalleTxt=[extra,n.detalle].filter(Boolean).map(esc).join(" · ")||"—";
+    const compTxt=esCompensatorio(n.tipo)?textoMovComp(n):"";
+    const detalleTxt=[compTxt,extra,n.detalle].filter(Boolean).map(esc).join(" · ")||"—";
     const estadoBadge=n.estadoLic?badgeEstadoLic(n.estadoLic):"";
     const tituloPor="Cargado por "+(n.creadoPor||n.modificadoPor)+(n.modificadoPor&&n.modificadoPor!==n.creadoPor?" · Última edición: "+n.modificadoPor:"");
     const porTxt=n.modificadoPor?"<span style=\"font-size:11px;color:#aaa\" title=\""+esc(tituloPor)+"\"> · 👤 "+esc(n.modificadoPor)+"</span>":"";
@@ -952,6 +1019,7 @@ async function borrarNovedad(id){
     // en pantalla sin haberse borrado de verdad).
     window.novedades=window.novedades.filter(x=>x.id!==id);
     renderNovedades();renderHistorial();
+    if(document.getElementById("panel-compensatorios").classList.contains("active")) renderCompensatorios();
     toast("Novedad eliminada");
   }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
 }
@@ -1166,6 +1234,10 @@ function abrirModalNovedad(pid){
   document.getElementById("mn-lic-fin").value=getFecha();
   document.getElementById("mn-lic-estado").style.display="none";
   document.getElementById("mn-lic-estado-sel").value="Pendiente";
+  document.getElementById("mn-comp-campos").style.display="none";
+  document.getElementById("mn-comp-hasta").value="";
+  document.getElementById("mn-comp-dias").value="1";
+  selCompMov("otorgado");
   renderTiposGrid(null);
   const input=document.getElementById("mn-persona-input");
   const selDiv=document.getElementById("mn-persona-seleccionada");
@@ -1186,8 +1258,14 @@ function editarNovedad(id){
   document.getElementById("mn-lic-fechas").style.display=esLic?"":"none";
   document.getElementById("mn-lic-inicio").value=n.licIni||getFecha();
   document.getElementById("mn-lic-fin").value=n.licFin||getFecha();
-  document.getElementById("mn-lic-estado").style.display=esLic?"":"none";
-  document.getElementById("mn-lic-estado-sel").value=n.estadoLic||"Pendiente";
+  const esComp=esCompensatorio(n.tipo);
+  document.getElementById("mn-lic-estado").style.display=(esLic||esComp)?"":"none";
+  document.getElementById("mn-lic-estado-label").textContent=esComp?"Estado":"Estado de la licencia";
+  document.getElementById("mn-lic-estado-sel").value=n.estadoLic||(esComp?"Aprobada":"Pendiente");
+  document.getElementById("mn-comp-campos").style.display=esComp?"":"none";
+  document.getElementById("mn-comp-hasta").value=(esComp&&n.licFin&&n.licFin!==n.fecha)?n.licFin:"";
+  document.getElementById("mn-comp-dias").value=esComp?compDiasDe(n):"1";
+  selCompMov(esComp?compMovimientoDe(n):"otorgado");
   renderTiposGrid(n.tipo);
   const p=window.nomina.find(x=>x.id===n.personaId);
   document.getElementById("mn-persona-input").style.display="none";
@@ -1215,9 +1293,37 @@ function selTipo(btn,tipo){
   document.querySelectorAll(".tipo-btn").forEach(b=>b.classList.remove("sel"));
   btn.classList.add("sel");
   const esLic=tipo.toLowerCase().includes("licencia");
+  const esComp=esCompensatorio(tipo);
   document.getElementById("mn-fecha-wrap").style.display=esLic?"none":"";
   document.getElementById("mn-lic-fechas").style.display=esLic?"":"none";
-  document.getElementById("mn-lic-estado").style.display=esLic?"":"none";
+  document.getElementById("mn-lic-estado").style.display=(esLic||esComp)?"":"none";
+  document.getElementById("mn-lic-estado-label").textContent=esComp?"Estado":"Estado de la licencia";
+  document.getElementById("mn-comp-campos").style.display=esComp?"":"none";
+  // Un compensatorio cargado a mano ya está decidido casi siempre: se
+  // propone "Aprobada" (se puede cambiar a Pendiente si falta el OK).
+  if(esComp&&!_editNovId) document.getElementById("mn-lic-estado-sel").value="Aprobada";
+  else if(!esComp&&!_editNovId) document.getElementById("mn-lic-estado-sel").value="Pendiente";
+}
+let _compMov="otorgado";
+function selCompMov(mov){
+  _compMov=mov;
+  document.querySelectorAll("#mn-comp-mov-btns .comp-mov-btn").forEach(b=>b.classList.toggle("sel",b.dataset.mov===mov));
+  // "A favor" es un reconocimiento de días (no un rango de ausencia): no
+  // lleva "Hasta" — los días se cargan directo en el campo Días.
+  document.getElementById("mn-comp-hasta-wrap").style.display=mov==="otorgado"?"none":"";
+}
+// Al elegir "Hasta", propone la cantidad de días del rango (se puede
+// corregir a mano, ej. si en el medio cae un franco).
+function onCompHastaChange(){
+  const ini=document.getElementById("mn-fecha").value;
+  const fin=document.getElementById("mn-comp-hasta").value;
+  if(!ini||!fin||fin<ini)return;
+  const dias=Math.round((new Date(fin+"T12:00:00")-new Date(ini+"T12:00:00"))/86400000)+1;
+  document.getElementById("mn-comp-dias").value=dias;
+}
+function textoMovComp(n){
+  const d=compDiasDe(n);
+  return COMP_MOV_LABEL[compMovimientoDe(n)]+" · "+d+" día"+(d===1?"":"s");
 }
 function revisarNovedad(){
   if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
@@ -1233,6 +1339,21 @@ function revisarNovedad(){
     nov.licIni=ini;nov.licFin=fin;
     nov.fecha=ini;
     nov.estadoLic=document.getElementById("mn-lic-estado-sel").value||"Pendiente";
+  }
+  if(esCompensatorio(_novTipo)){
+    const dias=parseFloat(document.getElementById("mn-comp-dias").value);
+    if(!(dias>0)){alert("Ingresá una cantidad de días válida.");return;}
+    nov.compMovimiento=_compMov;
+    nov.compDias=dias;
+    nov.estadoLic=document.getElementById("mn-lic-estado-sel").value||"Aprobada";
+    const hasta=document.getElementById("mn-comp-hasta").value;
+    if(_compMov!=="otorgado"&&hasta&&hasta!==fechaNov){
+      if(hasta<fechaNov){alert("\"Hasta\" no puede ser anterior a la fecha.");return;}
+      // Rango de días tomados: se guarda igual que una licencia (licIni/
+      // licFin) para que Carga diaria y Asignación de Zonas lo vean como
+      // ausente todos esos días, no sólo el primero.
+      nov.licIni=fechaNov;nov.licFin=hasta;
+    }
   }
   const original=_editNovId?window.novedades.find(x=>x.id===_editNovId):null;
   if(original&&original._chunk!==undefined) nov._chunk=original._chunk;
@@ -1252,6 +1373,7 @@ function renderConfirmNovedad(nov){
     ["Fecha",nov.licIni?fmtDate(nov.licIni)+" → "+fmtDate(nov.licFin):fmtDate(nov.fecha)],
   ];
   if(nov.estadoLic) filas.push(["Estado",badgeEstadoLic(nov.estadoLic)]);
+  if(esCompensatorio(nov.tipo)) filas.push(["Movimiento",esc(textoMovComp(nov))]);
   filas.push(["Detalle",nov.detalle?esc(nov.detalle):"—"]);
   document.getElementById("mn-confirm-ficha").innerHTML=filas.map(([k,v])=>
     "<div class=\"ficha-item\"><div class=\"ficha-key\">"+k+"</div><div class=\"ficha-val\">"+v+"</div></div>"
@@ -1277,6 +1399,7 @@ async function confirmarGuardarNovedad(){
     }
     cerrarModal("modal-novedad-overlay");
     renderAll();
+    if(document.getElementById("panel-compensatorios").classList.contains("active")) renderCompensatorios();
     toast("✅ Novedad guardada");
     _novPendiente=null;
   }catch(e){toast("❌ Error al guardar: "+e.message,4000);console.error(e);}
@@ -1297,14 +1420,151 @@ async function exportarHistorialNovedades(){
   const rows=historialFiltrado().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
     const zona=(window.distribuciones[n.fecha]||{})[n.personaId]||"";
-    return{"Fecha":n.fecha,"Nombre":p.nombre||n.personaId,"Turno":p.turno||"","Rol":p.rol||"","DNI":p.dni||"","Zona":zona,"Tipo":n.tipo,"Inicio Licencia":n.licIni||"","Fin Licencia":n.licFin||"","Detalle":n.detalle||""};
+    const comp=esCompensatorio(n.tipo);
+    return{"Fecha":n.fecha,"Nombre":p.nombre||n.personaId,"Turno":p.turno||"","Rol":p.rol||"","DNI":p.dni||"","Zona":zona,"Tipo":n.tipo,"Inicio Licencia":n.licIni||"","Fin Licencia":n.licFin||"","Estado":n.estadoLic||"","Movimiento comp.":comp?COMP_MOV_LABEL[compMovimientoDe(n)]:"","Días comp.":comp?compDiasDe(n):"","Detalle":n.detalle||""};
   });
   if(!rows.length){toast("Sin novedades para los filtros seleccionados.");return;}
   const ws=XLSX.utils.json_to_sheet(rows);
-  ws["!cols"]=[{wch:12},{wch:35},{wch:18},{wch:18},{wch:12},{wch:18},{wch:20},{wch:14},{wch:14},{wch:40}];
+  ws["!cols"]=[{wch:12},{wch:35},{wch:18},{wch:18},{wch:12},{wch:18},{wch:20},{wch:14},{wch:14},{wch:16},{wch:16},{wch:10},{wch:40}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"NOVEDADES");
   XLSX.writeFile(wb,"historial_novedades_"+todayISO()+".xlsx");
   toast("✅ Historial exportado ("+rows.length+" registros)");
+}
+
+// ============================================================
+//  COMPENSATORIOS (saldo de días por persona)
+// ============================================================
+// Mismo modelo que el portal GOIEP: cada novedad Compensatorio es un
+// movimiento en días (compMovimiento/compDias, ver personal-dominio.js).
+// Saldo = a favor − tomados (con o sin saldo). Sólo mueven el saldo los
+// aprobados; Pendiente / "A la espera…" se muestran aparte y Rechazada no
+// cuenta. Registros viejos sin estado se consideran aprobados (se
+// cargaron como algo que ya pasó).
+function estadoComp(n){return n.estadoLic||"Aprobada";}
+function movimientosComp(){
+  const desde=document.getElementById("comp-desde").value;
+  const hasta=document.getElementById("comp-hasta").value;
+  return window.novedades.filter(n=>esCompensatorio(n.tipo)
+    &&(!desde||n.fecha>=desde)&&(!hasta||n.fecha<=hasta));
+}
+function calcularCompensatorios(){
+  const porPersona={};
+  movimientosComp().forEach(n=>{
+    const c=porPersona[n.personaId]||(porPersona[n.personaId]={favor:0,tomados:0,sinSaldo:0,pendientes:0,movs:0});
+    c.movs++;
+    const est=estadoComp(n);
+    if(est==="Rechazada")return;
+    if(est!=="Aprobada"){c.pendientes+=compDiasDe(n);return;}
+    const mov=compMovimientoDe(n), d=compDiasDe(n);
+    if(mov==="otorgado") c.favor+=d;
+    else { c.tomados+=d; if(mov==="debe") c.sinSaldo+=d; }
+  });
+  return Object.entries(porPersona).map(([pid,c])=>{
+    const p=window.nomina.find(x=>x.id===pid)||{nombre:"(persona eliminada)",turno:""};
+    return {pid,nombre:p.nombre,turno:p.turno||"",...c,saldo:c.favor-c.tomados};
+  });
+}
+function compFiltrados(){
+  const busq=(document.getElementById("comp-buscar").value||"").toLowerCase();
+  const turno=document.getElementById("comp-turno").value;
+  const saldo=document.getElementById("comp-saldo").value;
+  return calcularCompensatorios().filter(r=>{
+    if(busq&&!coincideTexto((r.nombre||"").toLowerCase(),busq))return false;
+    if(turno&&r.turno!==turno)return false;
+    if(saldo==="pos"&&!(r.saldo>0))return false;
+    if(saldo==="neg"&&!(r.saldo<0))return false;
+    if(saldo==="cero"&&r.saldo!==0)return false;
+    return true;
+  }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
+}
+const fmtDias=d=>(Math.round(d*10)/10).toLocaleString("es-AR");
+function renderCompensatorios(){
+  const filas=ordenarLista(compFiltrados(),"comp",(r,campo)=>r[campo]);
+  const tot=filas.reduce((a,r)=>({favor:a.favor+r.favor,tomados:a.tomados+r.tomados,saldo:a.saldo+r.saldo}),{favor:0,tomados:0,saldo:0});
+  document.getElementById("comp-info").textContent=filas.length+" personas con movimientos · "+fmtDias(tot.favor)+" días a favor · "+fmtDias(tot.tomados)+" tomados · saldo total "+fmtDias(tot.saldo);
+  document.getElementById("comp-head").innerHTML=
+    thOrden("comp","nombre","Persona","renderCompensatorios")
+    +thOrden("comp","turno","Turno","renderCompensatorios")
+    +thOrden("comp","favor","A favor","renderCompensatorios")
+    +thOrden("comp","tomados","Tomados","renderCompensatorios")
+    +thOrden("comp","pendientes","Pendientes","renderCompensatorios")
+    +thOrden("comp","saldo","Saldo","renderCompensatorios");
+  document.getElementById("comp-body").innerHTML=filas.map(r=>{
+    const cls=r.saldo>0?"comp-saldo-pos":r.saldo<0?"comp-saldo-neg":"";
+    const sinSaldo=r.sinSaldo?" <span style=\"font-size:11px;color:#b45309\" title=\"Días tomados sin tener saldo\">("+fmtDias(r.sinSaldo)+" sin saldo)</span>":"";
+    return "<div class=\"table-row grid-comp\" style=\"cursor:pointer\" onclick=\"verDetalleComp('"+escJsAttr(r.pid)+"')\" title=\"Ver movimientos\">"
+      +"<span style=\"font-weight:600\">"+esc(r.nombre)+"</span>"
+      +"<span>"+(r.turno?badgeTurno(r.turno):"—")+"</span>"
+      +"<span>"+fmtDias(r.favor)+"</span>"
+      +"<span>"+fmtDias(r.tomados)+sinSaldo+"</span>"
+      +"<span style=\"color:#888\">"+(r.pendientes?fmtDias(r.pendientes):"—")+"</span>"
+      +"<span class=\""+cls+"\">"+(r.saldo>0?"+":"")+fmtDias(r.saldo)+"</span>"
+      +"</div>"
+      +"<div class=\"mob-list-item\" onclick=\"verDetalleComp('"+escJsAttr(r.pid)+"')\">"
+      +"<div class=\"mob-avatar\">"+esc(inicialesNombre(r.nombre))+"</div>"
+      +"<div class=\"mob-main\"><div class=\"mob-nombre\">"+esc(r.nombre)+"</div>"
+      +"<div class=\"mob-sub\">+"+fmtDias(r.favor)+" a favor · −"+fmtDias(r.tomados)+" tomados"+(r.pendientes?" · "+fmtDias(r.pendientes)+" pend.":"")+"</div></div>"
+      +"<span class=\""+cls+"\">"+(r.saldo>0?"+":"")+fmtDias(r.saldo)+"</span>"
+      +"</div>";
+  }).join("")||"<div style=\"padding:16px;color:#aaa;text-align:center\">Sin movimientos de compensatorio para estos filtros.</div>";
+  if(_compDetallePid) verDetalleComp(_compDetallePid);
+}
+let _compDetallePid=null;
+function verDetalleComp(pid){
+  _compDetallePid=pid;
+  const p=window.nomina.find(x=>x.id===pid)||{nombre:"(persona eliminada)"};
+  const movs=movimientosComp().filter(n=>n.personaId===pid).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  const r=calcularCompensatorios().find(x=>x.pid===pid);
+  document.getElementById("comp-detalle-titulo").textContent="Movimientos de "+p.nombre+(r?" — saldo "+(r.saldo>0?"+":"")+fmtDias(r.saldo)+" días":"");
+  document.getElementById("comp-detalle-cargar").onclick=()=>abrirModalCompensatorio(pid);
+  document.getElementById("comp-detalle-body").innerHTML=movs.map(n=>{
+    const mov=compMovimientoDe(n);
+    const signo=mov==="otorgado"?"+":"−";
+    const rango=n.licIni&&n.licFin&&n.licFin!==n.licIni?fmtDate(n.licIni)+" → "+fmtDate(n.licFin):"";
+    return "<div class=\"table-row grid-comp-mov\">"
+      +"<span style=\"font-size:12px;color:#777\">"+fmtDate(n.fecha)+"</span>"
+      +"<span style=\"font-weight:600;color:"+(mov==="otorgado"?"var(--c-ok)":"var(--c-danger)")+"\">"+esc(COMP_MOV_LABEL[mov])+"</span>"
+      +"<span>"+signo+fmtDias(compDiasDe(n))+"</span>"
+      +"<span>"+badgeEstadoLic(estadoComp(n))+"</span>"
+      +"<span style=\"font-size:12px;color:#555\">"+[rango,n.detalle].filter(Boolean).map(esc).join(" · ")+(n.modificadoPor?" <span style=\"font-size:11px;color:#aaa\">· 👤 "+esc(n.modificadoPor)+"</span>":"")+"</span>"
+      +"<span style=\"display:flex;gap:4px\">"
+      +"<button onclick=\"editarNovedad('"+escJsAttr(n.id)+"')\" style=\"background:none;border:none;color:#2563a8;cursor:pointer;font-size:13px\">✏️</button>"
+      +"<button onclick=\"borrarNovedad('"+escJsAttr(n.id)+"')\" style=\"background:none;border:none;color:#c0392b;cursor:pointer;font-size:13px\">✕</button>"
+      +"</span></div>";
+  }).join("")||"<div style=\"padding:12px;color:#aaa;text-align:center\">Sin movimientos en el rango elegido.</div>";
+  document.getElementById("comp-detalle").style.display="";
+}
+function cerrarDetalleComp(){_compDetallePid=null;document.getElementById("comp-detalle").style.display="none";}
+function limpiarFiltrosComp(){
+  ["comp-buscar","comp-turno","comp-saldo","comp-desde","comp-hasta"].forEach(id=>document.getElementById(id).value="");
+  renderCompensatorios();
+}
+// Abre el modal de novedad con el tipo Compensatorio ya elegido (y la
+// persona, si viene del detalle de alguien).
+function abrirModalCompensatorio(pid){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const tipo=(window.tiposNovedad||[]).find(t=>esCompensatorio(t))||"Compensatorio";
+  if(!(window.tiposNovedad||[]).includes(tipo)) window.tiposNovedad.push(tipo);
+  abrirModalNovedad(pid||null);
+  const btn=[...document.querySelectorAll("#mn-tipos-grid .tipo-btn")].find(b=>b.textContent.trim().endsWith(tipo));
+  if(btn) selTipo(btn,tipo);
+}
+function exportarCompensatoriosExcel(){
+  const filas=compFiltrados();
+  if(!filas.length){toast("Sin datos para exportar.");return;}
+  const resumen=filas.map(r=>({"Persona":r.nombre,"Turno":r.turno,"A favor (días)":r.favor,"Tomados (días)":r.tomados,"Tomados sin saldo (días)":r.sinSaldo,"Pendientes (días)":r.pendientes,"Saldo (días)":r.saldo}));
+  const pids=new Set(filas.map(r=>r.pid));
+  const movs=movimientosComp().filter(n=>pids.has(n.personaId)).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"")).map(n=>{
+    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    return {"Fecha":n.fecha,"Hasta":n.licFin||"","Persona":p.nombre||n.personaId,"Movimiento":COMP_MOV_LABEL[compMovimientoDe(n)],"Días":compDiasDe(n),"Estado":estadoComp(n),"Detalle":n.detalle||"","Cargado por":n.creadoPor||"","Modificado por":n.modificadoPor||""};
+  });
+  const wb=XLSX.utils.book_new();
+  const ws1=XLSX.utils.json_to_sheet(resumen);ws1["!cols"]=[{wch:35},{wch:16},{wch:14},{wch:14},{wch:20},{wch:16},{wch:12}];
+  const ws2=XLSX.utils.json_to_sheet(movs);ws2["!cols"]=[{wch:12},{wch:12},{wch:35},{wch:18},{wch:8},{wch:14},{wch:40},{wch:18},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,ws1,"SALDOS");
+  XLSX.utils.book_append_sheet(wb,ws2,"MOVIMIENTOS");
+  XLSX.writeFile(wb,"compensatorios_"+todayISO()+".xlsx");
+  toast("✅ Compensatorios exportados ("+filas.length+" personas)");
 }
 
 // ============================================================

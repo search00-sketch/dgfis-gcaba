@@ -68,14 +68,31 @@ function getEstadoPersona(p, hoy) {
 }
 function novedadesHoy() {
   const hoy=getFecha();
-  return window.novedades.filter(n=>n.fecha===hoy||(n.tipo.toLowerCase().includes('licencia')&&n.licIni&&n.licFin&&hoy>=n.licIni&&hoy<=n.licFin));
+  return window.novedades.filter(n=>!esMovimientoSoloSaldo(n)&&(n.fecha===hoy||(n.tipo.toLowerCase().includes('licencia')&&n.licIni&&n.licFin&&hoy>=n.licIni&&hoy<=n.licFin)));
 }
 function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
 function allZonas(){return [...(window.zonas||[]),'EVENTO ESPECIAL','PARTIDO FÚTBOL'];}
 
 // Novedad "puntual" (mismo día) o de rango (licencia con licIni/licFin) que cubre `fecha`
 function novedadCubreFecha(n,fecha){return n.fecha===fecha||(n.licIni&&n.licFin&&fecha>=n.licIni&&fecha<=n.licFin);}
-function novedadDePersonaEnFecha(pid,fecha){return (window.novedades||[]).find(n=>n.personaId===pid&&novedadCubreFecha(n,fecha));}
+function novedadDePersonaEnFecha(pid,fecha){return (window.novedades||[]).find(n=>n.personaId===pid&&!esMovimientoSoloSaldo(n)&&novedadCubreFecha(n,fecha));}
+
+// ---- Compensatorios --------------------------------------------------
+// Una novedad de tipo Compensatorio puede ser de tres clases (campo
+// compMovimiento, en días — mismo modelo que el portal GOIEP):
+//   "otorgado"   → A FAVOR: gerencia le reconoce días (trabajó de más, etc.)
+//   "descontado" → TOMADO: se tomó el/los día(s), descuenta de su saldo
+//   "debe"       → TOMADO SIN SALDO: se lo tomó igual, queda debiendo
+// Las cargadas antes de existir este campo (desde Carga diaria o el import
+// de Asistencia: "ese día estuvo de compensatorio") son días tomados.
+// Sólo "otorgado" es un movimiento de saldo puro: ese día la persona NO
+// está ausente, así que no ocupa el "estado del día" ni cuenta como
+// ausencia en Carga diaria / Asignación de Zonas.
+function esCompensatorio(tipo){return (tipo||'').toLowerCase().includes('compensatorio');}
+function compMovimientoDe(n){return n.compMovimiento||'descontado';}
+function compDiasDe(n){const d=parseFloat(n.compDias);return d>0?d:1;}
+function esMovimientoSoloSaldo(n){return !!n&&esCompensatorio(n.tipo)&&n.compMovimiento==='otorgado';}
+const COMP_MOV_LABEL={otorgado:'A favor',descontado:'Tomado',debe:'Tomado sin saldo'};
 
 // Tipos de novedad que implican que la persona no está disponible ese día
 // (licencia, ausencia, compensatorio, artículo, etc. — por nombre, ya que
@@ -85,7 +102,7 @@ function esNovedadAusencia(tipo){
   return t.includes('licencia')||t.includes('ausencia')||t.includes('compensatorio')||t.includes('articulo')||t.includes('artículo');
 }
 function personaAusenteEnFecha(pid,fecha){
-  return (window.novedades||[]).some(n=>n.personaId===pid&&esNovedadAusencia(n.tipo)&&n.estadoLic!=='Rechazada'&&novedadCubreFecha(n,fecha));
+  return (window.novedades||[]).some(n=>n.personaId===pid&&esNovedadAusencia(n.tipo)&&!esMovimientoSoloSaldo(n)&&n.estadoLic!=='Rechazada'&&novedadCubreFecha(n,fecha));
 }
 
 function badgeTurno(t){return `<span class="badge ${TURNOS_BADGE[t]||'bdg-admin'}">${esc(t||'—')}</span>`;}
