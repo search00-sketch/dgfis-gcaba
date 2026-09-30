@@ -8,7 +8,7 @@
 <script src="config.js"></script>
 <script src="utils.js?v=4"></script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-nav.js?v=3"></script>
+<script src="personal-nav.js?v=4"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -263,6 +263,13 @@ const MODULES = [
     id: 'urbetrack', icon: '📡', title: 'Urbetrack — Venta sin permiso',
     desc: 'Carga de los exports de Urbetrack, buscador de incidencias, control de cargas y SLA por usuario, días home.',
     tag: 'Activo', roles: ['admin','urbetrack'], url: 'urbetrack_venta.html',
+  },
+  {
+    // Sin módulo propio: lo ve quien tenga Estadísticas o Urbetrack (cada
+    // sección del informe muestra sólo lo que sus permisos le dejan leer).
+    id: 'informe', icon: '📅', title: 'Informe Venta Ilegal',
+    desc: 'Informe mensual: actas por operativo, polígono, evento, patrulla y estadio, e incidencias de Urbetrack por grupo.',
+    tag: 'Activo', roles: ['admin','estadisticas','urbetrack'], url: 'informe_venta_ilegal.html',
   },
   {
     id: 'expedientes', icon: '📋', title: 'Gestión de Expedientes',

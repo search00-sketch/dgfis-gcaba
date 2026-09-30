@@ -11,6 +11,7 @@ const NAV_MODULES=[
   {id:"asignacion",icon:"📍",title:"Asignación de Zonas",url:"asignacion_zonas.html"},
   {id:"relevamientos",icon:"🗂️",title:"Relevamientos Operativos",url:"relevamientos_operativos.html"},
   {id:"urbetrack",icon:"📡",title:"Urbetrack — Venta sin permiso",url:"urbetrack_venta.html"},
+  {id:"informe",icon:"📅",title:"Informe Venta Ilegal",url:"informe_venta_ilegal.html"},
 ];
 function toggleNavMenu(e){
   if(e)e.stopPropagation();

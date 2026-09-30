@@ -72,3 +72,24 @@ function actualizarBadgeFiltros(panelId, btnId) {
     .filter(el => (el.value || '').trim() !== '').length;
   btn.textContent = activos ? `⚙️ Filtros (${activos})` : '⚙️ Filtros';
 }
+
+// Categoría de una incidencia de Urbetrack para el Informe Venta Ilegal, a
+// partir de su "Grupo". Replica la columna "GRUPO NORMALIZADO" del Excel
+// del informe (PUNTO CRONICO, HOJA DE RUTA, PARTIDO FUTBOL, etc.), pero
+// sin distinguir tildes ni "DE": el Excel dejaba afuera "PARTIDO DE
+// FUTBOL", "AGRESION" (sin tilde) y "CONSULTA FISCALIA" (sin tilde).
+// Compartida por urbetrack_venta.html (totales al subir) e
+// informe_venta_ilegal.html.
+function categoriaUrbetrack(grupo) {
+  const s = String(grupo ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+  const j = s.replace(/ /g, '');
+  if (!j) return 'SIN GRUPO';
+  if (j.includes('PUNTOCRONICO')) return 'PUNTO CRONICO';
+  if (j.includes('PARTIDOFUTBOL') || j.includes('PARTIDODEFUTBOL')) return 'PARTIDO FUTBOL';
+  if (j.includes('CONSULTAFISCALIA')) return 'CONSULTA FISCALIA';
+  if (j.includes('HOJADERUTA')) return 'HOJA DE RUTA';
+  if (j.includes('FUERADEOPERATORIA')) return 'FUERA DE OPERATORIA';
+  if (j.includes('MANIFESTACIONES')) return 'MANIFESTACIONES Y EVENTOS';
+  if (j.startsWith('AGRESION')) return 'AGRESION';
+  return s;
+}
