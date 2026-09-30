@@ -200,6 +200,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   <button class="tab active" onclick="switchTab('stats',this)">📊 Estadísticas</button>
   <button class="tab" onclick="switchTab('mapa',this)">🗺️ Mapa de calor</button>
   <button class="tab" onclick="switchTab('tabla',this)">📋 Registros</button>
+  <button class="tab" onclick="switchTab('errores',this)">⚠️ Errores de carga</button>
   <button class="tab" id="tabCarga" onclick="switchTab('carga',this)" style="display:none">📥 Cargar Excel</button>
 </div>
 
@@ -357,6 +358,37 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
       <button onclick="tblPrev()" style="padding:5px 10px;border:1.5px solid var(--bor);border-radius:0;cursor:pointer;background:#fff;font-size:.78rem">← Ant</button>
       <span id="tblPage" style="font-size:.78rem;color:var(--mut)">1 / 1</span>
       <button onclick="tblNext()" style="padding:5px 10px;border:1.5px solid var(--bor);border-radius:0;cursor:pointer;background:#fff;font-size:.78rem">Sig →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PANEL ERRORES ===== -->
+<div id="panelErrores" style="display:none">
+  <div class="ucard" style="font-size:.8rem;color:var(--mut);line-height:1.6;padding:14px 18px">
+    Controles de carga sobre las actas <b>desde el 1/1/2026</b> que pasan los filtros de arriba. Se marca cuando:
+    el <b>nombre del archivo de la foto</b> no contiene el N° de acta de secuestro (o el de comprobación, si tiene) ·
+    un <b>precinto</b> no tiene 7 dígitos · un N° de <b>precinto aparece como N° de acta</b> (o al revés) ·
+    el <b>acta de comprobación</b> no es "0" ni <code>400</code> + 6 dígitos · el <b>acta de secuestro</b> está vacía, tiene menos de 4 dígitos o tiene 7 dígitos sin ceros adelante (el largo de un precinto).
+  </div>
+  <div class="kpigrid" id="errKpis"></div>
+  <div id="errChips" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px"></div>
+  <div class="ccard" style="margin-bottom:16px">
+    <div class="ctitle">Por inspector (clic para ver sus actas con error)</div>
+    <div style="overflow-x:auto"><table><thead id="errInspHead"></thead><tbody id="errInspBody"></tbody></table></div>
+  </div>
+  <div class="twrap">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span style="font-size:.8rem;color:var(--mut)" id="errInfo"></span>
+      <span style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="errBuscar" placeholder="Buscar acta, precinto, inspector…" oninput="renderErroresActas()" style="padding:6px 10px;border:1.5px solid var(--bor);font-size:.82rem;width:230px">
+        <button class="fbtn" onclick="exportarErroresActas()">⬇ Exportar Excel</button>
+      </span>
+    </div>
+    <div style="overflow-x:auto"><table><thead><tr><th>ID</th><th>Fecha</th><th>Inspector</th><th>Acta secuestro</th><th>Acta comprob.</th><th>Precintos</th><th>Foto</th><th>Errores</th></tr></thead><tbody id="errBody"></tbody></table></div>
+    <div style="padding:10px 14px;display:flex;gap:8px;align-items:center;border-top:1px solid var(--bor)">
+      <button onclick="errPag(-1)" style="padding:5px 10px;border:1.5px solid var(--bor);cursor:pointer;background:#fff;font-size:.78rem">← Ant</button>
+      <span id="errPagTxt" style="font-size:.78rem;color:var(--mut)"></span>
+      <button onclick="errPag(1)" style="padding:5px 10px;border:1.5px solid var(--bor);cursor:pointer;background:#fff;font-size:.78rem">Sig →</button>
     </div>
   </div>
 </div>
@@ -615,6 +647,7 @@ function aplicarFiltros() {
   renderStats();
   renderMapa();
   renderTabla();
+  if (document.getElementById('panelErrores').style.display==='block') renderErroresActas();
 }
 
 function limpiarFiltros() {
@@ -989,11 +1022,126 @@ function switchTab(name, btn) {
   document.getElementById('panelMapa').style.display   = name==='mapa'   ? 'block' : 'none';
   document.getElementById('panelTabla').style.display  = name==='tabla'  ? 'block' : 'none';
   document.getElementById('panelCarga').style.display  = name==='carga'  ? 'block' : 'none';
+  document.getElementById('panelErrores').style.display= name==='errores'? 'block' : 'none';
   document.getElementById('filtrosBar').style.display  = name==='carga'  ? 'none'  : 'flex';
   if (name==='mapa') renderMapa();
   if (name==='tabla') renderTabla();
+  if (name==='errores') renderErroresActas();
 }
 window.switchTab = switchTab;
+
+// ── ERRORES DE CARGA DE ACTAS (desde 2026) ───────────────────────────────
+// Reglas calibradas con la base real de 2026 (VENTA_ILEGAL_ACTAS, ~11.300
+// actas): el nombre de la foto lo pone el inspector con dirección + N° de
+// acta ("AV CALLAO 289 23845_00001_…pdf", "AS0011523_…pdf"); los precintos
+// tienen 7 dígitos (98,5%; algunos con una "G" adelante); el acta de
+// comprobación es "0" (no hay) o 400 + 6 dígitos; el acta de secuestro
+// tiene 5 dígitos, o más con ceros adelante (otros talonarios); las de 7
+// dígitos sin ceros adelante son precintos cargados como acta.
+const ERR_ACTAS_DESDE='2026-01-01';
+const ERR_ACTAS=[
+  {k:'fotosec',l:'Foto ≠ acta de secuestro'},
+  {k:'fotocom',l:'Foto ≠ acta de comprobación'},
+  {k:'precdig',l:'Precinto sin 7 dígitos'},
+  {k:'cruce',l:'Precinto cargado como acta (o al revés)'},
+  {k:'comfmt',l:'Acta de comprobación inválida'},
+  {k:'secfmt',l:'Acta de secuestro con formato dudoso'},
+];
+const ERR_ACTAS_L=Object.fromEntries(ERR_ACTAS.map(e=>[e.k,e.l]));
+const soloDig=s=>String(s??'').replace(/\D/g,'');
+const sinCeros=s=>soloDig(s).replace(/^0+/,'');
+function nombreFoto(u){
+  let f=String(u||'').split('?')[0].split('/').pop();
+  try{f=decodeURIComponent(f);}catch(e){}
+  // Forms agrega "_00001_Nombre Apellido.pdf" (o "_Nombre.pdf") al final.
+  return f.replace(/\.[a-z0-9]+$/i,'').replace(/_\d{5}_[^_]*$/,'').replace(/_[^_]*$/,'');
+}
+let _errActasCache=null;
+function erroresDeActas(lista){
+  // Índices globales para el cruce precinto ↔ acta (entre todas las actas
+  // cargadas desde 2026, no sólo las filtradas).
+  const desde=(window.ACTAS||[]).filter(a=>(a.fecha||'')>=ERR_ACTAS_DESDE);
+  const actas=new Set(),precs=new Set();
+  desde.forEach(a=>{const s=sinCeros(a.actaSecuestro),c=sinCeros(a.actaComprobacion);if(s)actas.add(s);if(c)actas.add(c);(a.precintos||[]).forEach(p=>{const d=sinCeros(p.precinto);if(d.length>=5)precs.add(d);});});
+  return lista.filter(a=>(a.fecha||'')>=ERR_ACTAS_DESDE).map(a=>{
+    const e=[],det=[];
+    const s=sinCeros(a.actaSecuestro),c=sinCeros(a.actaComprobacion);
+    const f=nombreFoto(a.fotoActa),nums=(f.match(/\d{4,}/g)||[]).map(x=>x.replace(/^0+/,''));
+    if(nums.length&&s&&!nums.includes(s)){e.push('fotosec');det.push('foto "'+f+'" vs secuestro '+a.actaSecuestro);}
+    // En la foto suelen escribir la comprobación sin el "400" inicial
+    // ("AC 00842372" = 400842372): también vale.
+    const cCorta=c.replace(/^400/,'').replace(/^0+/,'');
+    if(nums.length&&c&&!nums.includes(c)&&!nums.includes(cCorta)){e.push('fotocom');det.push('foto "'+f+'" vs comprobación '+a.actaComprobacion);}
+    const malos=(a.precintos||[]).map(p=>String(p.precinto||'').trim()).filter(p=>p&&soloDig(p).length!==7);
+    if(malos.length){e.push('precdig');det.push('precinto(s) '+malos.join(', '));}
+    const cruce=[];
+    if(s&&precs.has(s))cruce.push('secuestro '+a.actaSecuestro+' es un precinto');
+    if(c&&precs.has(c))cruce.push('comprobación '+a.actaComprobacion+' es un precinto');
+    (a.precintos||[]).forEach(p=>{const d=sinCeros(p.precinto);if(d&&actas.has(d))cruce.push('precinto '+p.precinto+' es un N° de acta');});
+    if(cruce.length){e.push('cruce');det.push(cruce.join('; '));}
+    const cRaw=String(a.actaComprobacion??'').replace(/\s/g,'');
+    if(cRaw&&cRaw!=='0'&&!/^400\d{6}$/.test(cRaw)){e.push('comfmt');det.push('comprobación "'+a.actaComprobacion+'"');}
+    // Hay talonarios con ceros adelante ("000095", "0011523"): valen. Se
+    // marca si no hay número, si es muy corto, o si tiene 7 dígitos sin
+    // ceros adelante (es el largo de un precinto).
+    const sRaw=soloDig(a.actaSecuestro);
+    if(!s||sRaw.length<4||(sRaw.length===7&&sRaw[0]!=='0')){e.push('secfmt');det.push('secuestro "'+(a.actaSecuestro??'')+'"');}
+    return {a,e,det};
+  }).filter(x=>x.e.length);
+}
+const ERR_SEL_ACTAS=new Set();let errPagina=1,errFiltrados=[];
+function toggleErrActa(k){ERR_SEL_ACTAS.has(k)?ERR_SEL_ACTAS.delete(k):ERR_SEL_ACTAS.add(k);errPagina=1;renderErroresActas();}
+let errInspSel='';
+function verInspErr(i){errInspSel=errInspSel===i?'':i;errPagina=1;renderErroresActas();}
+function renderErroresActas(){
+  const base=(datosFiltrados||[]);
+  const conErr=erroresDeActas(base);
+  const total=base.filter(a=>(a.fecha||'')>=ERR_ACTAS_DESDE).length;
+  const cnt={};ERR_ACTAS.forEach(x=>cnt[x.k]=0);conErr.forEach(x=>x.e.forEach(k=>cnt[k]++));
+  document.getElementById('errKpis').innerHTML=
+    '<div class="kpi"><div class="kpi-val">'+total.toLocaleString('es-AR')+'</div><div class="kpi-lbl">Actas revisadas (desde 2026)</div></div>'
+    +'<div class="kpi warn"><div class="kpi-val">'+conErr.length.toLocaleString('es-AR')+'</div><div class="kpi-lbl">Con algún error</div></div>'
+    +'<div class="kpi"><div class="kpi-val">'+(total?Math.round(conErr.length/total*1000)/10:0).toLocaleString('es-AR')+'%</div><div class="kpi-lbl">% con errores</div></div>';
+  document.getElementById('errChips').innerHTML='<span style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--mut)">Errores</span>'
+    +ERR_ACTAS.map(x=>'<button class="mctl'+(ERR_SEL_ACTAS.has(x.k)?' active':'')+'" onclick="toggleErrActa(\''+x.k+'\')">'+esc(x.l)+' ('+cnt[x.k].toLocaleString('es-AR')+')</button>').join('')
+    +(ERR_SEL_ACTAS.size||errInspSel?'<button class="fbtn sec" onclick="ERR_SEL_ACTAS.clear();errInspSel=\'\';renderErroresActas()">✕ Quitar filtros</button>':'');
+  // Por inspector
+  const por={};base.filter(a=>(a.fecha||'')>=ERR_ACTAS_DESDE).forEach(a=>{const i=a.inspector||'(sin inspector)';(por[i]=por[i]||{i,n:0,e:0,k:{}}).n++;});
+  conErr.forEach(x=>{const o=por[x.a.inspector||'(sin inspector)'];o.e++;x.e.forEach(k=>o.k[k]=(o.k[k]||0)+1);});
+  const filasI=Object.values(por).filter(o=>o.e).sort((a,b)=>b.e-a.e);
+  document.getElementById('errInspHead').innerHTML='<tr><th>Inspector</th><th>Actas</th><th>Con error</th><th>%</th>'+ERR_ACTAS.map(x=>'<th>'+esc(x.l)+'</th>').join('')+'</tr>';
+  document.getElementById('errInspBody').innerHTML=filasI.slice(0,40).map(o=>'<tr style="cursor:pointer'+(errInspSel===o.i?';background:#eef4fb':'')+'" onclick="verInspErr(\''+escJsAttr(o.i)+'\')"><td style="white-space:nowrap"><b>'+esc(o.i)+'</b></td><td>'+o.n+'</td><td><b>'+o.e+'</b></td><td>'+Math.round(o.e/o.n*100)+'%</td>'+ERR_ACTAS.map(x=>'<td>'+(o.k[x.k]||'·')+'</td>').join('')+'</tr>').join('')
+    ||'<tr><td colspan="10" style="color:var(--mut)">Sin errores en las actas filtradas.</td></tr>';
+  // Lista
+  const q=(document.getElementById('errBuscar').value||'').toLowerCase();
+  errFiltrados=conErr.filter(x=>{
+    if(ERR_SEL_ACTAS.size&&!x.e.some(k=>ERR_SEL_ACTAS.has(k)))return false;
+    if(errInspSel&&(x.a.inspector||'(sin inspector)')!==errInspSel)return false;
+    if(q){const hay=[x.a.id,x.a.inspector,x.a.actaSecuestro,x.a.actaComprobacion,x.a.direccion,...(x.a.precintos||[]).map(p=>p.precinto)].join(' ').toLowerCase();if(!hay.includes(q))return false;}
+    return true;
+  }).sort((a,b)=>(b.a.fecha||'').localeCompare(a.a.fecha||''));
+  const pages=Math.max(1,Math.ceil(errFiltrados.length/50));if(errPagina>pages)errPagina=pages;
+  document.getElementById('errInfo').innerHTML='<b>'+errFiltrados.length.toLocaleString('es-AR')+'</b> actas con error'+(errInspSel?' de '+esc(errInspSel):'');
+  document.getElementById('errPagTxt').textContent=errPagina+' / '+pages;
+  document.getElementById('errBody').innerHTML=errFiltrados.slice((errPagina-1)*50,errPagina*50).map(x=>{
+    const a=x.a,url=safeHref(a.fotoActa);
+    return '<tr><td>'+esc(a.id)+'</td><td>'+fmtFecha(a.fecha)+'</td><td>'+esc(a.inspector||'–')+'</td><td>'+esc(a.actaSecuestro||'–')+'</td><td>'+esc(a.actaComprobacion||'–')+'</td>'
+      +'<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc((a.precintos||[]).map(p=>p.precinto).join(', '))+'">'+esc((a.precintos||[]).map(p=>p.precinto).join(', ')||'–')+'</td>'
+      +'<td>'+(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--pli)" title="'+esc(nombreFoto(a.fotoActa))+'">📄 '+esc(nombreFoto(a.fotoActa).slice(0,28))+'</a>':'–')+'</td>'
+      +'<td style="font-size:.74rem">'+x.e.map((k,i)=>'<div><b style="color:#b45309">'+esc(ERR_ACTAS_L[k])+'</b>: '+esc(x.det[i]||'')+'</div>').join('')+'</td></tr>';
+  }).join('')||'<tr><td colspan="8" style="color:var(--mut);text-align:center;padding:16px">Sin actas con error para estos filtros.</td></tr>';
+}
+function errPag(d){const pages=Math.max(1,Math.ceil(errFiltrados.length/50));errPagina=Math.min(pages,Math.max(1,errPagina+d));renderErroresActas();}
+function exportarErroresActas(){
+  if(!errFiltrados.length){toast('No hay actas con error para exportar.');return;}
+  const rows=errFiltrados.map(x=>({'ID':x.a.id,'Fecha':x.a.fecha,'Inspector':x.a.inspector||'','Operativo':x.a.operativo||'','Zona':x.a.zona||'','Dirección':x.a.direccion||'',
+    'Acta secuestro':x.a.actaSecuestro||'','Acta comprobación':x.a.actaComprobacion||'','Precintos':(x.a.precintos||[]).map(p=>p.precinto).join(', '),
+    'Foto (nombre)':nombreFoto(x.a.fotoActa),'Foto (link)':x.a.fotoActa||'','Errores':x.e.map(k=>ERR_ACTAS_L[k]).join('; '),'Detalle':x.det.join(' | ')}));
+  const ws=XLSX.utils.json_to_sheet(rows);ws['!cols']=[{wch:8},{wch:11},{wch:26},{wch:16},{wch:14},{wch:24},{wch:14},{wch:14},{wch:30},{wch:36},{wch:50},{wch:40},{wch:70}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Errores');
+  XLSX.writeFile(wb,'errores_actas_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+window.renderErroresActas=renderErroresActas;
 window.setMapMode = setMapMode;
 
 // ── CARGA EXCEL → FIRESTORE ────────────────────────────────────────────────
@@ -1121,8 +1269,8 @@ window.cargarExcel = async function() {
 
     const data = await chosenFile.arrayBuffer();
     const wb = XLSX.read(data);
-    const ws = wb.Sheets['Sheet1'] || wb.Sheets['Forms ACTAS'];
-    if (!ws) throw new Error('No se encontró la hoja "Sheet1" ni "Forms ACTAS". Hojas en el archivo: ' + wb.SheetNames.join(', '));
+    const ws = wb.Sheets['Sheet1'] || wb.Sheets['Forms ACTAS'] || wb.Sheets['ACTAS'];
+    if (!ws) throw new Error('No se encontró la hoja "ACTAS", "Forms ACTAS" ni "Sheet1". Hojas en el archivo: ' + wb.SheetNames.join(', '));
     const rows = XLSX.utils.sheet_to_json(ws, {defval:null});
 
     // Construir mapa Id → registro del Excel
@@ -1208,6 +1356,7 @@ window.cargarExcel = async function() {
     // esperar a un reload manual — antes quedaban mostrando lo de antes de
     // la carga hasta que alguien apretaba "Actualizar" o recargaba la página.
     window.ACTAS = todosLosRegistros;
+    dbPill('ok', '✅ ' + todosLosRegistros.length + ' actas');
     init();
 
     toast.textContent = `✅ ${todosLosRegistros.length.toLocaleString('es-AR')} registros totales guardados en ${totalNuevosChunks} chunks (${nuevos} nuevos, ${actualizados} actualizados). Lecturas futuras: ${totalNuevosChunks + 1}.`;
