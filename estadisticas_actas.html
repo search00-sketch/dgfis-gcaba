@@ -1046,6 +1046,9 @@ const ERR_ACTAS=[
   {k:'cruce',l:'Precinto cargado como acta (o al revés)'},
   {k:'comfmt',l:'Acta de comprobación inválida'},
   {k:'secfmt',l:'Acta de secuestro con formato dudoso'},
+  {k:'com0foto',l:'Comprobación en 0 pero la foto tiene N°'},
+  {k:'sec0foto',l:'Secuestro en 0 pero la foto tiene N°'},
+  {k:'sinacta',l:'Sin acta (secuestro y comprobación en 0)'},
 ];
 const ERR_ACTAS_L=Object.fromEntries(ERR_ACTAS.map(e=>[e.k,e.l]));
 const soloDig=s=>String(s??'').replace(/\D/g,'');
@@ -1089,12 +1092,22 @@ function erroresDeActas(lista){
     (a.precintos||[]).forEach(p=>{const d=sinCeros(p.precinto);if(d&&actas.has(d))cruce.push('precinto '+p.precinto+' es un N° de acta');});
     if(cruce.length){e.push('cruce');det.push(cruce.join('; '));}
     const cRaw=String(a.actaComprobacion??'').replace(/\s/g,'');
-    if(cRaw&&cRaw!=='0'&&!/^400\d{6}$/.test(cRaw)){e.push('comfmt');det.push('comprobación "'+a.actaComprobacion+'"');}
+    if(cRaw&&cRaw!=='0'&&!/^400\d{6}$/.test(cRaw)){e.push('comfmt');det.push('comprobación "'+a.actaComprobacion+'"'+(/^\d{4,7}$/.test(cRaw)&&!s?' (¿es el N° de secuestro?)':''));}
     // Hay talonarios con ceros adelante ("000095", "0011523"): valen. Se
     // marca si no hay número, si es muy corto, o si tiene 7 dígitos sin
     // ceros adelante (es el largo de un precinto).
+    // "0" (o vacío) = no hay acta de ese tipo. Puede haber comprobación sin
+    // secuestro y al revés; sólo es error si faltan las dos.
     const sRaw=soloDig(a.actaSecuestro);
-    if(!s||sRaw.length<4||(sRaw.length===7&&sRaw[0]!=='0')){e.push('secfmt');det.push('secuestro "'+(a.actaSecuestro??'')+'"');}
+    if(s&&(sRaw.length<4||(sRaw.length===7&&sRaw[0]!=='0'))){e.push('secfmt');det.push('secuestro "'+(a.actaSecuestro??'')+'"');}
+    if(!s&&!c){e.push('sinacta');det.push('secuestro "'+(a.actaSecuestro??'')+'" y comprobación "'+(a.actaComprobacion??'')+'"');}
+    // Comprobación en 0 pero en la foto figura una ("AC400…" o un 400xxxxxx)
+    const fotoCom=(f.match(/AC\s*-?\s*0*\d{6,9}|400\d{6}/gi)||[]).map(x=>soloDig(x));
+    if(!c&&fotoCom.length){e.push('com0foto');det.push('foto "'+f+'" tiene comprobación '+fotoCom[0]+' y está cargada "'+(a.actaComprobacion??'')+'"');}
+    // Secuestro en 0 pero en la foto hay otro número de acta ("AS…" o un
+    // número de 5+ dígitos que no es la comprobación ni un 400xxxxxx).
+    const fotoSec=(f.match(/\d{5,}/g)||[]).filter(x=>!/^400\d{6}$/.test(x)&&x.replace(/^0+/,'')!==c&&x.replace(/^0+/,'')!==c.replace(/^400/,'').replace(/^0+/,''));
+    if(!s&&fotoSec.length){e.push('sec0foto');det.push('foto "'+f+'" tiene '+fotoSec[0]+' y el secuestro está cargado "'+(a.actaSecuestro??'')+'"');}
     return {a,e,det};
   }).filter(x=>x.e.length);
 }
