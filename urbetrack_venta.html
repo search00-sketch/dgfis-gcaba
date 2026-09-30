@@ -1205,9 +1205,8 @@ function buscarEncabezado(rows){
   for(let i=0;i<Math.min(rows.length,25);i++){const n=rows[i].map(norm);if(n.includes('incidencia')&&n.includes('usuario'))return i;}
   return -1;
 }
-// Acepta el export crudo de Urbetrack (hoja "Informe") o cualquier libro
-// que tenga una hoja con esos encabezados — ej. la hoja "URBETRACK" del
-// Excel del Informe Venta Ilegal, con el año entero.
+// Acepta el export crudo de Urbetrack (hoja "Informe") o, si viene en otra
+// hoja, la primera que tenga esos encabezados.
 function parsearWorkbook(wb,archivo){
   const orden=[...wb.SheetNames].sort((a,b)=>(b==='Informe')-(a==='Informe')||(norm(b)==='urbetrack')-(norm(a)==='urbetrack'));
   let hoja=null,rows=null,hi=-1;
@@ -1274,7 +1273,7 @@ function renderPreviewCarga(){
   document.getElementById('upResumen').innerHTML='<div class="note">Listo para subir <b>'+fmtInt(regs.length)+'</b> incidencias únicas de <b>'+usuarios.size+'</b> usuarios, en '
     +Object.keys(meses).sort().map(m=>'<b>'+fmtMes(m)+'</b> ('+fmtInt(meses[m])+')').join(', ')+'.'
     +(conAlta<regs.length?'<br><span class="w">'+fmtInt(regs.length-conAlta)+' filas no traen "Fecha alta": no van a tener SLA.</span>':'')
-    +((()=>{const sf=regs.filter(r=>!(r.fotos||[]).length).length;return sf>regs.length*0.3?'<br><span class="w">'+fmtInt(sf)+' filas no traen fotos: van a figurar con el error "Sin foto". Si es una planilla consolidada (ej. la hoja URBETRACK del informe), sirve para el Informe mensual; para Errores y SLA conviene subir los exports originales de Urbetrack, que los reemplazan.</span>':'';})())
+    +((()=>{const sf=regs.filter(r=>!(r.fotos||[]).length).length;return sf>regs.length*0.3?'<br><span class="w">'+fmtInt(sf)+' filas no traen fotos: van a figurar con el error "Sin foto". ¿Es el export original de Urbetrack? Si es una planilla armada a mano, conviene subir el export original.</span>':'';})())
     +'<br>Se van a leer y reescribir sólo los documentos de esos meses.</div>';
 }
 function quitarArchivo(i){PARSEADOS.splice(i,1);renderPreviewCarga();}

@@ -289,7 +289,7 @@ function render(){
   const R=calcular(anio);
   const av=[];if(actasErr)av.push(actasErr);if(urbErr)av.push(urbErr);
   const faltanUrb=URB?MESES.map((m,i)=>i).filter(i=>R.G.EVENTO[i]+R.G.PARTIDO[i]+R.G.POLIGONOS[i]+R.G.PATRULLAS[i]>0&&!Object.keys(URB).includes(anio+'-'+String(i+1).padStart(2,'0'))):[];
-  if(faltanUrb.length)av.push('Urbetrack todavía no tiene cargados '+faltanUrb.map(i=>MESES_C[i]).join(', ')+' '+anio+': subí esos exports (o la hoja URBETRACK del Excel del informe) en Urbetrack → Cargar Excel.');
+  if(faltanUrb.length)av.push('Urbetrack todavía no tiene cargados '+faltanUrb.map(i=>MESES_C[i]).join(', ')+' '+anio+': subí esos exports en Urbetrack → Cargar Excel y aparecen acá solos.');
   document.getElementById('avisos').innerHTML=av.map(t=>'<div class="warn">⚠ '+esc(t)+'</div>').join('');
 
   // KPIs: año, último mes con actas vs anterior
@@ -336,7 +336,7 @@ function render(){
       options:{...base,plugins:{...base.plugins,legend:{display:false}}}});
   }
 
-  document.getElementById('notaReglas').innerHTML='<b>Cómo se calcula</b> (mismas reglas que la hoja INFORME del Excel):<br>'
+  document.getElementById('notaReglas').innerHTML='<b>Cómo se calcula</b> — se actualiza solo cada vez que se cargan actas o exports de Urbetrack (mismas reglas que la hoja INFORME del Excel):<br>'
     +'· <b>Evento masivo</b> y <b>Partido de fútbol</b>: actas por Operativo; el detalle, por Zona.<br>'
     +'· <b>Polígonos</b>: actas de Venta ilegal en zonas que no son "COMUNA N" — incluye todas (en el Excel el total sólo sumaba de Once a Parque 3 de Febrero y dejaba afuera Plaza Francia y Patrulla 4AM; Casco Histórico y Microcentro estaban vacíos o a mano).<br>'
     +'· <b>Patrullas</b>: Venta ilegal en "COMUNA N"; Costanera Sur suma a la Comuna 1 y Costanera Norte a la 14 (en el Excel esa suma estaba rota en algunos meses).<br>'
