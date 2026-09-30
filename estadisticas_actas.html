@@ -365,7 +365,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 <!-- ===== PANEL ERRORES ===== -->
 <div id="panelErrores" style="display:none">
   <div class="ucard" style="font-size:.8rem;color:var(--mut);line-height:1.6;padding:14px 18px">
-    Controles de carga sobre las actas <b>desde el 1/1/2026</b> que pasan los filtros de arriba. Se marca cuando:
+    Controles de carga sobre las actas <b>desde el 1/1/2026</b> que pasan los filtros de arriba, agrupados por <b>la persona que cargó el formulario</b> (su mail). Se marca cuando:
     el <b>nombre del archivo de la foto</b> no contiene el N° de acta de secuestro (o el de comprobación, si tiene) ·
     un <b>precinto</b> no tiene 7 dígitos · un N° de <b>precinto aparece como N° de acta</b> (o al revés) ·
     el <b>acta de comprobación</b> no es "0" ni <code>400</code> + 6 dígitos · el <b>acta de secuestro</b> está vacía, tiene menos de 4 dígitos o tiene 7 dígitos sin ceros adelante (el largo de un precinto).
@@ -373,18 +373,18 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   <div class="kpigrid" id="errKpis"></div>
   <div id="errChips" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px"></div>
   <div class="ccard" style="margin-bottom:16px">
-    <div class="ctitle">Por inspector (clic para ver sus actas con error)</div>
+    <div class="ctitle">Por persona que cargó el acta (clic para ver sus actas con error)</div>
     <div style="overflow-x:auto"><table><thead id="errInspHead"></thead><tbody id="errInspBody"></tbody></table></div>
   </div>
   <div class="twrap">
     <div style="padding:12px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span style="font-size:.8rem;color:var(--mut)" id="errInfo"></span>
       <span style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="errBuscar" placeholder="Buscar acta, precinto, inspector…" oninput="renderErroresActas()" style="padding:6px 10px;border:1.5px solid var(--bor);font-size:.82rem;width:230px">
+        <input type="text" id="errBuscar" placeholder="Buscar acta, precinto, quién cargó…" oninput="renderErroresActas()" style="padding:6px 10px;border:1.5px solid var(--bor);font-size:.82rem;width:230px">
         <button class="fbtn" onclick="exportarErroresActas()">⬇ Exportar Excel</button>
       </span>
     </div>
-    <div style="overflow-x:auto"><table><thead><tr><th>ID</th><th>Fecha</th><th>Inspector</th><th>Acta secuestro</th><th>Acta comprob.</th><th>Precintos</th><th>Foto</th><th>Errores</th></tr></thead><tbody id="errBody"></tbody></table></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>ID</th><th>Fecha</th><th>Cargó</th><th>Acta secuestro</th><th>Acta comprob.</th><th>Precintos</th><th>Foto</th><th>Errores</th></tr></thead><tbody id="errBody"></tbody></table></div>
     <div style="padding:10px 14px;display:flex;gap:8px;align-items:center;border-top:1px solid var(--bor)">
       <button onclick="errPag(-1)" style="padding:5px 10px;border:1.5px solid var(--bor);cursor:pointer;background:#fff;font-size:.78rem">← Ant</button>
       <span id="errPagTxt" style="font-size:.78rem;color:var(--mut)"></span>
@@ -1056,7 +1056,16 @@ function nombreFoto(u){
   // Forms agrega "_00001_Nombre Apellido.pdf" (o "_Nombre.pdf") al final.
   return f.replace(/\.[a-z0-9]+$/i,'').replace(/_\d{5}_[^_]*$/,'').replace(/_[^_]*$/,'');
 }
-let _errActasCache=null;
+// Persona que cargó el acta: mail del formulario; si el acta se subió antes
+// de guardar ese dato, el nombre que Forms agrega al final del archivo de
+// la foto ("…_00001_Nicolas Marcelo Bell.pdf").
+function cargadorDe(a){
+  if(a.cargaEmail)return a.cargaEmail;
+  if(a.cargaNombre)return a.cargaNombre;
+  let f=String(a.fotoActa||'').split('?')[0].split('/').pop();try{f=decodeURIComponent(f);}catch(e){}
+  const m=f.replace(/\.[a-z0-9]+$/i,'').match(/_\d{5}_([^_]+)$/)||f.replace(/\.[a-z0-9]+$/i,'').match(/_([^_]*[A-Za-zÁÉÍÓÚáéíóúñÑ][^_]*)$/);
+  return m?m[1].trim()+' (según la foto)':'(sin dato)';
+}
 function erroresDeActas(lista){
   // Índices globales para el cruce precinto ↔ acta (entre todas las actas
   // cargadas desde 2026, no sólo las filtradas).
@@ -1105,19 +1114,19 @@ function renderErroresActas(){
   document.getElementById('errChips').innerHTML='<span style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--mut)">Errores</span>'
     +ERR_ACTAS.map(x=>'<button class="mctl'+(ERR_SEL_ACTAS.has(x.k)?' active':'')+'" onclick="toggleErrActa(\''+x.k+'\')">'+esc(x.l)+' ('+cnt[x.k].toLocaleString('es-AR')+')</button>').join('')
     +(ERR_SEL_ACTAS.size||errInspSel?'<button class="fbtn sec" onclick="ERR_SEL_ACTAS.clear();errInspSel=\'\';renderErroresActas()">✕ Quitar filtros</button>':'');
-  // Por inspector
-  const por={};base.filter(a=>(a.fecha||'')>=ERR_ACTAS_DESDE).forEach(a=>{const i=a.inspector||'(sin inspector)';(por[i]=por[i]||{i,n:0,e:0,k:{}}).n++;});
-  conErr.forEach(x=>{const o=por[x.a.inspector||'(sin inspector)'];o.e++;x.e.forEach(k=>o.k[k]=(o.k[k]||0)+1);});
+  // Por persona que cargó el acta en el formulario
+  const por={};base.filter(a=>(a.fecha||'')>=ERR_ACTAS_DESDE).forEach(a=>{const i=cargadorDe(a);(por[i]=por[i]||{i,n:0,e:0,k:{}}).n++;});
+  conErr.forEach(x=>{const o=por[cargadorDe(x.a)];o.e++;x.e.forEach(k=>o.k[k]=(o.k[k]||0)+1);});
   const filasI=Object.values(por).filter(o=>o.e).sort((a,b)=>b.e-a.e);
-  document.getElementById('errInspHead').innerHTML='<tr><th>Inspector</th><th>Actas</th><th>Con error</th><th>%</th>'+ERR_ACTAS.map(x=>'<th>'+esc(x.l)+'</th>').join('')+'</tr>';
+  document.getElementById('errInspHead').innerHTML='<tr><th>Cargó</th><th>Actas</th><th>Con error</th><th>%</th>'+ERR_ACTAS.map(x=>'<th>'+esc(x.l)+'</th>').join('')+'</tr>';
   document.getElementById('errInspBody').innerHTML=filasI.slice(0,40).map(o=>'<tr style="cursor:pointer'+(errInspSel===o.i?';background:#eef4fb':'')+'" onclick="verInspErr(\''+escJsAttr(o.i)+'\')"><td style="white-space:nowrap"><b>'+esc(o.i)+'</b></td><td>'+o.n+'</td><td><b>'+o.e+'</b></td><td>'+Math.round(o.e/o.n*100)+'%</td>'+ERR_ACTAS.map(x=>'<td>'+(o.k[x.k]||'·')+'</td>').join('')+'</tr>').join('')
     ||'<tr><td colspan="10" style="color:var(--mut)">Sin errores en las actas filtradas.</td></tr>';
   // Lista
   const q=(document.getElementById('errBuscar').value||'').toLowerCase();
   errFiltrados=conErr.filter(x=>{
     if(ERR_SEL_ACTAS.size&&!x.e.some(k=>ERR_SEL_ACTAS.has(k)))return false;
-    if(errInspSel&&(x.a.inspector||'(sin inspector)')!==errInspSel)return false;
-    if(q){const hay=[x.a.id,x.a.inspector,x.a.actaSecuestro,x.a.actaComprobacion,x.a.direccion,...(x.a.precintos||[]).map(p=>p.precinto)].join(' ').toLowerCase();if(!hay.includes(q))return false;}
+    if(errInspSel&&cargadorDe(x.a)!==errInspSel)return false;
+    if(q){const hay=[x.a.id,cargadorDe(x.a),x.a.actaSecuestro,x.a.actaComprobacion,x.a.direccion,...(x.a.precintos||[]).map(p=>p.precinto)].join(' ').toLowerCase();if(!hay.includes(q))return false;}
     return true;
   }).sort((a,b)=>(b.a.fecha||'').localeCompare(a.a.fecha||''));
   const pages=Math.max(1,Math.ceil(errFiltrados.length/50));if(errPagina>pages)errPagina=pages;
@@ -1125,7 +1134,7 @@ function renderErroresActas(){
   document.getElementById('errPagTxt').textContent=errPagina+' / '+pages;
   document.getElementById('errBody').innerHTML=errFiltrados.slice((errPagina-1)*50,errPagina*50).map(x=>{
     const a=x.a,url=safeHref(a.fotoActa);
-    return '<tr><td>'+esc(a.id)+'</td><td>'+fmtFecha(a.fecha)+'</td><td>'+esc(a.inspector||'–')+'</td><td>'+esc(a.actaSecuestro||'–')+'</td><td>'+esc(a.actaComprobacion||'–')+'</td>'
+    return '<tr><td>'+esc(a.id)+'</td><td>'+fmtFecha(a.fecha)+'</td><td style="white-space:nowrap">'+esc(cargadorDe(a))+'</td><td>'+esc(a.actaSecuestro||'–')+'</td><td>'+esc(a.actaComprobacion||'–')+'</td>'
       +'<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc((a.precintos||[]).map(p=>p.precinto).join(', '))+'">'+esc((a.precintos||[]).map(p=>p.precinto).join(', ')||'–')+'</td>'
       +'<td>'+(url?'<a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--pli)" title="'+esc(nombreFoto(a.fotoActa))+'">📄 '+esc(nombreFoto(a.fotoActa).slice(0,28))+'</a>':'–')+'</td>'
       +'<td style="font-size:.74rem">'+x.e.map((k,i)=>'<div><b style="color:#b45309">'+esc(ERR_ACTAS_L[k])+'</b>: '+esc(x.det[i]||'')+'</div>').join('')+'</td></tr>';
@@ -1134,7 +1143,7 @@ function renderErroresActas(){
 function errPag(d){const pages=Math.max(1,Math.ceil(errFiltrados.length/50));errPagina=Math.min(pages,Math.max(1,errPagina+d));renderErroresActas();}
 function exportarErroresActas(){
   if(!errFiltrados.length){toast('No hay actas con error para exportar.');return;}
-  const rows=errFiltrados.map(x=>({'ID':x.a.id,'Fecha':x.a.fecha,'Inspector':x.a.inspector||'','Operativo':x.a.operativo||'','Zona':x.a.zona||'','Dirección':x.a.direccion||'',
+  const rows=errFiltrados.map(x=>({'ID':x.a.id,'Fecha':x.a.fecha,'Cargó':cargadorDe(x.a),'Operativo':x.a.operativo||'','Zona':x.a.zona||'','Dirección':x.a.direccion||'',
     'Acta secuestro':x.a.actaSecuestro||'','Acta comprobación':x.a.actaComprobacion||'','Precintos':(x.a.precintos||[]).map(p=>p.precinto).join(', '),
     'Foto (nombre)':nombreFoto(x.a.fotoActa),'Foto (link)':x.a.fotoActa||'','Errores':x.e.map(k=>ERR_ACTAS_L[k]).join('; '),'Detalle':x.det.join(' | ')}));
   const ws=XLSX.utils.json_to_sheet(rows);ws['!cols']=[{wch:8},{wch:11},{wch:26},{wch:16},{wch:14},{wch:24},{wch:14},{wch:14},{wch:30},{wch:36},{wch:50},{wch:40},{wch:70}];
@@ -1242,6 +1251,9 @@ window.cargarExcel = async function() {
     return {
       id, fecha,
       inspector:        String(row['Nombre del Inspector']||'').trim() || null,
+      // Quién cargó el acta en el formulario (no el inspector que la labró).
+      cargaEmail:       String(row['Correo electrónico']||row['Correo electronico']||'').trim().toLowerCase() || null,
+      cargaNombre:      String(row['Nombre']||'').trim() || null,
       turno:            String(row['Turno2']||row['Turno']||'').trim() || null,
       operativo:        String(row['Operativos']||'').trim() || null,
       zona:             String(row['Zona']||'').trim() || null,
