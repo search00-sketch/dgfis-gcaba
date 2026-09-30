@@ -209,12 +209,23 @@ async function cargarUrbetrack(){
   }
   return lecturas;
 }
+// El mensaje de error dice la causa real: "sin acceso" sólo si Firestore
+// rechazó por permisos; cualquier otro error se muestra tal cual.
+function msgError(e,seccion,modulo){
+  return (e&&(e.code==='permission-denied'||/permission/i.test(e.message||'')))
+    ?'No tenés acceso a '+seccion+' (módulo '+modulo+').'
+    :'No se pudo leer '+seccion+': '+((e&&e.message)||e);
+}
 window.cargarTodo=async function(){
+  // Antes de iniciar sesión no se lee nada (las reglas lo rechazarían y
+  // quedaba un aviso de "sin acceso" falso aun después de loguearse).
+  if(typeof usuarioActual==='function'&&!usuarioActual())return;
   setSync('loading','Cargando…');
+  actasErr='';urbErr='';
   let lect=0;
   await Promise.all([
-    cargarActas().then(n=>{lect+=n;}).catch(e=>{console.warn(e);ACTAS=null;actasErr='No tenés acceso a las actas (módulo Estadísticas).';}),
-    cargarUrbetrack().then(n=>{lect+=n;}).catch(e=>{console.warn(e);URB=null;urbErr='No tenés acceso a Urbetrack (módulo Urbetrack).';}),
+    cargarActas().then(n=>{lect+=n;}).catch(e=>{console.warn(e);ACTAS=null;actasErr=msgError(e,'las actas','Estadísticas');}),
+    cargarUrbetrack().then(n=>{lect+=n;}).catch(e=>{console.warn(e);URB=null;urbErr=msgError(e,'Urbetrack','Urbetrack');}),
   ]);
   const anios=new Set();
   (ACTAS||[]).forEach(a=>{if(/^\d{4}/.test(a.fecha||''))anios.add(a.fecha.slice(0,4));});
@@ -234,25 +245,46 @@ window.forzarRecarga=function(){
 
 // ---------- cálculo ----------
 const vacio=()=>Array(12).fill(0);
+// Operativo del acta, tolerante a cómo esté escrito ("PARTIDOS DE FÚTBOL",
+// "Partido Futbol", "EVENTO MASIVO ", etc.).
+function tipoOperativo(op){
+  const s=N(op).replace(/[^A-Z ]/g,' ');
+  if(/FUTBOL|PARTIDO/.test(s))return 'PARTIDO';
+  if(/EVENTO/.test(s))return 'EVENTO';
+  if(/VENTA|ILEGAL/.test(s))return 'VI';
+  return null;
+}
 function acumular(map,clave,mes,label){(map[clave]=map[clave]||{label:label||clave,m:vacio()}).m[mes]++;}
 function calcular(anio){
   const G={EVENTO:vacio(),PARTIDO:vacio(),POLIGONOS:vacio(),PATRULLAS:vacio(),OTROS:vacio()};
   const pol={},ev={},pat={},par={};
   for(let i=1;i<=15;i++)pat['COMUNA '+i]={label:'COMUNA '+i,m:vacio()};
   let actasAnio=0,ultimaActa='';
+  // Control de datos: lo que el Excel DEF corrige a mano antes de armar el
+  // informe (ver su README) y acá se hace solo, mostrando qué se tocó.
+  const diag={dup:vacio(),dupLista:[],opRaros:{},sinFecha:0};
+  const vistos={};
   (ACTAS||[]).forEach(a=>{
-    if(!a.fecha||a.fecha.slice(0,4)!==anio)return;
+    if(!a.fecha||!/^\d{4}-\d{2}/.test(a.fecha)){diag.sinFecha++;return;}
+    if(a.fecha.slice(0,4)!==anio)return;
     const m=+a.fecha.slice(5,7)-1;if(!(m>=0&&m<12))return;
+    // Duplicada (regla del README del informe): mismo N° de acta de
+    // secuestro y misma dirección (calle + altura) → cuenta una sola vez.
+    if(a.actaSecuestro){
+      const k=N(a.actaSecuestro).replace(/[^A-Z0-9]/g,'')+'|'+N(a.direccion).replace(/[^A-Z0-9]/g,'');
+      if(vistos[k]){diag.dup[m]++;diag.dupLista.push({a,orig:vistos[k]});return;}
+      vistos[k]=a;
+    }
     actasAnio++;if(a.fecha>ultimaActa)ultimaActa=a.fecha;
-    const op=N(a.operativo),z=N(a.zona),zl=String(a.zona||'(sin zona)').toUpperCase().trim();
-    if(op==='EVENTO MASIVO'){G.EVENTO[m]++;acumular(ev,z||'(SIN ZONA)',m,zl);}
-    else if(op==='PARTIDO DE FUTBOL'){G.PARTIDO[m]++;acumular(par,z||'(SIN ZONA)',m,zl);}
-    else if(op==='VENTA ILEGAL'){
+    const op=tipoOperativo(a.operativo),z=N(a.zona),zl=String(a.zona||'(sin zona)').toUpperCase().trim();
+    if(op==='EVENTO'){G.EVENTO[m]++;acumular(ev,z||'(SIN ZONA)',m,zl);}
+    else if(op==='PARTIDO'){G.PARTIDO[m]++;acumular(par,z||'(SIN ZONA)',m,zl);}
+    else if(op==='VI'){
       let com=null;const mc=z.match(/^COMUNA (\d+)$/);
       if(mc)com='COMUNA '+(+mc[1]);else if(z==='COSTANERA SUR')com='COMUNA 1';else if(z==='COSTANERA NORTE')com='COMUNA 14';
       if(com){G.PATRULLAS[m]++;acumular(pat,com,m);}
       else{G.POLIGONOS[m]++;acumular(pol,z||'(SIN ZONA)',m,zl);}
-    } else G.OTROS[m]++;
+    } else {G.OTROS[m]++;const raw=String(a.operativo||'(vacío)').trim()||'(vacío)';(diag.opRaros[raw]=diag.opRaros[raw]||vacio())[m]++;}
   });
   const U={};let urbAnio=0;
   Object.entries(URB||{}).forEach(([mes,c])=>{
@@ -260,7 +292,7 @@ function calcular(anio){
     Object.entries(c).forEach(([g,n])=>{(U[g]=U[g]||{label:g,m:vacio()}).m[m]+=n;urbAnio+=n;});
   });
   ORDEN_URB.forEach(g=>{if(!U[g])U[g]={label:g,m:vacio()};});
-  return {G,pol,ev,pat,par,U,actasAnio,urbAnio,ultimaActa};
+  return {G,pol,ev,pat,par,U,actasAnio,urbAnio,ultimaActa,diag};
 }
 const suma=a=>a.reduce((x,y)=>x+y,0);
 function ordenar(map,orden){
@@ -319,7 +351,8 @@ function render(){
     +(ACTAS?tabla('Polígonos','actas de Venta ilegal por zona (sin las patrullas por comuna)',ordenar(R.pol,ORDEN_POLIGONOS),{meses:mesesActas}):'')
     +(ACTAS?tabla('Evento masivo','actas por lugar',ordenar(R.ev,[]),{meses:mesesActas}):'')
     +(ACTAS?tabla('Patrullas','actas de Venta ilegal por comuna (Costanera Sur → C1, Costanera Norte → C14)',patFilas,{meses:mesesActas}):'')
-    +(ACTAS?tabla('Partidos de fútbol','actas por estadio',ordenar(R.par,ORDEN_ESTADIOS),{meses:mesesActas}):'');
+    +(ACTAS?tabla('Partidos de fútbol','actas por estadio',ordenar(R.par,ORDEN_ESTADIOS),{meses:mesesActas}):'')
+    +(ACTAS?bloqueControl(R,mesesActas):'');
 
   // Gráficos: barras apiladas (4 series, orden fijo, leyenda) y barras de Urbetrack.
   const base={responsive:true,maintainAspectRatio:false,animation:false,
@@ -337,10 +370,27 @@ function render(){
   }
 
   document.getElementById('notaReglas').innerHTML='<b>Cómo se calcula</b> — se actualiza solo cada vez que se cargan actas o exports de Urbetrack (mismas reglas que la hoja INFORME del Excel):<br>'
-    +'· <b>Evento masivo</b> y <b>Partido de fútbol</b>: actas por Operativo; el detalle, por Zona.<br>'
+    +'· <b>Duplicadas</b>: si dos actas tienen el mismo N° de acta de secuestro y la misma dirección, cuenta una sola (regla del README del informe). Se listan en "Control de datos".<br>'
+    +'· <b>Evento masivo</b> y <b>Partido de fútbol</b>: actas por Operativo (sin importar cómo esté escrito: "Partidos de fútbol", etc.); el detalle, por Zona.<br>'
     +'· <b>Polígonos</b>: actas de Venta ilegal en zonas que no son "COMUNA N" — incluye todas (en el Excel el total sólo sumaba de Once a Parque 3 de Febrero y dejaba afuera Plaza Francia y Patrulla 4AM; Casco Histórico y Microcentro estaban vacíos o a mano).<br>'
     +'· <b>Patrullas</b>: Venta ilegal en "COMUNA N"; Costanera Sur suma a la Comuna 1 y Costanera Norte a la 14 (en el Excel esa suma estaba rota en algunos meses).<br>'
     +'· <b>Urbetrack</b>: incidencias por Grupo según el mes de la Fecha de inspección, con el "grupo normalizado" del Excel; además se unifican "PARTIDO DE FUTBOL", "AGRESION" y "CONSULTA FISCALIA" sin tilde, que el Excel no contaba.';
+}
+
+function bloqueControl(R,meses){
+  const d=R.diag,filas=[];
+  if(suma(d.dup))filas.push({label:'Duplicadas excluidas (mismo N° de acta de secuestro y dirección)',m:d.dup});
+  Object.entries(d.opRaros).forEach(([op,m])=>filas.push({label:'Operativo no reconocido: "'+op+'" (va a OTROS)',m}));
+  const pie=(d.sinFecha?'<br>'+fmt(d.sinFecha)+' acta(s) sin fecha de labrado válida no entran en ningún mes.':'');
+  if(!filas.length)return '<div class="note"><b>Control de datos de actas:</b> sin duplicadas ni operativos desconocidos en '+document.getElementById('anio').value+'.'+pie+'</div>';
+  return tabla('Control de datos de actas','lo que el informe excluye o no puede clasificar'+(d.dupLista.length?' · <a href="#" onclick="exportarDuplicadas();return false">⬇ lista de duplicadas</a>':''),filas,{meses,sinTotal:true,col1:'Control'})
+    +(pie?'<div class="note">'+pie.slice(4)+'</div>':'');
+}
+function exportarDuplicadas(){
+  const R=calcular(document.getElementById('anio').value);
+  const rows=R.diag.dupLista.map(({a,orig})=>({'Id excluida':a.id,'Fecha':a.fecha,'Operativo':a.operativo||'','Zona':a.zona||'','Acta de secuestro':a.actaSecuestro||'','Dirección':a.direccion||'','Id que se contó':orig.id,'Fecha de la que se contó':orig.fecha}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Duplicadas');
+  XLSX.writeFile(wb,'actas_duplicadas_'+document.getElementById('anio').value+'.xlsx');
 }
 
 // ---------- export ----------
