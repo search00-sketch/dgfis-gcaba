@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Urbetrack Venta sin permiso</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
+<script src="utils.js?v=5"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
@@ -1201,13 +1201,22 @@ const COLS={
 const FOTO_PREFIX='https://fleetcloudfilestorage.blob.core.windows.net/urbetrack-file-container-claro/';
 function comprimirFoto(u){return u.startsWith(FOTO_PREFIX)?'~/'+u.slice(FOTO_PREFIX.length):u;}
 function expandirFoto(u){return String(u).startsWith('~/')?FOTO_PREFIX+String(u).slice(2):u;}
+function buscarEncabezado(rows){
+  for(let i=0;i<Math.min(rows.length,25);i++){const n=rows[i].map(norm);if(n.includes('incidencia')&&n.includes('usuario'))return i;}
+  return -1;
+}
+// Acepta el export crudo de Urbetrack (hoja "Informe") o cualquier libro
+// que tenga una hoja con esos encabezados — ej. la hoja "URBETRACK" del
+// Excel del Informe Venta Ilegal, con el año entero.
 function parsearWorkbook(wb,archivo){
-  const hoja=wb.SheetNames.includes('Informe')?'Informe':wb.SheetNames[0];
-  const ws=wb.Sheets[hoja];
-  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',range:rangoReal(ws)});
-  let hi=-1;
-  for(let i=0;i<Math.min(rows.length,25);i++){const n=rows[i].map(norm);if(n.includes('incidencia')&&n.includes('usuario')){hi=i;break;}}
-  if(hi<0)throw new Error('No se encontró la fila de encabezados ("Incidencia" / "Usuario") en la hoja "'+hoja+'". ¿Es un export de Urbetrack?');
+  const orden=[...wb.SheetNames].sort((a,b)=>(b==='Informe')-(a==='Informe')||(norm(b)==='urbetrack')-(norm(a)==='urbetrack'));
+  let hoja=null,rows=null,hi=-1;
+  for(const n of orden){
+    const ws=wb.Sheets[n];if(!ws)continue;
+    const r=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',range:rangoReal(ws)});
+    const h=buscarEncabezado(r);if(h>=0){hoja=n;rows=r;hi=h;break;}
+  }
+  if(hi<0)throw new Error('No encontré ninguna hoja con la fila de encabezados ("Incidencia" / "Usuario"). ¿Es un export de Urbetrack?');
   const heads=rows[hi].map(norm);const idx={};
   Object.entries(COLS).forEach(([k,alts])=>{for(const a of alts){const i=heads.indexOf(a);if(i>=0){idx[k]=i;break;}}});
   if(idx.fecha===undefined&&idx.alta===undefined)throw new Error('El export no trae columna "Fecha" ni "Fecha alta".');
@@ -1230,7 +1239,13 @@ async function onArchivosElegidos(files){
   files=[...files];if(!files.length)return;
   for(const f of files){
     try{
-      const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
+      const buf=await f.arrayBuffer();
+      // Libros grandes (ej. el Excel del informe, 20+ MB con varias hojas):
+      // primero sólo los nombres de hoja, y se leen únicamente las que
+      // pueden tener el export (evita cargar hojas enormes que no sirven).
+      const nombres=XLSX.read(buf,{type:'array',bookSheets:true}).SheetNames;
+      const candidatas=nombres.length>1?nombres.filter(n=>n==='Informe'||/urbetrack|informe|export|incidencias|hoja1|sheet1/i.test(n)):nombres;
+      const wb=XLSX.read(buf,{type:'array',cellDates:true,sheets:candidatas.length?candidatas:nombres});
       const {regs,omitidas}=parsearWorkbook(wb,f.name);
       PARSEADOS=PARSEADOS.filter(p=>p.archivo!==f.name);
       PARSEADOS.push({archivo:f.name,regs,omitidas});
@@ -1259,6 +1274,7 @@ function renderPreviewCarga(){
   document.getElementById('upResumen').innerHTML='<div class="note">Listo para subir <b>'+fmtInt(regs.length)+'</b> incidencias únicas de <b>'+usuarios.size+'</b> usuarios, en '
     +Object.keys(meses).sort().map(m=>'<b>'+fmtMes(m)+'</b> ('+fmtInt(meses[m])+')').join(', ')+'.'
     +(conAlta<regs.length?'<br><span class="w">'+fmtInt(regs.length-conAlta)+' filas no traen "Fecha alta": no van a tener SLA.</span>':'')
+    +((()=>{const sf=regs.filter(r=>!(r.fotos||[]).length).length;return sf>regs.length*0.3?'<br><span class="w">'+fmtInt(sf)+' filas no traen fotos: van a figurar con el error "Sin foto". Si es una planilla consolidada (ej. la hoja URBETRACK del informe), sirve para el Informe mensual; para Errores y SLA conviene subir los exports originales de Urbetrack, que los reemplazan.</span>':'';})())
     +'<br>Se van a leer y reescribir sólo los documentos de esos meses.</div>';
 }
 function quitarArchivo(i){PARSEADOS.splice(i,1);renderPreviewCarga();}
@@ -1321,7 +1337,10 @@ async function subirAFirestore(){
       // Documentos sobrantes de una versión anterior del mes más grande.
       for(let i=chunks.length;i<(prev.chunks||0);i++)await window._fDeleteDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i));
       escrituras+=chunks.length;
-      infoMeses[mes]={chunks:chunks.length,count:Object.keys(mapa).length,v:ahora+'#'+Math.random().toString(36).slice(2,7)};
+      // Totales del mes por categoría (Grupo normalizado): el Informe Venta
+      // Ilegal lee sólo el índice (1 lectura) en vez de todas las incidencias.
+      const porGrupo={};Object.values(mapa).forEach(x=>{const k=categoriaUrbetrack(x.grupo);porGrupo[k]=(porGrupo[k]||0)+1;});
+      infoMeses[mes]={chunks:chunks.length,count:Object.keys(mapa).length,porGrupo,v:ahora+'#'+Math.random().toString(36).slice(2,7)};
       pf.style.width=Math.round(5+(k+1)/meses.length*85)+'%';
     }
     // Índice: transacción para no pisar meses que otro haya subido en paralelo.
@@ -1368,6 +1387,6 @@ function renderCargas(){
   document.getElementById('mesesInfo').innerHTML=meses.length?'<b>En la base:</b> '+meses.map(m=>fmtMes(m)+' ('+fmtInt(META.meses[m].count)+' · '+META.meses[m].chunks+' doc)').join(' · '):'';
 }
 </script>
-<script src="personal-nav.js?v=3"></script>
+<script src="personal-nav.js?v=4"></script>
 </body>
 </html>

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA — Informe Venta Ilegal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script src="config.js"></script>
+<script src="utils.js?v=5"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="estilo-comun.css?v=15">
+<style>
+/* Colores de las 4 categorías del cuadro GENERAL (paleta categórica
+   validada, en orden fijo: la misma categoría siempre el mismo color). */
+:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--sec:#55606b}
+.wrap{max-width:1300px;margin:0 auto;padding:16px}
+.top{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.top h2{font-size:1.05rem;color:var(--c-brand);margin-right:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--c-surface);border:1px solid var(--c-line-soft);border-left:4px solid var(--c-brand-2);padding:10px 12px}
+.kpi .v{font-size:1.5rem;font-weight:800;color:var(--c-brand);font-variant-numeric:tabular-nums}
+.kpi .l{font-size:.74rem;color:var(--c-ink-mut)}
+.kpi .d{font-size:.74rem;font-weight:700;margin-top:2px}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+@media(max-width:900px){.charts{grid-template-columns:1fr}}
+.card{background:var(--c-surface);border:1px solid var(--c-line-soft);padding:12px 14px}
+.card h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--c-brand);margin-bottom:8px}
+.cwrap{position:relative;height:250px}
+.bloque{margin-bottom:20px}
+.bloque .tit{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.bloque .tit h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:var(--c-brand)}
+.bloque .tit span{font-size:.74rem;color:var(--c-ink-mut)}
+.tscroll{overflow-x:auto;border:2px solid var(--c-line);background:var(--c-surface)}
+table.inf{border-collapse:collapse;width:100%;font-size:.8rem;font-variant-numeric:tabular-nums}
+table.inf th,table.inf td{padding:5px 8px;border-bottom:1px solid var(--c-line-soft);text-align:right;white-space:nowrap}
+table.inf thead th{background:#3b3f44;color:#fff;font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}
+table.inf th:first-child,table.inf td:first-child{text-align:left;position:sticky;left:0;background:var(--c-surface);font-weight:700;min-width:190px}
+table.inf thead th:first-child{background:#3b3f44}
+table.inf td.tot,table.inf th.tot{background:#e5e7ea;font-weight:800}
+table.inf thead th.tot{background:#6b7075}
+table.inf tr.total td{border-top:2px solid var(--c-line);background:#eef0f2;font-weight:800}
+table.inf tr.total td:first-child{background:#eef0f2}
+table.inf td.vacio{color:#c4c7cb}
+table.inf td.mes-sin{color:#c4c7cb}
+.sw{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px}
+.note{background:var(--c-surface);border:1px solid var(--c-line-soft);padding:10px 12px;font-size:.78rem;color:var(--c-ink-mut);line-height:1.6;margin-bottom:16px}
+.note b{color:var(--c-ink)}
+.warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:9px 12px;font-size:.8rem;margin-bottom:12px}
+.empty{padding:18px;color:#999;text-align:center;font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<!-- CAMBIAR CONTRASEÑA -->
+<div class="overlay" id="modal-cambiar-pass-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">Cambiar contraseña</div>
+    <div id="cp-err" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px"><label class="fl">Contraseña actual</label><input class="form-input" type="password" id="cp-actual" autocomplete="current-password"></div>
+    <div class="form-field full" style="margin-bottom:12px"><label class="fl">Nueva contraseña</label><input class="form-input" type="password" id="cp-nueva" autocomplete="new-password"></div>
+    <div class="form-field full" style="margin-bottom:16px"><label class="fl">Repetir nueva contraseña</label><input class="form-input" type="password" id="cp-nueva2" autocomplete="new-password"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-cambiar-pass-overlay')">Cancelar</button>
+      <button class="btn btn-azul" id="cp-guardar-btn" onclick="guardarCambioPassPropia()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="overlay open" id="loginOverlay" style="z-index:3000">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">📅</div>
+    <div class="modal-title" style="text-align:center">Informe Venta Ilegal</div>
+    <p style="font-size:.79rem;color:#888;margin-bottom:18px">DGFIS-GCABA</p>
+    <div class="lerr" id="loginErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:0;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px;text-align:left"><label class="fl">Usuario</label><input class="form-input" type="text" id="lUser" placeholder="usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="form-field full" style="margin-bottom:16px;text-align:left"><label class="fl">Contraseña</label>
+      <div style="position:relative"><input class="form-input" type="password" id="lPass" placeholder="••••••" style="padding-right:36px" onkeydown="if(event.key==='Enter')doLogin()">
+      <button type="button" onclick="togglePass()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:#888">👁️</button></div></div>
+    <button class="btn btn-azul" style="width:100%;padding:11px" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <p style="margin-top:12px;font-size:.74rem"><a href="index.html" style="color:var(--c-brand-2)">← Volver al portal</a></p>
+  </div>
+</div>
+
+<header class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="nav-drop" style="position:relative">
+      <button onclick="toggleNavMenu(event)" title="Navegar entre módulos" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:0;cursor:pointer">☰</button>
+      <div id="navMenu" class="nav-menu"></div>
+    </div>
+    <div>
+      <div class="header-title">📅 Informe Venta Ilegal</div>
+      <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
+    <button class="hbtn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<div class="sync-bar">
+  <span><span class="sync-dot sync-loading" id="syncDot"></span><span id="syncTxt">Conectando…</span></span>
+  <button class="sync-refresh" onclick="forzarRecarga()">⟳ Actualizar</button>
+</div>
+
+<div class="wrap">
+  <div class="top">
+    <h2 id="titulo">Venta Ilegal</h2>
+    <label style="font-size:.8rem;color:var(--c-ink-mut);display:flex;gap:6px;align-items:center">Año <select class="ctrl" id="anio" onchange="render()"></select></label>
+    <button class="btn btn-verde" onclick="exportarExcel()">⬇ Exportar Excel</button>
+  </div>
+  <div id="avisos"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="charts">
+    <div class="card"><h3>Actas por mes</h3><div class="cwrap"><canvas id="chActas" role="img" aria-label="Actas por mes y tipo"></canvas></div></div>
+    <div class="card"><h3>Incidencias Urbetrack por mes</h3><div class="cwrap"><canvas id="chUrb" role="img" aria-label="Incidencias Urbetrack por mes"></canvas></div></div>
+  </div>
+  <div id="bloques"></div>
+  <div class="note" id="notaReglas"></div>
+</div>
+
+<script>window.LOGIN_REQUERIDO=true;</script>
+<script src="personal-auth.js?v=9"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
+const app = initializeApp(FIREBASE_CONFIG);
+if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
+  initializeAppCheck(app, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+}
+window._db = getFirestore(app);
+window._fDoc = doc; window._fGetDoc = getDoc;
+window._auth = getAuth(app);
+window._fOnAuthStateChanged = onAuthStateChanged;
+window._fSignIn = signInWithEmailAndPassword; window._fSignOut = signOut;
+window._fEmailAuthProvider = EmailAuthProvider; window._fReauthenticate = reauthenticateWithCredential; window._fUpdatePassword = updatePassword;
+// Sin MODULO_ID: entra cualquier usuario logueado; cada sección muestra
+// lo que sus permisos le dejan leer (actas = módulo Estadísticas,
+// Urbetrack = módulo Urbetrack), según firestore.rules.
+if (window.restaurarSesion) window.restaurarSesion().then(() => { if (window.cargarTodo) window.cargarTodo(); });
+</script>
+
+<script>
+// ============================================================
+//  INFORME VENTA ILEGAL — réplica del Excel "INFORME VENTA ILEGAL 2026"
+//  Fuentes:
+//   · Actas (módulo Estadísticas: actas_meta/actas_chunks — mismo caché
+//     de pestaña que estadisticas_actas.html). Reglas (hoja INFORME):
+//       EVENTO MASIVO / PARTIDO DE FUTBOL → por "Operativos"; detalle por Zona.
+//       POLÍGONOS → Venta ilegal en zonas que no son "COMUNA N".
+//       PATRULLAS → Venta ilegal en "COMUNA N" (Costanera Sur → Comuna 1,
+//                    Costanera Norte → Comuna 14).
+//   · Urbetrack: totales por categoría y mes guardados en el índice
+//     (urbetrack_meta/index → meses[AAAA-MM].porGrupo) al subir cada
+//     export — 1 lectura. Meses subidos antes de que existiera ese total
+//     se cuentan leyendo sus documentos (una vez por sesión).
+// ============================================================
+const MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+const MESES_C=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const ORDEN_POLIGONOS=['ONCE','AVELLANEDA','RETIRO','CONSTITUCION','LINIERS','CAMINITO','CORRIENTES CULTURAL','PARQUE LOS ANDES','PARQUE CENTENARIO','PARQUE PATRICIOS','SAAVEDRA','PARQUE MUGICA','BARRIO CHINO','CASCO HISTORICO','FLORIDA','MATADEROS','MICROCENTRO','PARQUE 3 DE FEBRERO','PLAZA FRANCIA','PATRULLA 4AM'];
+const ORDEN_URB=['POLIGONO','EVENTO','SAME','RECLAMO','OPERATIVO','PUNTO CRONICO','RELEVAMIENTO','OFICIO','AGRESION','PARTIDO FUTBOL','DERIVADO','MANIFESTACIONES Y EVENTOS','POLICIA','CONSULTA FISCALIA','HOJA DE RUTA','FUERA DE OPERATORIA'];
+const ORDEN_ESTADIOS=['ESTADIO BOCA JUNIORS','ESTADIO HURACAN','ESTADIO RIVER PLATE','ESTADIO VELEZ SARSFIELD'];
+let ACTAS=null,actasErr='',URB=null,urbErr='',URB_META=null;
+const charts={};
+
+function toast(msg,ms=2600){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),ms);}
+function cerrarModal(id){document.getElementById(id).classList.remove('open');}
+function setSync(t,m){document.getElementById('syncDot').className='sync-dot sync-'+t;document.getElementById('syncTxt').textContent=m;}
+const N=s=>String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+const fmt=n=>(n||0).toLocaleString('es-AR');
+
+// ---------- carga ----------
+async function cargarActas(){
+  try{
+    const ts=parseInt(sessionStorage.getItem('dgf_actas_ts')||'0'),c=sessionStorage.getItem('dgf_actas_cache');
+    if(c&&(Date.now()-ts)<24*60*60*1000){ACTAS=JSON.parse(c);return 0;}
+  }catch(e){}
+  const meta=await window._fGetDoc(window._fDoc(window._db,'actas_meta','index'));
+  if(!meta.exists()){ACTAS=[];return 1;}
+  const n=meta.data().totalChunks||0;
+  const snaps=await Promise.all(Array.from({length:n},(_,i)=>window._fGetDoc(window._fDoc(window._db,'actas_chunks','chunk_'+i))));
+  ACTAS=[];snaps.forEach(s=>{if(s.exists())ACTAS.push(...(s.data().registros||[]));});
+  try{sessionStorage.setItem('dgf_actas_cache',JSON.stringify(ACTAS));sessionStorage.setItem('dgf_actas_ts',Date.now().toString());}catch(e){}
+  return n+1;
+}
+function registrosDeDoc(d){if(!d)return {};if(typeof d.datos==='string'){try{return JSON.parse(d.datos);}catch(e){return {};}}return d.registros||{};}
+async function cargarUrbetrack(){
+  const meta=await window._fGetDoc(window._fDoc(window._db,'urbetrack_meta','index'));
+  URB_META=meta.exists()?meta.data():{meses:{}};
+  URB={};let lecturas=1;
+  for(const [mes,info] of Object.entries(URB_META.meses||{})){
+    if(info.porGrupo){URB[mes]=info.porGrupo;continue;}
+    // Mes subido antes de que se guardaran los totales: se cuenta una vez
+    // (y se cachea por versión en la pestaña).
+    const k='dgf_inf_urb_'+mes;
+    try{const c=JSON.parse(sessionStorage.getItem(k)||'null');if(c&&c.v===info.v){URB[mes]=c.c;continue;}}catch(e){}
+    const snaps=await Promise.all(Array.from({length:info.chunks||0},(_,i)=>window._fGetDoc(window._fDoc(window._db,'urbetrack_chunks',mes+'_'+i))));
+    lecturas+=snaps.length;
+    const c={};snaps.forEach(s=>{if(s.exists())Object.values(registrosDeDoc(s.data())).forEach(r=>{const g=categoriaUrbetrack(r.grupo);c[g]=(c[g]||0)+1;});});
+    URB[mes]=c;try{sessionStorage.setItem(k,JSON.stringify({v:info.v,c}));}catch(e){}
+  }
+  return lecturas;
+}
+window.cargarTodo=async function(){
+  setSync('loading','Cargando…');
+  let lect=0;
+  await Promise.all([
+    cargarActas().then(n=>{lect+=n;}).catch(e=>{console.warn(e);ACTAS=null;actasErr='No tenés acceso a las actas (módulo Estadísticas).';}),
+    cargarUrbetrack().then(n=>{lect+=n;}).catch(e=>{console.warn(e);URB=null;urbErr='No tenés acceso a Urbetrack (módulo Urbetrack).';}),
+  ]);
+  const anios=new Set();
+  (ACTAS||[]).forEach(a=>{if(/^\d{4}/.test(a.fecha||''))anios.add(a.fecha.slice(0,4));});
+  Object.keys(URB||{}).forEach(m=>anios.add(m.slice(0,4)));
+  const sel=document.getElementById('anio'),act=sel.value;
+  const lista=[...anios].sort().reverse();if(!lista.length)lista.push(String(new Date().getFullYear()));
+  sel.innerHTML=lista.map(a=>'<option>'+a+'</option>').join('');
+  if(lista.includes(act))sel.value=act;
+  setSync('ok','✅ '+(ACTAS?fmt(ACTAS.length)+' actas':'actas sin acceso')+' · '+(URB?Object.keys(URB).length+' mes(es) de Urbetrack':'Urbetrack sin acceso')+' · '+lect+' lectura(s)');
+  render();
+};
+window.forzarRecarga=function(){
+  sessionStorage.removeItem('dgf_actas_cache');sessionStorage.removeItem('dgf_actas_ts');
+  Object.keys(sessionStorage).filter(k=>k.startsWith('dgf_inf_urb_')).forEach(k=>sessionStorage.removeItem(k));
+  window.cargarTodo();
+};
+
+// ---------- cálculo ----------
+const vacio=()=>Array(12).fill(0);
+function acumular(map,clave,mes,label){(map[clave]=map[clave]||{label:label||clave,m:vacio()}).m[mes]++;}
+function calcular(anio){
+  const G={EVENTO:vacio(),PARTIDO:vacio(),POLIGONOS:vacio(),PATRULLAS:vacio(),OTROS:vacio()};
+  const pol={},ev={},pat={},par={};
+  for(let i=1;i<=15;i++)pat['COMUNA '+i]={label:'COMUNA '+i,m:vacio()};
+  let actasAnio=0,ultimaActa='';
+  (ACTAS||[]).forEach(a=>{
+    if(!a.fecha||a.fecha.slice(0,4)!==anio)return;
+    const m=+a.fecha.slice(5,7)-1;if(!(m>=0&&m<12))return;
+    actasAnio++;if(a.fecha>ultimaActa)ultimaActa=a.fecha;
+    const op=N(a.operativo),z=N(a.zona),zl=String(a.zona||'(sin zona)').toUpperCase().trim();
+    if(op==='EVENTO MASIVO'){G.EVENTO[m]++;acumular(ev,z||'(SIN ZONA)',m,zl);}
+    else if(op==='PARTIDO DE FUTBOL'){G.PARTIDO[m]++;acumular(par,z||'(SIN ZONA)',m,zl);}
+    else if(op==='VENTA ILEGAL'){
+      let com=null;const mc=z.match(/^COMUNA (\d+)$/);
+      if(mc)com='COMUNA '+(+mc[1]);else if(z==='COSTANERA SUR')com='COMUNA 1';else if(z==='COSTANERA NORTE')com='COMUNA 14';
+      if(com){G.PATRULLAS[m]++;acumular(pat,com,m);}
+      else{G.POLIGONOS[m]++;acumular(pol,z||'(SIN ZONA)',m,zl);}
+    } else G.OTROS[m]++;
+  });
+  const U={};let urbAnio=0;
+  Object.entries(URB||{}).forEach(([mes,c])=>{
+    if(mes.slice(0,4)!==anio)return;const m=+mes.slice(5,7)-1;
+    Object.entries(c).forEach(([g,n])=>{(U[g]=U[g]||{label:g,m:vacio()}).m[m]+=n;urbAnio+=n;});
+  });
+  ORDEN_URB.forEach(g=>{if(!U[g])U[g]={label:g,m:vacio()};});
+  return {G,pol,ev,pat,par,U,actasAnio,urbAnio,ultimaActa};
+}
+const suma=a=>a.reduce((x,y)=>x+y,0);
+function ordenar(map,orden){
+  const filas=Object.entries(map).map(([k,v])=>({k,...v,t:suma(v.m)}));
+  const pos=k=>{const i=orden.indexOf(k);return i<0?999:i;};
+  return filas.sort((a,b)=>pos(a.k)-pos(b.k)||b.t-a.t||a.k.localeCompare(b.k));
+}
+// Meses con datos (para no mostrar "0" en meses que todavía no pasaron).
+function mesesConDatos(anio,filas){const s=new Set();filas.forEach(f=>f.m.forEach((v,i)=>{if(v)s.add(i);}));return s;}
+
+// ---------- render ----------
+function tabla(titulo,sub,filas,opts={}){
+  const conDatos=opts.meses;
+  const tot=vacio();filas.forEach(f=>f.m.forEach((v,i)=>tot[i]+=v));
+  const celda=(v,i)=>'<td class="'+(v?'':(conDatos&&conDatos.has(i)?'':'mes-sin'))+'">'+(v?fmt(v):(conDatos&&conDatos.has(i)?'0':''))+'</td>';
+  return '<div class="bloque"><div class="tit"><h3>'+esc(titulo)+'</h3><span>'+sub+'</span></div><div class="tscroll"><table class="inf"><thead><tr><th>'+esc(opts.col1||titulo)+'</th>'
+    +MESES.map(m=>'<th>'+m+'</th>').join('')+'<th class="tot">TOTAL</th></tr></thead><tbody>'
+    +filas.map(f=>'<tr><td>'+(f.sw?'<span class="sw" style="background:'+f.sw+'"></span>':'')+esc(f.label)+'</td>'+f.m.map(celda).join('')+'<td class="tot">'+fmt(suma(f.m))+'</td></tr>').join('')
+    +(opts.sinTotal?'':'<tr class="total"><td>TOTAL</td>'+tot.map(celda).join('')+'<td class="tot">'+fmt(suma(tot))+'</td></tr>')
+    +'</tbody></table></div></div>';
+}
+function render(){
+  if(ACTAS===null&&URB===null&&!actasErr&&!urbErr)return;
+  const anio=document.getElementById('anio').value;
+  document.getElementById('titulo').textContent='Venta Ilegal '+anio;
+  const R=calcular(anio);
+  const av=[];if(actasErr)av.push(actasErr);if(urbErr)av.push(urbErr);
+  const faltanUrb=URB?MESES.map((m,i)=>i).filter(i=>R.G.EVENTO[i]+R.G.PARTIDO[i]+R.G.POLIGONOS[i]+R.G.PATRULLAS[i]>0&&!Object.keys(URB).includes(anio+'-'+String(i+1).padStart(2,'0'))):[];
+  if(faltanUrb.length)av.push('Urbetrack todavía no tiene cargados '+faltanUrb.map(i=>MESES_C[i]).join(', ')+' '+anio+': subí esos exports (o la hoja URBETRACK del Excel del informe) en Urbetrack → Cargar Excel.');
+  document.getElementById('avisos').innerHTML=av.map(t=>'<div class="warn">⚠ '+esc(t)+'</div>').join('');
+
+  // KPIs: año, último mes con actas vs anterior
+  const totMes=MESES.map((_,i)=>R.G.EVENTO[i]+R.G.PARTIDO[i]+R.G.POLIGONOS[i]+R.G.PATRULLAS[i]+R.G.OTROS[i]);
+  const ult=totMes.map((v,i)=>v?i:-1).filter(i=>i>=0).pop();
+  const k=(v,l,d)=>'<div class="kpi"><div class="v">'+v+'</div><div class="l">'+l+'</div>'+(d||'')+'</div>';
+  let delta='';
+  if(ult>0&&totMes[ult-1]){const p=Math.round((totMes[ult]/totMes[ult-1]-1)*100);delta='<div class="d" style="color:'+(p>=0?'var(--c-ok)':'var(--c-danger)')+'">'+(p>=0?'▲ +':'▼ ')+p+'% vs '+MESES_C[ult-1]+'</div>';}
+  document.getElementById('kpis').innerHTML=
+    k(ACTAS?fmt(R.actasAnio):'—','Actas '+anio)
+    +k(ult!=null&&ult>=0?fmt(totMes[ult]):'—','Actas en '+(ult!=null&&ult>=0?MESES[ult].toLowerCase():'—'),delta)
+    +k(URB?fmt(R.urbAnio):'—','Incidencias Urbetrack '+anio)
+    +k(R.ultimaActa?R.ultimaActa.split('-').reverse().join('/'):'—','Última acta cargada')
+    +k(URB_META&&URB_META.ultimaFecha?URB_META.ultimaFecha.split('-').reverse().join('/'):'—','Último día en Urbetrack');
+
+  const SERIES=[{k:'EVENTO',l:'Evento masivo',c:'var(--s1)',hex:'#2a78d6'},{k:'PARTIDO',l:'Partido de fútbol',c:'var(--s2)',hex:'#eb6834'},{k:'POLIGONOS',l:'Polígonos',c:'var(--s3)',hex:'#1baf7a'},{k:'PATRULLAS',l:'Patrullas',c:'var(--s4)',hex:'#eda100'}];
+  const general=SERIES.map(s=>({label:s.l.toUpperCase(),m:R.G[s.k],sw:s.c}));
+  if(suma(R.G.OTROS))general.push({label:'OTROS OPERATIVOS',m:R.G.OTROS});
+  const mesesActas=new Set(totMes.map((v,i)=>v?i:-1).filter(i=>i>=0));
+  const urbFilas=ordenar(R.U,ORDEN_URB);
+  const mesesUrb=new Set(Object.keys(URB||{}).filter(m=>m.startsWith(anio)).map(m=>+m.slice(5,7)-1));
+  const patFilas=Object.values(R.pat).map(v=>({...v,k:v.label})).sort((a,b)=>+a.label.split(' ')[1]-+b.label.split(' ')[1]);
+
+  document.getElementById('bloques').innerHTML=
+    (ACTAS?tabla('General','actas por tipo de operativo',general,{meses:mesesActas}):'')
+    +(URB?tabla('Urbetrack','incidencias por grupo (según la fecha de inspección)',urbFilas,{meses:mesesUrb,col1:'Urbetrack'}):'')
+    +(ACTAS?tabla('Polígonos','actas de Venta ilegal por zona (sin las patrullas por comuna)',ordenar(R.pol,ORDEN_POLIGONOS),{meses:mesesActas}):'')
+    +(ACTAS?tabla('Evento masivo','actas por lugar',ordenar(R.ev,[]),{meses:mesesActas}):'')
+    +(ACTAS?tabla('Patrullas','actas de Venta ilegal por comuna (Costanera Sur → C1, Costanera Norte → C14)',patFilas,{meses:mesesActas}):'')
+    +(ACTAS?tabla('Partidos de fútbol','actas por estadio',ordenar(R.par,ORDEN_ESTADIOS),{meses:mesesActas}):'');
+
+  // Gráficos: barras apiladas (4 series, orden fijo, leyenda) y barras de Urbetrack.
+  const base={responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},tooltip:{mode:'index',intersect:false}},
+    scales:{x:{grid:{display:false}},y:{beginAtZero:true,grid:{color:'#eceef0'},ticks:{callback:v=>fmt(v)}}}};
+  if(charts.a)charts.a.destroy();if(charts.u)charts.u.destroy();
+  if(ACTAS&&window.Chart){
+    charts.a=new Chart(document.getElementById('chActas'),{type:'bar',data:{labels:MESES_C,datasets:SERIES.map(s=>({label:s.l,data:R.G[s.k].map((v,i)=>mesesActas.has(i)?v:null),backgroundColor:s.hex,borderColor:'#fff',borderWidth:{top:2},borderRadius:{topLeft:3,topRight:3},stack:'a'}))},
+      options:{...base,scales:{...base.scales,x:{...base.scales.x,stacked:true},y:{...base.scales.y,stacked:true}}}});
+  }
+  if(URB&&window.Chart){
+    const tot=MESES.map((_,i)=>mesesUrb.has(i)?urbFilas.reduce((a,f)=>a+f.m[i],0):null);
+    charts.u=new Chart(document.getElementById('chUrb'),{type:'bar',data:{labels:MESES_C,datasets:[{label:'Incidencias',data:tot,backgroundColor:'#2a78d6',borderRadius:{topLeft:3,topRight:3}}]},
+      options:{...base,plugins:{...base.plugins,legend:{display:false}}}});
+  }
+
+  document.getElementById('notaReglas').innerHTML='<b>Cómo se calcula</b> (mismas reglas que la hoja INFORME del Excel):<br>'
+    +'· <b>Evento masivo</b> y <b>Partido de fútbol</b>: actas por Operativo; el detalle, por Zona.<br>'
+    +'· <b>Polígonos</b>: actas de Venta ilegal en zonas que no son "COMUNA N" — incluye todas (en el Excel el total sólo sumaba de Once a Parque 3 de Febrero y dejaba afuera Plaza Francia y Patrulla 4AM; Casco Histórico y Microcentro estaban vacíos o a mano).<br>'
+    +'· <b>Patrullas</b>: Venta ilegal en "COMUNA N"; Costanera Sur suma a la Comuna 1 y Costanera Norte a la 14 (en el Excel esa suma estaba rota en algunos meses).<br>'
+    +'· <b>Urbetrack</b>: incidencias por Grupo según el mes de la Fecha de inspección, con el "grupo normalizado" del Excel; además se unifican "PARTIDO DE FUTBOL", "AGRESION" y "CONSULTA FISCALIA" sin tilde, que el Excel no contaba.';
+}
+
+// ---------- export ----------
+function exportarExcel(){
+  const anio=document.getElementById('anio').value,R=calcular(anio);
+  const aoa=[['VENTA ILEGAL '+anio]];
+  const bloque=(tit,filas)=>{
+    aoa.push([]);aoa.push([tit,...MESES,'TOTAL']);
+    const tot=vacio();
+    filas.forEach(f=>{f.m.forEach((v,i)=>tot[i]+=v);aoa.push([f.label,...f.m.map(v=>v||''),suma(f.m)]);});
+    aoa.push(['TOTAL',...tot.map(v=>v||''),suma(tot)]);
+  };
+  if(ACTAS)bloque('GENERAL',[{label:'EVENTO MASIVO',m:R.G.EVENTO},{label:'PARTIDO DE FUTBOL',m:R.G.PARTIDO},{label:'POLIGONOS',m:R.G.POLIGONOS},{label:'PATRULLAS',m:R.G.PATRULLAS}].concat(suma(R.G.OTROS)?[{label:'OTROS OPERATIVOS',m:R.G.OTROS}]:[]));
+  if(URB)bloque('URBETRACK',ordenar(R.U,ORDEN_URB));
+  if(ACTAS){
+    bloque('POLIGONOS',ordenar(R.pol,ORDEN_POLIGONOS));
+    bloque('EVENTO MASIVO',ordenar(R.ev,[]));
+    bloque('PATRULLAS',Object.values(R.pat).sort((a,b)=>+a.label.split(' ')[1]-+b.label.split(' ')[1]));
+    bloque('PARTIDOS DE FUTBOL',ordenar(R.par,ORDEN_ESTADIOS));
+  }
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:34},...MESES.map(()=>({wch:11})),{wch:10}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'INFORME');
+  XLSX.writeFile(wb,'informe_venta_ilegal_'+anio+'.xlsx');
+  toast('✅ Informe exportado');
+}
+</script>
+<script src="personal-nav.js?v=4"></script>
+</body>
+</html>
