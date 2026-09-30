@@ -653,7 +653,9 @@ function codigoNorm(c){return String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'
 function erroresPropios(r){
   const e=[];
   if(!(r.fotos||[]).length)e.push('sinfoto');
-  if(!r.detalle)e.push('sindet');
+  // En los relevamientos el detalle no se carga (confirmado con el equipo):
+  // sólo se exige para el resto de los tipos.
+  if(!r.detalle&&!/^relevamiento/.test(norm(r.tipo)))e.push('sindet');
   if(r.detalle&&!esSinIncidencias(r.detalle)&&!r.comentario)e.push('sincom');
   if(esTipoActa(r.tipo)&&!r.codigo)e.push('actasincod');
   if(r.codigo&&esSinIncidencias(r.detalle))e.push('codsininc');
