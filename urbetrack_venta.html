@@ -633,8 +633,6 @@ window._cambiarTabExtra=async function(id){
 // ============================================================
 const ERR_DEFS=[
   {k:'sinfoto',  l:'Sin foto'},
-  {k:'sindet',   l:'Sin detalle de servicio'},
-  {k:'sincom',   l:'Hallazgo sin comentario'},
   {k:'actasincod',l:'Secuestro / comprobación sin N° de acta'},
   {k:'codsininc',l:'Tiene acta pero dice "sin incidencias"'},
   {k:'codfmt',   l:'N° de acta con formato dudoso'},
@@ -653,10 +651,8 @@ function codigoNorm(c){return String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'
 function erroresPropios(r){
   const e=[];
   if(!(r.fotos||[]).length)e.push('sinfoto');
-  // En los relevamientos el detalle no se carga (confirmado con el equipo):
-  // sólo se exige para el resto de los tipos.
-  if(!r.detalle&&!/^relevamiento/.test(norm(r.tipo)))e.push('sindet');
-  if(r.detalle&&!esSinIncidencias(r.detalle)&&!r.comentario)e.push('sincom');
+  // El detalle de servicio y el comentario NO son obligatorios (confirmado
+  // con el equipo): no cuentan como error.
   if(esTipoActa(r.tipo)&&!r.codigo)e.push('actasincod');
   if(r.codigo&&esSinIncidencias(r.detalle))e.push('codsininc');
   if(r.codigo&&!CODIGO_OK.test(codigoNorm(r.codigo)))e.push('codfmt');
