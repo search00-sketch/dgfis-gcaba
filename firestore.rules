@@ -70,6 +70,14 @@ service cloud.firestore {
     match /relevamientos_meta/{doc}   { allow read: if tieneModulo('relevamientos'); allow write: if puedeEditar('relevamientos'); }
     match /relevamientos_config/{doc} { allow read: if tieneModulo('relevamientos'); allow write: if puedeEditar('relevamientos'); }
 
+    // ---- Urbetrack — Venta sin permiso -----------------------------------
+    // Incidencias agrupadas por mes (urbetrack_chunks/AAAA-MM_N), índice con
+    // los meses cargados y el log de cargas (urbetrack_meta/index), y el
+    // cronograma de días home por usuario (urbetrack_config/cronograma).
+    match /urbetrack_chunks/{doc} { allow read: if tieneModulo('urbetrack'); allow write: if puedeEditar('urbetrack'); }
+    match /urbetrack_meta/{doc}   { allow read: if tieneModulo('urbetrack'); allow write: if puedeEditar('urbetrack'); }
+    match /urbetrack_config/{doc} { allow read: if tieneModulo('urbetrack'); allow write: if puedeEditar('urbetrack'); }
+
     // ---- Nómina (Gestión de Personal edita; Novedades/Asignación leen) --
     match /nomina_chunks/{doc} { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('personal'); }
     match /nomina_meta/{doc}   { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('personal'); }

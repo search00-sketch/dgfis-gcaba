@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA — Urbetrack Venta sin permiso</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script src="config.js"></script>
+<script src="utils.js?v=4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="estilo-comun.css?v=15">
+<style>
+.kpigrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);border-left:4px solid var(--c-brand-2);padding:10px 12px}
+.kpi.warn{border-left-color:var(--c-warn)}
+.kpi-val{font-size:1.45rem;font-weight:800;color:var(--c-brand);font-variant-numeric:tabular-nums}
+.kpi-lbl{font-size:.72rem;color:var(--c-ink-mut);margin-top:2px}
+
+.filtros-urb{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);padding:12px;margin-bottom:12px}
+.ff{display:flex;flex-direction:column;gap:3px;min-width:130px}
+.ff label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut)}
+.ff select,.ff input{padding:6px 8px;border:var(--border-w) solid var(--c-line-soft);font-size:.84rem;background:#fff;outline:none}
+.ff.grow{flex:1;min-width:200px}
+.ff-check{display:flex;align-items:center;gap:5px;font-size:.8rem;color:var(--c-ink-mut);padding-bottom:6px}
+
+.urb-scroll{overflow-x:auto;background:var(--c-surface);border:var(--border-w-strong) solid var(--c-line)}
+table.urb{width:100%;border-collapse:collapse;font-size:.8rem}
+table.urb thead th{background:var(--c-brand);color:#fff;text-align:left;padding:7px 9px;font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;position:sticky;top:0}
+table.urb td{padding:6px 9px;border-bottom:var(--border-w) solid var(--c-line-soft);vertical-align:top}
+table.urb tbody tr{cursor:pointer}
+table.urb tbody tr:hover td{background:#eef4fb}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.muted{color:var(--c-ink-mut)}
+.trunc{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sla-ok{color:var(--c-ok);font-weight:700}
+.sla-late{color:var(--c-danger);font-weight:700}
+.pager{display:flex;gap:8px;align-items:center;padding:8px 10px;border-top:var(--border-w) solid var(--c-line-soft);font-size:.8rem}
+
+.note{background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);padding:9px 12px;font-size:.8rem;color:var(--c-ink-mut);line-height:1.6;margin-bottom:12px}
+.note b{color:var(--c-ink)}
+.note .w{color:var(--c-warn);font-weight:600}
+.banner-warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:9px 12px;font-size:.8rem;margin-bottom:12px}
+
+.seg{display:inline-flex;border:var(--border-w) solid var(--c-line)}
+.seg button{border:none;background:var(--c-surface);padding:7px 14px;font-size:.82rem;font-weight:600;cursor:pointer;color:var(--c-ink-mut)}
+.seg button.on{background:var(--c-brand);color:#fff}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.ccard{background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);padding:12px 14px}
+.ccard .who{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:8px}
+.ccard .who b{font-size:.95rem;overflow-wrap:anywhere}
+.ccard .who span{font-size:.7rem;color:var(--c-ink-mut);font-weight:600;text-align:right}
+.srow{display:flex;gap:8px;margin-bottom:8px}
+.st{flex:1;min-width:0;border:var(--border-w) solid var(--c-line-soft);background:var(--c-bg);padding:6px 8px}
+.st .l{font-size:.64rem;text-transform:uppercase;letter-spacing:.03em;color:var(--c-ink-mut);font-weight:700}
+.st .v{font-size:1.15rem;font-weight:800;font-variant-numeric:tabular-nums}
+.st.warn{border-color:var(--c-warn);background:#fff7ed}
+.st.warn .v{color:var(--c-warn)}
+.spark{display:flex;align-items:flex-end;gap:2px;height:32px;margin:6px 0 6px}
+.spark i{flex:1;background:var(--c-line-soft);min-height:2px}
+.spark i.home{background:#d97706}
+.spark i.we{background:#9ca3af}
+.spark i.just{background:#a5b4fc}
+.flags{display:flex;flex-direction:column;gap:3px;font-size:.76rem}
+.flag{position:relative;padding-left:12px;color:var(--c-ink-mut);line-height:1.4}
+.flag::before{content:"•";position:absolute;left:0}
+.flag.bad{color:var(--c-danger)}
+
+table.heat{border-collapse:collapse;font-size:.72rem;width:100%}
+table.heat th,table.heat td{padding:4px 6px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--c-line-soft)}
+table.heat thead th{background:var(--c-surface);color:var(--c-ink-mut);font-weight:600;position:sticky;top:0}
+table.heat thead th.we{color:#b45309}
+table.heat tbody th{text-align:left;position:sticky;left:0;background:var(--c-surface);font-weight:700;padding-right:12px}
+table.heat td.home{outline:1.5px solid #d97706;outline-offset:-2px}
+table.heat td.z{color:var(--c-danger);font-weight:800;background:#fef2f2}
+table.heat td.just{color:#4f46e5;background:#eef2ff;font-weight:700}
+table.heat td.np{color:#bbb}
+table.heat tr.tot th,table.heat tr.tot td{border-top:2px solid var(--c-line);font-weight:800}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.72rem;color:var(--c-ink-mut);margin-top:8px}
+.sw{display:inline-block;width:10px;height:10px;margin-right:4px;vertical-align:-1px}
+
+table.cfg{width:100%;border-collapse:collapse;font-size:.82rem;background:var(--c-surface)}
+table.cfg th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut);padding:6px 8px;border-bottom:2px solid var(--c-line)}
+table.cfg td{padding:5px 8px;border-bottom:1px solid var(--c-line-soft);vertical-align:middle}
+table.cfg input[type=text],table.cfg select{width:100%;padding:5px 7px;border:1px solid var(--c-line-soft);font-size:.82rem;background:#fff}
+.dias-chips{display:flex;gap:3px;flex-wrap:wrap}
+.dia-chip{border:1px solid var(--c-line-soft);background:#fff;padding:3px 7px;font-size:.74rem;cursor:pointer;font-weight:600;color:var(--c-ink-mut)}
+.dia-chip.on{background:#d97706;border-color:#d97706;color:#fff}
+.dia-chip:disabled{opacity:.4;cursor:default}
+.cfg-dirty{background:#fffbeb}
+
+.uarea{border:2px dashed var(--c-line-soft);padding:28px;text-align:center;background:var(--c-surface);position:relative;cursor:pointer}
+.uarea.drag{border-color:var(--c-brand-2);background:#eff6ff}
+.uarea input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.pwrap{height:8px;background:var(--c-line-soft);margin-top:12px;display:none}
+.pfill{height:100%;background:var(--c-brand-2);width:0%;transition:width .3s}
+.file-row{display:flex;gap:10px;align-items:center;font-size:.8rem;padding:6px 10px;background:var(--c-surface);border:1px solid var(--c-line-soft);margin-top:6px}
+.file-row .n{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-row.err .n{color:var(--c-danger)}
+
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.det-item{background:var(--c-bg);padding:7px 10px}
+.det-k{font-size:.68rem;color:var(--c-ink-mut)}
+.det-v{font-size:.85rem;font-weight:600;overflow-wrap:anywhere}
+.det-com{background:var(--c-bg);padding:10px;font-size:.84rem;white-space:pre-wrap;margin-bottom:10px}
+.err-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.err-chips .lbl{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut);margin-right:4px}
+.err-chip{border:1px solid var(--c-line-soft);background:#fff;padding:5px 10px;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--c-ink)}
+.err-chip .c{color:var(--c-ink-mut);font-weight:500;margin-left:3px}
+.err-chip.on{background:#fff7ed;border-color:var(--c-warn);color:#9a3412}
+.err-chip.ok.on{background:#ecfdf5;border-color:var(--c-ok);color:var(--c-ok)}
+.pill-err{display:inline-block;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-size:.7rem;font-weight:700;padding:1px 6px;white-space:nowrap}
+.pill-ok{display:inline-block;background:#ecfdf5;border:1px solid #86efac;color:var(--c-ok);font-size:.7rem;font-weight:700;padding:1px 6px;white-space:nowrap}
+.det-err{border-left:3px solid var(--c-warn);background:#fff7ed;padding:8px 10px;font-size:.82rem;margin-bottom:10px}
+.det-okc{border-left:3px solid var(--c-ok);background:#ecfdf5;padding:8px 10px;font-size:.82rem;margin-bottom:10px}
+.fotos a{display:inline-block;margin:0 8px 6px 0;color:var(--c-brand-2);font-weight:600;text-decoration:none}
+@media(max-width:768px){.det-grid{grid-template-columns:1fr}.srow{flex-wrap:wrap}.st{min-width:40%}}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<!-- CAMBIAR CONTRASEÑA -->
+<div class="overlay" id="modal-cambiar-pass-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">Cambiar contraseña</div>
+    <div id="cp-err" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Contraseña actual</label>
+      <input class="form-input" type="password" id="cp-actual" autocomplete="current-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:12px">
+      <label class="fl">Nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva" autocomplete="new-password">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px">
+      <label class="fl">Repetir nueva contraseña</label>
+      <input class="form-input" type="password" id="cp-nueva2" autocomplete="new-password">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-cambiar-pass-overlay')">Cancelar</button>
+      <button class="btn btn-azul" id="cp-guardar-btn" onclick="guardarCambioPassPropia()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="overlay open" id="loginOverlay" style="z-index:3000">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">📡</div>
+    <div class="modal-title" style="text-align:center">Urbetrack — Venta sin permiso</div>
+    <p style="font-size:.79rem;color:#888;margin-bottom:18px">DGFIS-GCABA</p>
+    <div class="lerr" id="loginErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:0;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px;text-align:left">
+      <label class="fl">Usuario</label>
+      <input class="form-input" type="text" id="lUser" placeholder="usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="form-field full" style="margin-bottom:16px;text-align:left">
+      <label class="fl">Contraseña</label>
+      <div style="position:relative">
+        <input class="form-input" type="password" id="lPass" placeholder="••••••" style="padding-right:36px" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" onclick="togglePass()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:#888">👁️</button>
+      </div>
+    </div>
+    <button class="btn btn-azul" style="width:100%;padding:11px" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <p style="margin-top:12px;font-size:.74rem"><a href="index.html" style="color:var(--c-brand-2)">← Volver al portal</a></p>
+  </div>
+</div>
+
+<!-- DETALLE DE INCIDENCIA -->
+<div class="overlay" id="modal-det">
+  <div class="modal" style="max-width:640px">
+    <button class="modal-close" onclick="cerrarModal('modal-det')">✕</button>
+    <div class="modal-title" id="det-title"></div>
+    <div class="det-grid" id="det-grid"></div>
+    <div class="fl" style="margin-bottom:4px">Comentario</div>
+    <div class="det-com" id="det-com"></div>
+    <div class="fotos" id="det-fotos"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-gris" onclick="cerrarModal('modal-det')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE: panel de acciones (lo usa personal-nav.js vía abrirMenuAcciones en otras páginas; acá no hace falta) -->
+
+<header class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="nav-drop" style="position:relative">
+      <button onclick="toggleNavMenu(event)" title="Navegar entre módulos" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:0;cursor:pointer">☰</button>
+      <div id="navMenu" class="nav-menu"></div>
+    </div>
+    <div>
+      <div class="header-title">📡 Urbetrack — Venta sin permiso</div>
+      <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
+    <button class="hbtn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<div class="sync-bar">
+  <span><span class="sync-dot sync-loading" id="syncDot"></span><span id="syncTxt">Conectando…</span></span>
+  <button class="sync-refresh" onclick="forzarRecarga()">⟳ Actualizar</button>
+</div>
+
+<div class="layout-row">
+<div class="tabs">
+  <button class="tab active" onclick="window.cambiarTab('buscar',this)">🔎 Buscar</button>
+  <button class="tab" onclick="window.cambiarTab('errores',this)">⚠️ Errores de carga</button>
+  <button class="tab" onclick="window.cambiarTab('control',this)">📈 Control de cargas</button>
+  <button class="tab" onclick="window.cambiarTab('cronograma',this)">🗓️ Cronograma / home</button>
+  <button class="tab" id="tabCarga" style="display:none" onclick="window.cambiarTab('carga',this)">📥 Cargar Excel</button>
+</div>
+
+<div class="content">
+
+<!-- ===================== BUSCAR ===================== -->
+<div class="panel active" id="panel-buscar">
+  <button type="button" class="mob-filter-toggle" id="bFiltrosBtn" onclick="toggleFiltrosPanel('bFiltros')">⚙️ Filtros</button>
+  <div class="filtros-urb mob-filter-panel" id="bFiltros">
+    <div class="mob-filter-head"><span>Filtros</span><button type="button" onclick="toggleFiltrosPanel('bFiltros',true)">✕</button></div>
+    <div class="ff grow"><label>Buscar</label><input type="text" id="bTexto" placeholder="N° incidencia, código/acta, calle, comentario, usuario…" oninput="aplicarFiltrosDebounced()"></div>
+    <div class="ff"><label>Desde (inspección)</label><input type="date" id="bDesde" onchange="onRangoBuscarChange()"></div>
+    <div class="ff"><label>Hasta</label><input type="date" id="bHasta" onchange="onRangoBuscarChange()"></div>
+    <div class="ff"><label>Usuario</label><select id="bUsuario" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Comuna</label><select id="bComuna" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
+    <div class="ff"><label>Barrio</label><select id="bBarrio" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Tipo de servicio</label><select id="bTipo" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Detalle</label><select id="bDetalle" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Solicitante</label><select id="bSolicitante" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Grupo / operatoria</label><select id="bGrupo" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Turno (plazo)</label><select id="bPlazo" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <label class="ff-check"><input type="checkbox" id="bConCodigo" onchange="aplicarFiltros()"> Sólo con código / acta</label>
+    <label class="ff-check"><input type="checkbox" id="bSinFoto" onchange="aplicarFiltros()"> Sólo sin fotos</label>
+    <label class="ff-check"><input type="checkbox" id="bSlaTarde" onchange="aplicarFiltros()"> Sólo cargadas fuera de SLA (24 h)</label>
+    <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosBuscar()">✕ Limpiar</button>
+  </div>
+  <div class="err-chips" id="bErrChips"></div>
+  <div class="toolbar">
+    <button class="btn btn-gris btn-sm" onclick="rangoRapido(7)">Últimos 7 días</button>
+    <button class="btn btn-gris btn-sm" onclick="rangoRapido(30)">Últimos 30 días</button>
+    <button class="btn btn-gris btn-sm" onclick="rangoRapido(90)">Últimos 90 días</button>
+    <button class="btn btn-gris btn-sm" onclick="rangoTodo()">Todo el historial</button>
+    <span style="flex:1"></span>
+    <button class="btn btn-verde" onclick="exportarBusquedaExcel()">⬇ Exportar Excel</button>
+  </div>
+  <div class="kpigrid" id="bKpis"></div>
+  <div class="table-info" id="bInfo"></div>
+  <div class="urb-scroll">
+    <table class="urb">
+      <thead><tr><th>Incidencia / código</th><th>Fecha</th><th>Alta</th><th>SLA</th><th>Usuario</th><th>Dirección</th><th>Comuna / Barrio</th><th>Tipo / Detalle / Grupo</th><th>Comentario</th><th>Fotos</th><th>Errores</th></tr></thead>
+      <tbody id="bBody"></tbody>
+    </table>
+    <div class="pager">
+      <button class="btn btn-gris btn-sm" onclick="paginaBuscar(-1)">← Ant</button>
+      <span id="bPag" class="muted">1 / 1</span>
+      <button class="btn btn-gris btn-sm" onclick="paginaBuscar(1)">Sig →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ERRORES ===================== -->
+<div class="panel" id="panel-errores">
+  <div class="note">
+    Errores de carga detectados en las incidencias del <b>rango elegido en Buscar</b> (<span id="eRango"></span>).
+    Cuando el usuario corrige la incidencia en Urbetrack y se vuelve a subir el export, la incidencia se reemplaza por su versión nueva
+    (mismo N° de incidencia, no se duplica): los errores que ya no están desaparecen y queda marcada como <b>✔ corregida</b>, con qué se corrigió y cuándo.
+  </div>
+  <div class="kpigrid" id="eKpis"></div>
+  <div class="err-chips" id="eErrChips"></div>
+  <div class="urb-scroll">
+    <table class="urb" id="eTabla"><thead></thead><tbody></tbody></table>
+  </div>
+  <div class="table-info" style="margin-top:6px">Clic en un usuario para ver sus incidencias con errores en Buscar. Exportá desde Buscar para mandarle la lista a corregir.</div>
+</div>
+
+<!-- ===================== CONTROL DE CARGAS ===================== -->
+<div class="panel" id="panel-control">
+  <div class="toolbar">
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Desde<input type="date" class="pinput" id="cDesde" onchange="onRangoControlChange()"></label>
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Hasta<input type="date" class="pinput" id="cHasta" onchange="onRangoControlChange()"></label>
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Umbral SLA (h)<input type="number" class="pinput" id="cSla" value="24" min="1" step="1" style="width:64px" oninput="renderControl()"></label>
+    <div class="seg" id="cVista">
+      <button class="on" data-v="cards" onclick="vistaControl('cards')">Resumen</button>
+      <button data-v="heat" onclick="vistaControl('heat')">Detalle diario</button>
+      <button data-v="sla" onclick="vistaControl('sla')">SLA</button>
+    </div>
+    <span style="flex:1"></span>
+    <button class="btn btn-verde" onclick="exportarControlExcel()">⬇ Exportar Excel</button>
+  </div>
+  <div id="cNota"></div>
+  <div id="cWarn"></div>
+  <div id="cCards"></div>
+  <div id="cHeat" style="display:none;overflow-x:auto"></div>
+  <div id="cSlaView" style="display:none"></div>
+</div>
+
+<!-- ===================== CRONOGRAMA ===================== -->
+<div class="panel" id="panel-cronograma">
+  <div class="note">
+    Definí para cada usuario de Urbetrack <b>cuándo le toca cargar</b>: así el Control de cargas distingue "no cargó" de "no le tocaba".
+    Marcá sus <b>días home</b> (se comparan contra los presenciales), agrupá usuarios que son la misma persona y, si lo vinculás con alguien de la <b>nómina</b>,
+    sus licencias, ausencias y compensatorios cargados en Novedades de Personal se toman como días justificados (y los feriados cargados en Asignación de Zonas no cuentan como día de trabajo).
+    Se guarda en Firebase y lo ve todo el que entra al módulo.
+  </div>
+  <div class="toolbar">
+    <button class="btn btn-azul" id="cfgGuardarBtn" onclick="guardarCronograma()">💾 Guardar cronograma</button>
+    <button class="btn btn-gris" onclick="agregarUsuarioCfg()">+ Agregar usuario</button>
+    <button class="btn btn-gris" onclick="detectarUsuariosCfg(true)" title="Agrega los usuarios que aparecen en los datos cargados y todavía no están en el cronograma">🔄 Detectar usuarios de los datos</button>
+    <span class="muted" id="cfgEstado" style="font-size:.8rem"></span>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="cfg">
+      <thead><tr><th style="width:15%">Usuario Urbetrack</th><th style="width:22%">Persona (nómina)</th><th style="width:13%">Agrupar con</th><th style="width:20%">Modalidad</th><th style="width:24%">Días home</th><th style="width:6%"></th></tr></thead>
+      <tbody id="cfgBody"></tbody>
+    </table>
+  </div>
+  <div class="table-info" id="cfgNominaInfo" style="margin-top:8px"></div>
+</div>
+
+<!-- ===================== CARGA ===================== -->
+<div class="panel" id="panel-carga">
+  <div class="gestion-zonas">
+    <div class="gz-title">📥 Cargar exports de Urbetrack (Venta sin permiso)</div>
+    <p style="font-size:.82rem;color:#777;margin-bottom:12px">
+      Uno o varios <b>.xlsx</b> exportados de Urbetrack (hoja <b>"Informe"</b>, con la fila de encabezados que arranca en <b>Incidencia</b>).
+      El <b>N° de incidencia</b> es la clave: volver a subir el mismo archivo, o uno que se solape, actualiza en vez de duplicar.
+      Se guarda agrupado por mes (pocos documentos grandes en vez de uno por incidencia), así buscar un rango cuesta pocas lecturas.
+    </p>
+    <div class="uarea" id="uarea">
+      <input type="file" id="fileInput" accept=".xlsx,.xls" multiple onchange="onArchivosElegidos(this.files)">
+      <div style="font-size:2rem;margin-bottom:6px">📄</div>
+      <div style="font-weight:600;color:var(--c-brand)">Arrastrá o hacé clic para elegir los Excel</div>
+    </div>
+    <div id="upFiles"></div>
+    <div id="upResumen" style="margin-top:10px"></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-verde" id="upBtn" onclick="subirAFirestore()" disabled style="opacity:.45">⬆ Subir a Firebase</button>
+      <button class="btn btn-gris" onclick="limpiarCarga()">Limpiar</button>
+    </div>
+    <div class="pwrap" id="upPwrap"><div class="pfill" id="upPfill"></div></div>
+    <div class="toast-msg" id="upToast"></div>
+  </div>
+  <div class="gestion-zonas">
+    <div class="gz-title">🧾 Historial de cargas</div>
+    <div style="overflow-x:auto">
+      <table class="cfg">
+        <thead><tr><th>Cuándo</th><th>Quién</th><th>Archivo(s)</th><th>Filas</th><th>Nuevas</th><th>Actualizadas</th><th>Corregidas</th><th>Rango de fechas</th></tr></thead>
+        <tbody id="cargasBody"></tbody>
+      </table>
+    </div>
+    <div class="table-info" id="mesesInfo" style="margin-top:8px"></div>
+  </div>
+</div>
+
+</div>
+</div><!-- /layout-row -->
+
+<script>window.MODULO_ID='urbetrack';</script>
+<script src="personal-auth.js?v=9"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
+
+const app = initializeApp(FIREBASE_CONFIG);
+// App Check: si config.js todavía no tiene la clave (no configurada), se
+// sigue funcionando igual — App Check queda simplemente sin inicializar.
+if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
+  initializeAppCheck(app, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+}
+const db   = getFirestore(app);
+const auth = getAuth(app);
+
+// Exponer para el script clásico de abajo (mismo patrón que el resto del portal)
+window._db      = db;
+window._fDoc    = doc;
+window._fGetDoc = getDoc;
+window._fSetDoc = setDoc;
+window._fDeleteDoc = deleteDoc;
+window._fRunTransaction = runTransaction;
+window._auth = auth;
+window._fOnAuthStateChanged = onAuthStateChanged;
+window._fSignIn  = signInWithEmailAndPassword;
+window._fSignOut = signOut;
+window._fEmailAuthProvider = EmailAuthProvider;
+window._fReauthenticate = reauthenticateWithCredential;
+window._fUpdatePassword = updatePassword;
+
+window.cambiarTab = function(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('panel-' + id);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (window._cambiarTabExtra) window._cambiarTabExtra(id);
+};
+
+// Validar la sesión primero (lectura chica) y recién después disparar la
+// carga de datos — mismo motivo que en el resto del portal.
+if (window.restaurarSesion) window.restaurarSesion().then(() => { if (window.cargarTodo) window.cargarTodo(); });
+</script>
+
+<script>
+// ============================================================
+//  URBETRACK — VENTA SIN PERMISO
+//  Almacenamiento (ver firestore.rules):
+//   urbetrack_meta/index            → {meses:{"AAAA-MM":{chunks,count,v}},
+//                                      totalRegistros, primeraFecha,
+//                                      ultimaFecha, cargas:[…últimas 40]}
+//   urbetrack_chunks/AAAA-MM_N      → {mes, n, datos:'{"N°incidencia":{…}}'}
+//     "datos" es el mapa de incidencias como TEXTO JSON, no como mapa de
+//     Firestore: Firestore indexa cada campo de cada mapa anidado y corta
+//     en 40.000 entradas de índice por documento (~1.300 incidencias × ~20
+//     campos lo superaba: "too many index entries"). Un string es una sola
+//     entrada de índice, sin tener que tocar firestore.indexes.json.
+//   urbetrack_config/cronograma     → {lista:[{usuario, personaId, alias,
+//                                      modalidad, homeDias:[1..5]}]}
+//  Las incidencias se agrupan por MES de la fecha de inspección: buscar un
+//  rango lee sólo los meses que toca (1 lectura por documento), y cada mes
+//  queda cacheado en la pestaña con su versión "v" — si nadie subió nada
+//  nuevo a ese mes, volver a entrar no lo relee (sólo el índice). El caché
+//  vive en IndexedDB del navegador (sobrevive entre sesiones).
+// ============================================================
+const COL_CHUNKS = 'urbetrack_chunks';
+const COL_META   = 'urbetrack_meta';
+const COL_CONFIG = 'urbetrack_config';
+// Tope por documento: Firestore admite 1 MiB; se deja margen para los
+// nombres de campo y el overhead de cada entrada del mapa.
+const MAX_BYTES_CHUNK = 900000;
+const MAX_CARGAS_LOG = 40;
+const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const MODOS = [
+  {v:'any',    t:'Todos los días (Lun–Dom)'},
+  {v:'fixed',  t:'Lun–Vie con días home'},
+  {v:'office', t:'Lun–Vie, siempre presencial'},
+  {v:'weekend',t:'Sólo fines de semana'},
+  {v:'none',   t:'No carga (excluir del control)'},
+];
+
+let META = null;               // urbetrack_meta/index
+// Lee el mapa de incidencias de un documento de urbetrack_chunks (acepta
+// también el formato viejo {registros:{…}} por las dudas).
+function registrosDeDoc(d){
+  if(!d)return {};
+  if(typeof d.datos==='string'){try{return JSON.parse(d.datos);}catch(e){console.error('Chunk ilegible',e);return {};}}
+  return d.registros||{};
+}
+const MESES = {};              // "AAAA-MM" → [registros] (en memoria)
+let REGS = [];                 // registros de los meses cargados (plano)
+let CRONO = [];                // cronograma (Firestore)
+let cronoDirty = false;
+let NOMINA = null, NOVEDADES = null, FERIADOS = [];  // null = no leída / sin permiso
+let personalError = '';
+
+// ---------- utilidades ----------
+function toast(msg,ms=2600){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),ms);}
+function cerrarModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='loginOverlay')o.classList.remove('open');}));
+function setSync(tipo,msg){const d=document.getElementById('syncDot');d.className='sync-dot sync-'+tipo;document.getElementById('syncTxt').textContent=msg;}
+const pad=n=>String(n).padStart(2,'0');
+function isoDia(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function hoyISO(){return isoDia(new Date());}
+function sumarDias(ds,n){const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return isoDia(d);}
+function fmtD(ds){if(!ds)return '—';const [y,m,d]=ds.slice(0,10).split('-');return d+'/'+m+'/'+y;}
+function fmtCorta(ds){const [,m,d]=ds.split('-');return d+'/'+m;}
+function fmtDT(s){if(!s)return '—';return fmtD(s)+(s.length>10?' '+s.slice(11,16):'');}
+function mesDe(ds){return ds.slice(0,7);}
+function mesesEntre(desde,hasta){
+  const out=[];let [y,m]=desde.slice(0,7).split('-').map(Number);const [yh,mh]=hasta.slice(0,7).split('-').map(Number);
+  while(y<yh||(y===yh&&m<=mh)){out.push(y+'-'+pad(m));m++;if(m>12){m=1;y++;}}
+  return out;
+}
+const MES_TXT=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function fmtMes(mes){const [y,m]=mes.split('-');return MES_TXT[+m-1]+' '+y;}
+function norm(s){return String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();}
+function safeHref(u){u=String(u||'').trim();return /^https?:\/\//i.test(u)?u:'';}
+function parseDT(s){if(!s)return null;const d=new Date(s.replace(' ','T'));return isNaN(d)?null:d;}
+// SLA de carga = "Fecha alta" (cuándo se cargó en Urbetrack) − "Fecha"
+// (cuándo se hizo la inspección), en minutos. Mismo criterio que el
+// artefacto "Control de Cargas" y que el portal GOIEP.
+function lagMin(r){const a=parseDT(r.alta),f=parseDT(r.fecha);return (a&&f)?Math.round((a-f)/60000):null;}
+function fmtDur(min){
+  if(min==null)return '—';
+  const a=Math.abs(min),sg=min<0?'-':'';
+  if(a<60)return sg+Math.round(a)+' min';
+  if(a<72*60)return sg+(a/60).toFixed(1).replace('.',',')+' h';
+  return sg+(a/1440).toFixed(1).replace('.',',')+' d';
+}
+function median(v){if(!v.length)return null;const s=v.slice().sort((a,b)=>a-b),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+const fmtN=n=>n==null?'—':n.toFixed(1).replace('.',',');
+const fmtInt=n=>(n||0).toLocaleString('es-AR');
+
+// ============================================================
+//  LECTURA
+// ============================================================
+// Caché por mes en IndexedDB (no sessionStorage: un mes real de Urbetrack
+// pesa ~5 MB y no entra en los ~5 MB que da sessionStorage — fallaba en
+// silencio y cada visita volvía a leer todo el mes). Cada entrada lleva la
+// versión "v" del índice: si alguien sube datos nuevos a ese mes, cambia la
+// versión y se relee. Si IndexedDB no está disponible, se sigue sin caché.
+const IDB_NAME='dgf_urbetrack',IDB_STORE='meses';
+let _idbP=null;
+function idb(){
+  if(!_idbP)_idbP=new Promise((res)=>{
+    try{const rq=indexedDB.open(IDB_NAME,1);
+      rq.onupgradeneeded=()=>rq.result.createObjectStore(IDB_STORE);
+      rq.onsuccess=()=>res(rq.result);rq.onerror=()=>res(null);
+    }catch(e){res(null);}
+  });
+  return _idbP;
+}
+async function cacheGet(mes){
+  const db=await idb();if(!db)return null;
+  return new Promise(res=>{try{const rq=db.transaction(IDB_STORE).objectStore(IDB_STORE).get(mes);rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>res(null);}catch(e){res(null);}});
+}
+async function cacheSet(mes,val){
+  const db=await idb();if(!db)return;
+  return new Promise(res=>{try{const tx=db.transaction(IDB_STORE,'readwrite');val===null?tx.objectStore(IDB_STORE).delete(mes):tx.objectStore(IDB_STORE).put(val,mes);tx.oncomplete=()=>res();tx.onerror=()=>res();}catch(e){res();}});
+}
+async function cacheClearAll(){
+  const db=await idb();if(!db)return;
+  return new Promise(res=>{try{const tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).clear();tx.oncomplete=()=>res();tx.onerror=()=>res();}catch(e){res();}});
+}
+async function leerMeta(){
+  const snap=await window._fGetDoc(window._fDoc(window._db,COL_META,'index'));
+  META=snap.exists()?snap.data():{meses:{},cargas:[]};
+  META.meses=META.meses||{};META.cargas=META.cargas||[];
+}
+// Trae un mes: de memoria, del caché de la pestaña (si la versión coincide
+// con la del índice) o de Firestore (N lecturas = N documentos del mes).
+async function asegurarMes(mes){
+  const info=META.meses[mes];
+  if(!info){MESES[mes]=[];return 0;}
+  if(MESES[mes]&&MESES[mes]._v===info.v)return 0;
+  const c=await cacheGet(mes);
+  if(c&&c.v===info.v){MESES[mes]=prepararRegs(c.regs);MESES[mes]._v=info.v;return 0;}
+  const snaps=await Promise.all(Array.from({length:info.chunks||0},(_,i)=>
+    window._fGetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i))));
+  const regs=[];
+  snaps.forEach(s=>{if(s.exists())Object.values(registrosDeDoc(s.data())).forEach(r=>regs.push(r));});
+  // Se guarda ANTES de prepararRegs (sin los campos derivados _q/_lag…).
+  await cacheSet(mes,{v:info.v,regs:JSON.parse(JSON.stringify(regs))});
+  MESES[mes]=prepararRegs(regs);MESES[mes]._v=info.v;
+  return snaps.length;
+}
+// Campos derivados que NO se guardan en Firestore (se recalculan al leer).
+function prepararRegs(regs){
+  regs.forEach(r=>{
+    r._lag=lagMin(r);
+    r._dia=(r.fecha||r.alta||'').slice(0,10);
+    r._diaAlta=(r.alta||r.fecha||'').slice(0,10);
+    if(r.fotos)r.fotos=r.fotos.map(expandirFoto);
+    r.grupo=r.grupo?r.grupo.trim():r.grupo;
+    r._q=norm([r.id,r.codigo,r.sap,r.usuario,r.calle,r.altura,r.esquina,r.barrio,r.comuna,r.tipo,r.detalle,r.comentario,r.solicitante,r.grupo,r.plazo,r.estado].join(' '));
+  });
+  return regs;
+}
+async function asegurarRango(desde,hasta){
+  const meses=mesesEntre(desde,hasta).filter(m=>META.meses[m]);
+  const pend=meses.filter(m=>!(MESES[m]&&MESES[m]._v===META.meses[m].v));
+  if(pend.length)setSync('loading','Leyendo '+pend.map(fmtMes).join(', ')+'…');
+  const lecturas=(await Promise.all(pend.map(asegurarMes))).reduce((a,b)=>a+b,0);
+  REGS=Object.keys(MESES).sort().flatMap(m=>MESES[m]);
+  marcarDuplicados(REGS);
+  actualizarSync(lecturas);
+}
+function actualizarSync(lecturas){
+  const meses=Object.keys(META.meses).sort();
+  if(!meses.length){setSync('ok','Sin datos todavía — cargá un export desde "Cargar Excel"');return;}
+  const enMem=Object.keys(MESES).filter(m=>MESES[m].length).length;
+  setSync('ok','✅ '+fmtInt(META.totalRegistros||0)+' incidencias en la base ('+fmtMes(meses[0])+' – '+fmtMes(meses[meses.length-1])+') · '
+    +enMem+' mes'+(enMem===1?'':'es')+' en pantalla'+(lecturas!=null?' · '+lecturas+' lectura'+(lecturas===1?'':'s')+' de datos':''));
+}
+
+window.cargarTodo=async function(){
+  setSync('loading','Cargando…');
+  try{
+    const [,cfgSnap]=await Promise.all([
+      leerMeta(),
+      window._fGetDoc(window._fDoc(window._db,COL_CONFIG,'cronograma')).catch(()=>null),
+    ]);
+    CRONO=(cfgSnap&&cfgSnap.exists()&&Array.isArray(cfgSnap.data().lista))?cfgSnap.data().lista:[];
+    CRONO.forEach(c=>{c.homeDias=Array.isArray(c.homeDias)?c.homeDias:[];});
+    cronoDirty=false;
+    // Rango inicial: los últimos 30 días con datos (no "hoy", por si la
+    // última carga es de hace unos días).
+    const fin=META.ultimaFecha||hoyISO();
+    // …pero nunca antes del primer día con datos: días sin datos cargados
+    // se leerían como "no cargó nada" en el Control de cargas.
+    const desdeMin=d=>META.primeraFecha&&d<META.primeraFecha?META.primeraFecha:d;
+    if(!document.getElementById('bHasta').value){document.getElementById('bHasta').value=fin;document.getElementById('bDesde').value=desdeMin(sumarDias(fin,-29));}
+    if(!document.getElementById('cHasta').value){document.getElementById('cHasta').value=fin;document.getElementById('cDesde').value=desdeMin(sumarDias(fin,-27));}
+    await asegurarRango(document.getElementById('bDesde').value,document.getElementById('bHasta').value);
+    poblarFiltros();aplicarFiltros();
+    renderCargas();
+    const activo=document.querySelector('.panel.active');
+    if(activo&&activo.id!=='panel-buscar')window._cambiarTabExtra(activo.id.replace('panel-',''));
+  }catch(e){console.error(e);setSync('err','⚠️ Error: '+e.message);}
+};
+window.forzarRecarga=async function(){
+  await cacheClearAll();
+  Object.keys(MESES).forEach(k=>delete MESES[k]);
+  NOMINA=null;NOVEDADES=null;
+  window.cargarTodo();
+};
+// Al salir se borra el caché local de incidencias (PC compartida).
+const _doLogoutOriginal=doLogout;
+doLogout=async function(){await cacheClearAll();_doLogoutOriginal();};
+window._onLogin=function(){
+  document.getElementById('tabCarga').style.display=puedeEditar()?'':'none';
+};
+window._cambiarTabExtra=async function(id){
+  if(!META)return;
+  if(id==='control'){await prepararControl();}
+  else if(id==='cronograma'){await asegurarPersonal();detectarUsuariosCfg(false);renderCronograma();}
+  else if(id==='carga'){renderCargas();}
+  else if(id==='errores'){renderErrores();}
+};
+
+// ============================================================
+//  ERRORES DE CARGA (adaptado del Explorador de GOIEP a Venta ilegal,
+//  calibrado con un export real de sep 2026). Se calculan al leer — no se
+//  guardan — así, si se cambia una regla, se aplica también a lo viejo.
+// ============================================================
+const ERR_DEFS=[
+  {k:'sinfoto',  l:'Sin foto'},
+  {k:'actasincod',l:'Secuestro / comprobación sin N° de acta'},
+  {k:'codsininc',l:'Tiene acta pero dice "sin incidencias"'},
+  {k:'codfmt',   l:'N° de acta con formato dudoso'},
+  {k:'dir',      l:'Dirección incompleta'},
+  {k:'altaantes',l:'Alta anterior a la inspección'},
+  {k:'dup',      l:'Foto repetida en otra incidencia'},
+];
+const ERR_LABEL=Object.fromEntries(ERR_DEFS.map(e=>[e.k,e.l]));
+const esSinIncidencias=s=>/^sin in[cs]idencias?/.test(norm(s));
+const esTipoActa=s=>/^(secuestro|comprobacion|intimacion)/.test(norm(s));
+// "AS 43312", "A/S 64714", "A.S.: 6", "AI 12" → válidos; "43312" solo o dos
+// actas en el mismo campo → dudoso.
+const CODIGO_OK=/^(AS|AC|AI|IN)\d{2,}$/;
+function codigoNorm(c){return String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+// Errores propios del registro (sin mirar a los demás).
+function erroresPropios(r){
+  const e=[];
+  if(!(r.fotos||[]).length)e.push('sinfoto');
+  // El detalle de servicio y el comentario NO son obligatorios (confirmado
+  // con el equipo): no cuentan como error.
+  if(esTipoActa(r.tipo)&&!r.codigo)e.push('actasincod');
+  if(r.codigo&&esSinIncidencias(r.detalle))e.push('codsininc');
+  if(r.codigo&&!CODIGO_OK.test(codigoNorm(r.codigo)))e.push('codfmt');
+  if(!r.calle||(!r.altura&&!r.esquina)||!r.comuna)e.push('dir');
+  const a=parseDT(r.alta),f=parseDT(r.fecha);if(a&&f&&a<f)e.push('altaantes');
+  return e;
+}
+// Carga duplicada: la MISMA foto usada en más de una incidencia. (Se probó
+// "mismo usuario + misma dirección en pocos minutos" con el export real y
+// marcaba ~15%: son pasadas repetidas legítimas por el mismo punto, cada
+// una con su foto propia — no sirve como señal de error.)
+function marcarDuplicados(regs){
+  const porFoto={};
+  regs.forEach(r=>{r._dup=false;(r.fotos||[]).forEach(f=>(porFoto[f]=porFoto[f]||[]).push(r));});
+  Object.values(porFoto).forEach(a=>{if(a.length>1&&new Set(a.map(r=>r.id)).size>1)a.forEach(r=>{r._dup=true;});});
+  regs.forEach(r=>{r._err=erroresPropios(r);if(r._dup)r._err.push('dup');});
+}
+const ERR_SEL=new Set();
+function renderChips(elId,lista,conCorregidas){
+  const cnt={};ERR_DEFS.forEach(d=>cnt[d.k]=0);let corr=0;
+  lista.forEach(r=>{r._err.forEach(k=>cnt[k]++);if(r.corregido)corr++;});
+  document.getElementById(elId).innerHTML='<span class="lbl">Errores</span>'
+    +ERR_DEFS.map(d=>'<button type="button" class="err-chip'+(ERR_SEL.has(d.k)?' on':'')+'" onclick="toggleErr(\''+d.k+'\')">'+esc(d.l)+'<span class="c">('+fmtInt(cnt[d.k])+')</span></button>').join('')
+    +(conCorregidas?'<button type="button" class="err-chip ok'+(ERR_SEL.has('corregido')?' on':'')+'" onclick="toggleErr(\'corregido\')">✔ Corregidas<span class="c">('+fmtInt(corr)+')</span></button>':'')
+    +(ERR_SEL.size?'<button type="button" class="btn btn-gris btn-sm" onclick="ERR_SEL.clear();aplicarFiltros();renderErrores()">✕ Quitar</button>':'');
+}
+function toggleErr(k){ERR_SEL.has(k)?ERR_SEL.delete(k):ERR_SEL.add(k);aplicarFiltros();if(document.getElementById('panel-errores').classList.contains('active'))renderErrores();}
+function pasaErr(r){
+  if(!ERR_SEL.size)return true;
+  // Unión (como en GOIEP): alcanza con tener alguno de los tildados.
+  for(const k of ERR_SEL){if(k==='corregido'?!!r.corregido:r._err.includes(k))return true;}
+  return false;
+}
+function enRangoBuscar(r){
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  return !(d&&r._dia<d)&&!(h&&r._dia>h);
+}
+function renderErrores(){
+  if(!META)return;
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  document.getElementById('eRango').textContent=d&&h?fmtD(d)+' – '+fmtD(h):'todo lo cargado';
+  const L=REGS.filter(enRangoBuscar);
+  renderChips('eErrChips',L,true);
+  const conErr=L.filter(r=>r._err.length).length,corr=L.filter(r=>r.corregido).length;
+  const k=(v,l,cls)=>'<div class="kpi'+(cls?' '+cls:'')+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div></div>';
+  document.getElementById('eKpis').innerHTML=k(fmtInt(L.length),'Incidencias en el rango')+k(fmtInt(conErr),'Con algún error',conErr?'warn':'')
+    +k(L.length?Math.round(conErr/L.length*100)+'%':'—','% con errores')+k(fmtInt(corr),'Corregidas al re-subir');
+  const por={};
+  L.forEach(r=>{const u=r.usuario||'(sin usuario)';const o=por[u]||(por[u]={u,n:0,e:0,c:0,k:{}});o.n++;if(r._err.length){o.e++;r._err.forEach(x=>o.k[x]=(o.k[x]||0)+1);}if(r.corregido)o.c++;});
+  const filas=Object.values(por).sort((a,b)=>b.e-a.e||b.n-a.n);
+  const t=document.getElementById('eTabla');
+  t.querySelector('thead').innerHTML='<tr><th>Usuario</th><th>Incidencias</th><th>Con errores</th><th>%</th>'+ERR_DEFS.map(d=>'<th title="'+esc(d.l)+'">'+esc(d.l)+'</th>').join('')+'<th>Corregidas</th></tr>';
+  t.querySelector('tbody').innerHTML=filas.map(o=>'<tr onclick="verErroresDe(\''+escJsAttr(o.u)+'\')">'
+    +'<td><b>'+esc(o.u)+'</b></td><td class="num">'+fmtInt(o.n)+'</td><td class="num">'+(o.e?'<span class="pill-err">'+fmtInt(o.e)+'</span>':'0')+'</td>'
+    +'<td class="num">'+(o.n?Math.round(o.e/o.n*100)+'%':'—')+'</td>'
+    +ERR_DEFS.map(d=>'<td class="num'+(o.k[d.k]?'':' muted')+'">'+(o.k[d.k]?fmtInt(o.k[d.k]):'·')+'</td>').join('')
+    +'<td class="num">'+(o.c?'<span class="pill-ok">'+fmtInt(o.c)+'</span>':'·')+'</td></tr>').join('')
+    ||'<tr><td colspan="'+(ERR_DEFS.length+5)+'" style="padding:16px;color:#999;cursor:default">Sin incidencias en el rango.</td></tr>';
+}
+function verErroresDe(u){
+  document.getElementById('bUsuario').value=u;
+  if(!ERR_SEL.size)ERR_DEFS.forEach(d=>ERR_SEL.add(d.k));
+  aplicarFiltros();
+  window.cambiarTab('buscar',document.querySelector('.tabs .tab'));
+}
+
+// ============================================================
+//  BUSCAR
+// ============================================================
+let FILTRADOS=[],bPage=1;const B_PER=50;
+function poblarSel(id,vals,ph){
+  const s=document.getElementById(id),act=s.value;
+  s.innerHTML='<option value="">'+ph+'</option>'+[...new Set(vals.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'es',{numeric:true})).map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+  if([...s.options].some(o=>o.value===act))s.value=act;
+}
+function poblarFiltros(){
+  poblarSel('bUsuario',REGS.map(r=>r.usuario),'Todos');
+  poblarSel('bComuna',REGS.map(r=>r.comuna),'Todas');
+  poblarSel('bBarrio',REGS.map(r=>r.barrio),'Todos');
+  poblarSel('bTipo',REGS.map(r=>r.tipo),'Todos');
+  poblarSel('bDetalle',REGS.map(r=>r.detalle),'Todos');
+  poblarSel('bSolicitante',REGS.map(r=>r.solicitante),'Todos');
+  poblarSel('bGrupo',REGS.map(r=>r.grupo),'Todos');
+  poblarSel('bPlazo',REGS.map(r=>r.plazo),'Todos');
+}
+async function onRangoBuscarChange(){
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  if(d&&h&&d<=h){await asegurarRango(d,h);poblarFiltros();}
+  aplicarFiltros();
+}
+function rangoRapido(dias){
+  const fin=META&&META.ultimaFecha||hoyISO();
+  const desde=sumarDias(fin,-(dias-1));
+  document.getElementById('bHasta').value=fin;document.getElementById('bDesde').value=META&&META.primeraFecha&&desde<META.primeraFecha?META.primeraFecha:desde;
+  onRangoBuscarChange();
+}
+function rangoTodo(){
+  if(!META||!META.primeraFecha){toast('No hay datos cargados.');return;}
+  const n=Object.values(META.meses).reduce((a,m)=>a+(m.chunks||0),0);
+  if(n>12&&!confirm('Traer todo el historial lee '+n+' documentos de Firebase (una sola vez por sesión). ¿Seguir?'))return;
+  document.getElementById('bDesde').value=META.primeraFecha;document.getElementById('bHasta').value=META.ultimaFecha;
+  onRangoBuscarChange();
+}
+let _debT=null;function aplicarFiltrosDebounced(){clearTimeout(_debT);_debT=setTimeout(aplicarFiltros,180);}
+function aplicarFiltros(){
+  actualizarBadgeFiltros('bFiltros','bFiltrosBtn');
+  const g=id=>document.getElementById(id).value;
+  const q=norm(g('bTexto')),desde=g('bDesde'),hasta=g('bHasta');
+  const f={usuario:g('bUsuario'),comuna:g('bComuna'),barrio:g('bBarrio'),tipo:g('bTipo'),detalle:g('bDetalle'),solicitante:g('bSolicitante'),grupo:g('bGrupo'),plazo:g('bPlazo')};
+  const sinFoto=document.getElementById('bSinFoto').checked,slaTarde=document.getElementById('bSlaTarde').checked,conCod=document.getElementById('bConCodigo').checked;
+  FILTRADOS=REGS.filter(r=>{
+    if(desde&&r._dia<desde)return false;
+    if(hasta&&r._dia>hasta)return false;
+    for(const k in f)if(f[k]&&r[k]!==f[k])return false;
+    if(sinFoto&&(r.fotos||[]).length)return false;
+    if(conCod&&!r.codigo)return false;
+    if(!pasaErr(r))return false;
+    if(slaTarde&&!(r._lag!=null&&r._lag>24*60))return false;
+    if(q&&!coincideTexto(r._q,q))return false;
+    return true;
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  bPage=1;renderKpis();renderTablaBuscar();
+  renderChips('bErrChips',REGS.filter(enRangoBuscar),true);
+}
+function limpiarFiltrosBuscar(){
+  ['bTexto','bUsuario','bComuna','bBarrio','bTipo','bDetalle','bSolicitante','bGrupo','bPlazo'].forEach(id=>document.getElementById(id).value='');
+  ['bSinFoto','bSlaTarde','bConCodigo'].forEach(id=>document.getElementById(id).checked=false);
+  ERR_SEL.clear();
+  aplicarFiltros();
+}
+function renderKpis(){
+  const D=FILTRADOS,dias=new Set(D.map(r=>r._dia)).size,lags=D.map(r=>r._lag).filter(x=>x!=null&&x>=0);
+  const sinFoto=D.filter(r=>!(r.fotos||[]).length).length;
+  const tarde=lags.filter(x=>x>24*60).length;
+  const k=(v,l,cls)=>'<div class="kpi'+(cls?' '+cls:'')+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div></div>';
+  document.getElementById('bKpis').innerHTML=
+    k(fmtInt(D.length),'Incidencias')+k(fmtInt(new Set(D.map(r=>r.usuario)).size),'Usuarios que cargaron')
+    +k(fmtInt(dias),'Días con actividad')+k(dias?fmtN(D.length/dias):'—','Promedio por día')
+    +k(fmtDur(median(lags)),'SLA mediano de carga')+k(lags.length?Math.round(tarde/lags.length*100)+'%':'—','Cargadas después de 24 h',tarde?'warn':'')
+    +k(D.length?Math.round(sinFoto/D.length*100)+'%':'—','Sin fotos',sinFoto?'warn':'');
+}
+function renderTablaBuscar(){
+  const total=FILTRADOS.length,pages=Math.max(1,Math.ceil(total/B_PER));
+  if(bPage>pages)bPage=pages;
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  document.getElementById('bInfo').textContent=fmtInt(total)+' incidencias'+(d&&h?' entre el '+fmtD(d)+' y el '+fmtD(h):'')+' · ordenadas de la más nueva a la más vieja · clic en una fila para ver el detalle';
+  document.getElementById('bPag').textContent=bPage+' / '+pages;
+  const slice=FILTRADOS.slice((bPage-1)*B_PER,bPage*B_PER);
+  document.getElementById('bBody').innerHTML=slice.map((r,i)=>{
+    const sla=r._lag==null?'—':'<span class="'+(r._lag>24*60?'sla-late':'sla-ok')+'">'+fmtDur(r._lag)+'</span>';
+    return '<tr onclick="verDetalle('+((bPage-1)*B_PER+i)+')">'
+      +'<td class="num"><b>'+esc(r.id)+'</b>'+(r.codigo?'<div class="muted" style="font-size:.72rem">'+esc(r.codigo)+'</div>':'')+'</td>'
+      +'<td class="num">'+fmtDT(r.fecha)+'</td>'
+      +'<td class="num muted">'+fmtDT(r.alta)+'</td>'
+      +'<td class="num">'+sla+'</td>'
+      +'<td>'+esc(r.usuario||'—')+'</td>'
+      +'<td style="white-space:nowrap">'+esc([r.calle,r.altura].filter(Boolean).join(' ')||'—')+'</td>'
+      +'<td>'+esc([r.comuna,r.barrio].filter(Boolean).join(' · ')||'—')+'</td>'
+      +'<td>'+esc(r.tipo||'—')+(r.detalle?'<div class="muted" style="font-size:.72rem">'+esc(r.detalle)+'</div>':'')+(r.grupo?'<div class="muted" style="font-size:.72rem">'+esc(r.grupo)+'</div>':'')+'</td>'
+      +'<td><div class="trunc" title="'+esc(r.comentario||'')+'">'+esc(r.comentario||'—')+'</div></td>'
+      +'<td class="num">'+((r.fotos||[]).length?'📷 '+r.fotos.length:'<span class="muted">—</span>')+'</td>'
+      +'<td>'+(r._err.length?'<span class="pill-err" title="'+esc(r._err.map(e=>ERR_LABEL[e]).join(' · '))+'">⚠ '+r._err.length+'</span>':'')+(r.corregido?' <span class="pill-ok" title="Corregida: '+esc((r.corregido.errores||[]).map(e=>ERR_LABEL[e]||e).join(', '))+'">✔ corregida</span>':'')+'</td>'
+      +'</tr>';
+  }).join('')||'<tr><td colspan="11" style="padding:20px;text-align:center;color:#999;cursor:default">'+(META&&Object.keys(META.meses).length?'Sin incidencias para estos filtros.':'Todavía no hay datos: cargá un export de Urbetrack desde la pestaña "Cargar Excel".')+'</td></tr>';
+}
+function paginaBuscar(d){const pages=Math.max(1,Math.ceil(FILTRADOS.length/B_PER));bPage=Math.min(pages,Math.max(1,bPage+d));renderTablaBuscar();}
+function verDetalle(idx){
+  const r=FILTRADOS[idx];if(!r)return;
+  const prev=document.getElementById('det-extra');if(prev)prev.remove();
+  document.getElementById('det-title').textContent='Incidencia '+r.id;
+  const campos=[['Fecha inspección',fmtDT(r.fecha)],['Fecha alta (carga)',fmtDT(r.alta)],['SLA de carga',fmtDur(r._lag)],['Usuario',r.usuario],
+    ['Código / acta',r.codigo],['N° orden SAP',r.sap],
+    ['Solicitante',r.solicitante],['Grupo / operatoria',r.grupo],['Turno (plazo)',r.plazo],['Estado',[r.estado,r.vencimiento].filter(Boolean).join(' · ')],
+    ['Dirección',[r.calle,r.altura].filter(Boolean).join(' ')+(r.esquina?' y '+r.esquina:'')],['Comuna / Barrio',[r.comuna,r.barrio].filter(Boolean).join(' · ')],
+    ['Tipo de servicio',r.tipo],['Detalle de servicio',r.detalle],['Archivo de origen',r.archivo]];
+  document.getElementById('det-grid').innerHTML=campos.filter(([,v])=>v).map(([k,v])=>'<div class="det-item"><div class="det-k">'+esc(k)+'</div><div class="det-v">'+esc(v)+'</div></div>').join('');
+  document.getElementById('det-com').textContent=r.comentario||'(sin comentario)';
+  let extra='';
+  if(r._err.length)extra+='<div class="det-err"><b>⚠ Errores de carga</b><br>'+r._err.map(k=>esc(ERR_LABEL[k])).join('<br>')+'</div>';
+  if(r.corregido)extra+='<div class="det-okc"><b>✔ Corregida</b> el '+esc(fmtDT((r.corregido.en||'').replace('T',' ')))+(r.corregido.archivo?' (archivo '+esc(r.corregido.archivo)+')':'')+': '+(r.corregido.errores||[]).map(k=>esc(ERR_LABEL[k]||k)).join(', ')+'</div>';
+  document.getElementById('det-grid').insertAdjacentHTML('afterend','<div id="det-extra">'+extra+'</div>');
+  const fotos=(r.fotos||[]).map(safeHref).filter(Boolean);
+  const mapa=(r.lat&&r.lng)?'<a href="https://www.google.com/maps?q='+r.lat+','+r.lng+'" target="_blank" rel="noopener">📍 Ver en el mapa</a>':'';
+  document.getElementById('det-fotos').innerHTML=mapa+(fotos.length?fotos.map((u,i)=>'<a href="'+esc(u)+'" target="_blank" rel="noopener">📷 Foto '+(i+1)+'</a>').join(''):'<span class="muted" style="font-size:.8rem">Sin fotos</span>');
+  document.getElementById('modal-det').classList.add('open');
+}
+function exportarBusquedaExcel(){
+  if(!FILTRADOS.length){toast('No hay incidencias para exportar.');return;}
+  const rows=FILTRADOS.map(r=>({'Incidencia':r.id,'Código':r.codigo||'','N° SAP':r.sap||'','Fecha':r.fecha||'','Fecha alta':r.alta||'','SLA (min)':r._lag??'','Usuario':r.usuario||'','Solicitante':r.solicitante||'',
+    'Calle':r.calle||'','Altura':r.altura||'','Comuna':r.comuna||'','Barrio':r.barrio||'','Tipo de servicio':r.tipo||'','Detalle de servicio':r.detalle||'',
+    'Grupo':r.grupo||'','Turno (plazo)':r.plazo||'','Estado':r.estado||'','Latitud':r.lat??'','Longitud':r.lng??'','Comentario':r.comentario||'','Errores de carga':r._err.map(k=>ERR_LABEL[k]).join('; '),'Corregida':r.corregido?('Sí ('+(r.corregido.errores||[]).map(k=>ERR_LABEL[k]||k).join(', ')+')'):'','Fotos':(r.fotos||[]).join('\n')}));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:12},{wch:10},{wch:17},{wch:17},{wch:9},{wch:16},{wch:22},{wch:24},{wch:8},{wch:10},{wch:18},{wch:24},{wch:28},{wch:16},{wch:14},{wch:14},{wch:11},{wch:11},{wch:60},{wch:40}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Incidencias');
+  XLSX.writeFile(wb,'urbetrack_venta_'+document.getElementById('bDesde').value+'_'+document.getElementById('bHasta').value+'.xlsx');
+  toast('✅ Exportadas '+fmtInt(rows.length)+' incidencias');
+}
+
+// ============================================================
+//  NÓMINA / NOVEDADES / FERIADOS (opcional: para justificar ausencias)
+//  Mismas colecciones y MISMO caché de pestaña que Novedades/Gestión de
+//  Personal (personal-datos.js): si ya se abrió alguna de esas páginas en
+//  esta sesión, acá no se relee nada. Si el usuario no tiene ningún
+//  módulo de personal, las reglas lo rechazan y el control sigue igual,
+//  sólo que sin cruzar licencias.
+// ============================================================
+async function leerChunkedPersonal(col,key){
+  try{
+    const ts=parseInt(sessionStorage.getItem(key+'_ts')||'0');const c=sessionStorage.getItem(key);
+    if(c&&(Date.now()-ts)<24*60*60*1000)return JSON.parse(c);
+  }catch(e){}
+  const meta=await window._fGetDoc(window._fDoc(window._db,col+'_meta','index'));
+  const n=meta.exists()?(meta.data().numChunks||0):0;
+  const snaps=await Promise.all(Array.from({length:n},(_,i)=>window._fGetDoc(window._fDoc(window._db,col+'_chunks','chunk_'+i))));
+  const recs=[];
+  snaps.forEach((s,i)=>{if(s.exists())Object.entries(s.data().registros||{}).forEach(([id,d])=>recs.push({id,_chunk:i,...d}));});
+  try{sessionStorage.setItem(key,JSON.stringify(recs));sessionStorage.setItem(key+'_ts',Date.now().toString());}catch(e){}
+  return recs;
+}
+async function asegurarPersonal(){
+  if(NOMINA!==null||personalError)return;
+  try{
+    const [nom,nov,fer]=await Promise.all([
+      leerChunkedPersonal('nomina','dgf_personal_nomina'),
+      leerChunkedPersonal('novedades','dgf_personal_nov'),
+      window._fGetDoc(window._fDoc(window._db,'personal_config','feriados')).catch(()=>null),
+    ]);
+    NOMINA=nom;NOVEDADES=nov;
+    FERIADOS=(fer&&fer.exists())?(fer.data().lista||[]):[];
+  }catch(e){
+    console.warn('Sin acceso a nómina/novedades:',e);
+    personalError='No tenés acceso a la nómina de personal (hace falta el módulo Novedades, Gestión de Personal o Asignación), así que no se pueden vincular usuarios ni cruzar licencias.';
+  }
+}
+// ¿La persona tiene ese día una novedad que justifica no cargar?
+// (licencia, ausencia, compensatorio tomado, artículo… — mismo criterio
+// que esNovedadAusencia() de personal-dominio.js). Un compensatorio "a
+// favor" es sólo saldo: no justifica nada.
+function ausenciaJustificada(personaId,ds){
+  if(!personaId||!NOVEDADES)return null;
+  return NOVEDADES.find(n=>{
+    if(n.personaId!==personaId||n.estadoLic==='Rechazada')return false;
+    const t=(n.tipo||'').toLowerCase();
+    if(!(t.includes('licencia')||t.includes('ausencia')||t.includes('compensatorio')||t.includes('articulo')||t.includes('artículo')))return false;
+    if(t.includes('compensatorio')&&n.compMovimiento==='otorgado')return false;
+    return n.fecha===ds||(n.licIni&&n.licFin&&ds>=n.licIni&&ds<=n.licFin);
+  })||null;
+}
+function nombrePersona(pid){const p=(NOMINA||[]).find(x=>x.id===pid);return p?p.nombre:'';}
+
+// ============================================================
+//  CRONOGRAMA (días home, modalidad, alias, vínculo con la nómina)
+// ============================================================
+function usuariosEnDatos(){return [...new Set(REGS.map(r=>r.usuario).filter(Boolean))];}
+function detectarUsuariosCfg(avisar){
+  const conocidos=new Set();CRONO.forEach(c=>{conocidos.add(c.usuario);if(c.alias)conocidos.add(c.alias);});
+  const nuevos=usuariosEnDatos().filter(u=>!conocidos.has(u));
+  nuevos.forEach(u=>CRONO.push({usuario:u,personaId:'',alias:'',modalidad:'any',homeDias:[]}));
+  if(nuevos.length){cronoDirty=true;renderCronograma();}
+  if(avisar)toast(nuevos.length?'Se agregaron '+nuevos.length+' usuario(s) — acordate de guardar.':'No hay usuarios nuevos en los datos cargados.');
+}
+function agregarUsuarioCfg(){
+  CRONO.push({usuario:'',personaId:'',alias:'',modalidad:'any',homeDias:[]});cronoDirty=true;renderCronograma();
+  const inputs=document.querySelectorAll('#cfgBody input[data-f="usuario"]');if(inputs.length)inputs[inputs.length-1].focus();
+}
+function renderCronograma(){
+  const ro=!puedeEditar();
+  const optsPersona='<option value="">— sin vincular —</option>'+(NOMINA||[]).filter(p=>p.estado!=='Baja').slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''))
+    .map(p=>'<option value="'+esc(p.id)+'">'+esc(p.nombre)+(p.turno?' · '+esc(p.turno):'')+'</option>').join('');
+  const orden=CRONO.map((c,i)=>({c,i})).sort((a,b)=>(!a.c.usuario)-(!b.c.usuario)||a.c.usuario.localeCompare(b.c.usuario));
+  document.getElementById('cfgBody').innerHTML=orden.map(({c,i})=>{
+    let selP=optsPersona;
+    if(c.personaId){
+      selP=selP.replace('value="'+esc(c.personaId)+'"','value="'+esc(c.personaId)+'" selected');
+      if(!(NOMINA||[]).some(p=>p.id===c.personaId&&p.estado!=='Baja'))selP+='<option value="'+esc(c.personaId)+'" selected>'+esc(nombrePersona(c.personaId)||('(id '+c.personaId+')'))+'</option>';
+    }
+    const dias=[1,2,3,4,5].map(d=>'<button type="button" class="dia-chip'+(c.homeDias.includes(d)?' on':'')+'" '+(c.modalidad!=='fixed'||ro?'disabled':'')+' onclick="toggleHome('+i+','+d+')">'+DOW[d]+'</button>').join('');
+    return '<tr>'
+      +'<td><input type="text" data-f="usuario" value="'+esc(c.usuario)+'" placeholder="usuario" '+(ro?'disabled':'')+' onchange="setCfg('+i+',\'usuario\',this.value.trim())"></td>'
+      +'<td><select '+(ro||!NOMINA?'disabled':'')+' onchange="setCfg('+i+',\'personaId\',this.value)">'+selP+'</select></td>'
+      +'<td><input type="text" value="'+esc(c.alias||'')+'" placeholder="— (opcional)" title="Si este usuario es la misma persona que otro, escribí acá el otro usuario: sus cargas se suman a esa fila" '+(ro?'disabled':'')+' onchange="setCfg('+i+',\'alias\',this.value.trim())"></td>'
+      +'<td><select '+(ro?'disabled':'')+' onchange="setCfg('+i+',\'modalidad\',this.value)">'+MODOS.map(m=>'<option value="'+m.v+'"'+(m.v===c.modalidad?' selected':'')+'>'+m.t+'</option>').join('')+'</select></td>'
+      +'<td><div class="dias-chips">'+dias+'</div></td>'
+      +'<td style="text-align:center">'+(ro?'':'<button class="btn btn-sm btn-gris" title="Quitar" onclick="quitarCfg('+i+')">✕</button>')+'</td>'
+      +'</tr>';
+  }).join('')||'<tr><td colspan="6" style="padding:14px;color:#999">Sin usuarios todavía — se detectan solos al cargar datos, o agregalos a mano.</td></tr>';
+  document.getElementById('cfgEstado').textContent=cronoDirty?'● Hay cambios sin guardar':'';
+  document.getElementById('cfgGuardarBtn').disabled=ro;
+  document.getElementById('cfgNominaInfo').textContent=personalError||(NOMINA?'Nómina: '+NOMINA.length+' personas · feriados cargados: '+FERIADOS.length:'');
+}
+function setCfg(i,campo,valor){
+  CRONO[i][campo]=valor;
+  if(campo==='modalidad'&&valor==='fixed'&&!CRONO[i].homeDias.length)CRONO[i].homeDias=[1];
+  cronoDirty=true;renderCronograma();
+}
+function toggleHome(i,d){
+  const h=CRONO[i].homeDias;const k=h.indexOf(d);
+  if(k>=0)h.splice(k,1);else{h.push(d);h.sort();}
+  cronoDirty=true;renderCronograma();
+}
+function quitarCfg(i){
+  if(CRONO[i].usuario&&!confirm('¿Quitar a "'+CRONO[i].usuario+'" del cronograma?'))return;
+  CRONO.splice(i,1);cronoDirty=true;renderCronograma();
+}
+async function guardarCronograma(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para editar este módulo.');return;}
+  const usuarios=CRONO.map(c=>c.usuario).filter(Boolean);
+  const dup=usuarios.find((u,i)=>usuarios.indexOf(u)!==i);
+  if(dup){toast('El usuario "'+dup+'" está repetido.',3500);return;}
+  const lista=CRONO.filter(c=>c.usuario).map(c=>({usuario:c.usuario,personaId:c.personaId||'',alias:c.alias||'',modalidad:c.modalidad||'any',homeDias:c.modalidad==='fixed'?c.homeDias:[]}));
+  const u=usuarioActual();
+  try{
+    await window._fSetDoc(window._fDoc(window._db,COL_CONFIG,'cronograma'),{lista,ts:new Date().toISOString(),por:u?u.nombre:''});
+    CRONO=lista.map(c=>({...c,homeDias:c.homeDias.slice()}));
+    cronoDirty=false;renderCronograma();toast('✅ Cronograma guardado');
+  }catch(e){console.error(e);toast('❌ Error al guardar: '+e.message,4000);}
+}
+
+// ============================================================
+//  CONTROL DE CARGAS (promedios, huecos, home vs presencial, SLA)
+//  Adaptado del artefacto "Control de Cargas GOIEP": cada incidencia
+//  cuenta el día de su "Fecha alta" (cuándo se cargó).
+// ============================================================
+let vistaC='cards';
+function vistaControl(v){
+  vistaC=v;
+  document.querySelectorAll('#cVista button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  document.getElementById('cCards').style.display=v==='cards'?'':'none';
+  document.getElementById('cHeat').style.display=v==='heat'?'':'none';
+  document.getElementById('cSlaView').style.display=v==='sla'?'':'none';
+}
+async function prepararControl(){
+  const d=document.getElementById('cDesde').value,h=document.getElementById('cHasta').value;
+  if(!d||!h||d>h){renderControl();return;}
+  // Una semana antes: una incidencia inspeccionada a fin de mes se guarda
+  // en ese mes aunque se haya cargado (Fecha alta) días después.
+  await Promise.all([asegurarRango(sumarDias(d,-7),h),asegurarPersonal()]);
+  renderControl();
+}
+function onRangoControlChange(){prepararControl();}
+function cfgMap(){const m={};CRONO.forEach(c=>{if(c.usuario)m[c.usuario]=c;});return m;}
+function canonico(u,m){const c=m[u];return c&&c.alias?c.alias:u;}
+function esFeriado(ds){return FERIADOS.includes(ds);}
+// ¿Le tocaba cargar ese día? (sin contar justificaciones)
+function programado(c,ds){
+  const dow=new Date(ds+'T12:00:00').getDay(),finde=dow===0||dow===6;
+  if(!c||c.modalidad==='any')return true;
+  if(c.modalidad==='none')return false;
+  if(c.modalidad==='weekend')return finde;
+  return !finde&&!esFeriado(ds);
+}
+function esHome(c,ds){return !!c&&c.modalidad==='fixed'&&(c.homeDias||[]).includes(new Date(ds+'T12:00:00').getDay());}
+function slaStats(lags,thr){
+  const ok=lags.filter(x=>x>=0);
+  return {n:lags.length,valid:ok.length,neg:lags.length-ok.length,avg:ok.length?ok.reduce((a,b)=>a+b,0)/ok.length:null,
+    med:median(ok),max:ok.length?Math.max(...ok):null,within:ok.length?ok.filter(x=>x<=thr).length/ok.length:null};
+}
+// Arma todo el cálculo del período una sola vez (lo usan las 3 vistas y el export).
+function calcularControl(){
+  const desde=document.getElementById('cDesde').value,hasta=document.getElementById('cHasta').value;
+  const thr=Math.max(1,parseFloat(document.getElementById('cSla').value)||24)*60;
+  const m=cfgMap();
+  const fechas=[];if(desde&&hasta&&desde<=hasta)for(let ds=desde;ds<=hasta;ds=sumarDias(ds,1))fechas.push(ds);
+  const byUD={},lagBy={};let enRango=0,fueraCrono=0;
+  REGS.forEach(r=>{
+    const ds=r._diaAlta;if(!ds||ds<desde||ds>hasta)return;
+    enRango++;
+    const u=canonico(r.usuario||'(sin usuario)',m);
+    (byUD[u]=byUD[u]||{})[ds]=(byUD[u][ds]||0)+1;
+    if(r._lag!=null)(lagBy[u]=lagBy[u]||[]).push(r._lag);
+    if(m[u]&&!programado(m[u],ds))fueraCrono++;
+  });
+  const principales=CRONO.filter(c=>c.usuario&&!c.alias&&c.modalidad!=='none');
+  const conocidos=new Set();CRONO.forEach(c=>{if(c.usuario)conocidos.add(c.usuario);if(c.alias)conocidos.add(c.alias);});
+  const sinConfig=Object.keys(byUD).filter(u=>!conocidos.has(u)).sort();
+  const filas=principales.concat(sinConfig.map(u=>({usuario:u,modalidad:'any',homeDias:[],_sinConfig:true})))
+    .sort((a,b)=>a.usuario.localeCompare(b.usuario)).map(c=>statsFila(c,byUD[c.usuario]||{},fechas,lagBy[c.usuario]||[],thr));
+  return {desde,hasta,thr,fechas,byUD,filas,enRango,fueraCrono,sinConfig};
+}
+function statsFila(c,mapa,fechas,lags,thr){
+  const dias=fechas.map(ds=>{
+    const n=mapa[ds]||0,dow=new Date(ds+'T12:00:00').getDay();
+    const prog=programado(c,ds);
+    const just=prog?ausenciaJustificada(c.personaId,ds):null;
+    return {ds,n,dow,prog,just,home:prog&&esHome(c,ds),finde:dow===0||dow===6};
+  });
+  const cuenta=dias.filter(d=>d.prog&&!d.just);         // días que le tocaba y no estaba justificado
+  const avg=a=>{const v=a.filter(d=>d.n>0);return v.length?v.reduce((s,d)=>s+d.n,0)/v.length:null;};
+  const pres=cuenta.filter(d=>!d.home&&!(c.modalidad==='any'&&d.finde));
+  const home=cuenta.filter(d=>d.home);
+  const finde=cuenta.filter(d=>c.modalidad==='any'&&d.finde);
+  // Huecos: días seguidos que le tocaba cargar, sin justificar y en 0.
+  // Los días que no le tocaban no cortan la racha (un finde en el medio
+  // de una semana sin cargas sigue siendo la misma ausencia).
+  const minHueco=c.modalidad==='any'?3:2;const huecos=[];let run=[];
+  dias.forEach(d=>{
+    if(!d.prog)return;
+    if(d.just||d.n>0){if(run.length>=minHueco)huecos.push(run);run=[];return;}
+    run.push(d.ds);
+  });
+  if(run.length>=minHueco)huecos.push(run);
+  const enHueco=new Set(huecos.flat());
+  const homeCero=home.filter(d=>d.n===0&&!enHueco.has(d.ds));
+  const total=dias.reduce((s,d)=>s+d.n,0);
+  return {c,dias,total,trabajados:cuenta.filter(d=>d.n>0).length,programados:cuenta.length,
+    justificados:dias.filter(d=>d.just).length,avgPres:avg(pres),avgHome:avg(home),avgFinde:avg(finde),avgTodos:avg(cuenta),
+    huecos,homeCero,sla:slaStats(lags,thr)};
+}
+function tagModalidad(c){
+  if(c._sinConfig)return 'sin cronograma';
+  if(c.modalidad==='fixed')return 'home '+(c.homeDias||[]).map(d=>DOW[d]).join('/');
+  return {any:'todos los días',office:'presencial Lun–Vie',weekend:'sólo fines de semana'}[c.modalidad]||c.modalidad;
+}
+function renderControl(){
+  if(!META)return;
+  const R=calcularControl();
+  const nota=document.getElementById('cNota'),warn=document.getElementById('cWarn');
+  if(!R.fechas.length){nota.innerHTML='<div class="note">Elegí un rango de fechas válido.</div>';['cCards','cHeat','cSlaView'].forEach(id=>document.getElementById(id).innerHTML='');warn.innerHTML='';return;}
+  nota.innerHTML='<div class="note"><b>'+fmtInt(R.enRango)+'</b> incidencias cargadas (por Fecha alta) entre el '+fmtD(R.desde)+' y el '+fmtD(R.hasta)+' · '+R.fechas.length+' días'
+    +(R.fueraCrono?'<br><span class="w">'+fmtInt(R.fueraCrono)+' cargadas en días fuera del cronograma de su usuario</span> — se ven en el detalle diario pero no entran en los promedios.':'')
+    +(personalError?'<br><span class="w">'+esc(personalError)+'</span>':(NOVEDADES?'<br>Licencias/ausencias de Novedades de Personal y feriados se toman como días justificados para los usuarios vinculados a la nómina.':''))+'</div>';
+  warn.innerHTML=R.sinConfig.length?'<div class="banner-warn">⚠ <b>'+R.sinConfig.length+' usuario(s) cargaron y no están en el cronograma:</b> '+R.sinConfig.map(esc).join(', ')+' — se muestran como "todos los días". Configuralos en la pestaña Cronograma.</div>':'';
+  renderCards(R);renderHeat(R);renderSla(R);
+}
+function renderCards(R){
+  const el=document.getElementById('cCards');
+  if(!R.filas.length){el.innerHTML='<div class="note">No hay usuarios para mostrar: cargá datos o agregá usuarios en el Cronograma.</div>';return;}
+  el.innerHTML='<div class="cards">'+R.filas.map(f=>{
+    const c=f.c,nom=c.personaId?nombrePersona(c.personaId):'';
+    let stats;
+    if(c.modalidad==='fixed'){
+      const warnH=f.avgPres!=null&&f.avgHome!=null&&f.avgHome<f.avgPres*0.7;
+      stats=st('Prom. presencial',fmtN(f.avgPres))+st('Prom. home',fmtN(f.avgHome),warnH)+st('Total',fmtInt(f.total));
+    }else if(c.modalidad==='any'){
+      stats=st('Prom. Lun–Vie',fmtN(f.avgPres))+st('Prom. Sáb–Dom',fmtN(f.avgFinde))+st('Total',fmtInt(f.total));
+    }else{
+      stats=st('Prom. por día',fmtN(f.avgTodos))+st('Días con carga',f.trabajados+'<span style="font-size:.7rem;color:#888">/'+f.programados+'</span>')+st('Total',fmtInt(f.total));
+    }
+    const maxN=Math.max(1,...f.dias.map(d=>d.n));
+    const spark=f.dias.map(d=>'<i class="'+(d.just?'just':d.home?'home':(!d.prog?'we':''))+'" style="height:'+Math.max(2,Math.round(d.n/maxN*30))+'px" title="'+fmtD(d.ds)+' '+DOW[d.dow]+': '+d.n+(d.just?' ('+esc(d.just.tipo)+')':'')+'"></i>').join('');
+    let fl='<div class="flag">Cargó '+f.trabajados+' de '+f.programados+' días que le tocaban'+(f.justificados?' · '+f.justificados+' justificado'+(f.justificados===1?'':'s'):'')+'</div>';
+    f.huecos.forEach(h=>{fl+='<div class="flag bad">Posible ausencia sin novedad: '+h.length+' días seguidos sin cargas ('+fmtCorta(h[0])+'–'+fmtCorta(h[h.length-1])+')</div>';});
+    if(f.homeCero.length)fl+='<div class="flag">Sin cargas en '+f.homeCero.length+' de sus días home ('+f.homeCero.map(d=>fmtCorta(d.ds)).join(', ')+')</div>';
+    if(f.avgPres!=null&&f.avgHome!=null){
+      const pct=Math.round((1-f.avgHome/f.avgPres)*100);
+      if(pct>=15)fl+='<div class="flag">Rinde '+pct+'% menos en home que presencial</div>';
+      else if(pct<=-10)fl+='<div class="flag">Rinde '+Math.abs(pct)+'% más en home que presencial</div>';
+    }
+    if(f.sla.valid)fl+='<div class="flag">SLA de carga: prom. <b>'+fmtDur(f.sla.avg)+'</b> · mediana '+fmtDur(f.sla.med)+' · '+Math.round(f.sla.within*100)+'% dentro del umbral</div>';
+    return '<div class="ccard"><div class="who"><b>'+esc(c.usuario)+(nom?'<div style="font-size:.74rem;font-weight:600;color:#666">'+esc(nom)+'</div>':'')+'</b><span>'+esc(tagModalidad(c))+'</span></div>'
+      +'<div class="srow">'+stats+'</div><div class="spark">'+spark+'</div><div class="flags">'+fl+'</div></div>';
+  }).join('')+'</div>'
+  +'<div class="legend"><span><span class="sw" style="background:var(--c-line-soft)"></span>Día presencial</span><span><span class="sw" style="background:#d97706"></span>Día home</span><span><span class="sw" style="background:#9ca3af"></span>No le tocaba</span><span><span class="sw" style="background:#a5b4fc"></span>Licencia / ausencia justificada</span></div>';
+  function st(l,v,w){return '<div class="st'+(w?' warn':'')+'"><div class="l">'+l+'</div><div class="v">'+v+'</div></div>';}
+}
+function renderHeat(R){
+  const el=document.getElementById('cHeat');
+  if(!R.filas.length){el.innerHTML='';return;}
+  let maxV=1;R.filas.forEach(f=>f.dias.forEach(d=>{if(d.n>maxV)maxV=d.n;}));
+  const colTot=R.fechas.map(()=>0);
+  let h='<table class="heat"><thead><tr><th style="text-align:left">Usuario</th>'+R.fechas.map(ds=>{const dw=new Date(ds+'T12:00:00').getDay();return '<th class="'+(dw===0||dw===6||esFeriado(ds)?'we':'')+'">'+fmtCorta(ds)+'<br><span style="font-weight:400">'+DOW[dw]+'</span></th>';}).join('')+'<th>Total</th></tr></thead><tbody>';
+  R.filas.forEach(f=>{
+    h+='<tr><th>'+esc(f.c.usuario)+(f.c._sinConfig?' <span style="font-weight:400;color:#999;font-size:.65rem">(sin config.)</span>':'')+'</th>';
+    f.dias.forEach((d,i)=>{
+      colTot[i]+=d.n;
+      let cls='',txt=d.n||'';
+      if(d.just&&!d.n){cls='just';txt='L';}
+      else if(d.prog&&!d.just&&!d.n){cls='z';txt='0';}
+      else if(!d.prog&&!d.n){cls='np';txt='·';}
+      if(d.home)cls+=' home';
+      const bg=d.n?'background:color-mix(in srgb, var(--c-brand-2) '+Math.round(12+d.n/maxV*65)+'%, #fff);'+(d.n/maxV>.55?'color:#fff;':''):'';
+      h+='<td class="'+cls+'" style="'+bg+'" title="'+esc(f.c.usuario)+' · '+fmtD(d.ds)+': '+d.n+(d.just?' — '+esc(d.just.tipo):'')+'">'+txt+'</td>';
+    });
+    h+='<td class="num"><b>'+fmtInt(f.total)+'</b></td></tr>';
+  });
+  h+='<tr class="tot"><th>Total</th>'+colTot.map(t=>'<td>'+t+'</td>').join('')+'<td>'+fmtInt(colTot.reduce((a,b)=>a+b,0))+'</td></tr></tbody></table>';
+  el.innerHTML=h+'<div class="legend"><span><span class="sw" style="background:var(--c-brand-2)"></span>Más oscuro = más cargas</span><span><span class="sw" style="outline:1.5px solid #d97706;background:#fff"></span>Día home</span><span><span class="sw" style="background:#fef2f2;border:1px solid var(--c-danger)"></span>0 cargas un día que le tocaba</span><span><span class="sw" style="background:#eef2ff;border:1px solid #4f46e5"></span>L = licencia/ausencia en Novedades</span><span>· = no le tocaba</span></div>';
+}
+function renderSla(R){
+  const el=document.getElementById('cSlaView'),hrs=R.thr/60;
+  const filas=R.filas.filter(f=>f.sla.n).sort((a,b)=>(b.sla.avg||0)-(a.sla.avg||0));
+  if(!filas.length){el.innerHTML='<div class="note">Los datos del período no traen "Fecha" y "Fecha alta" para calcular el SLA.</div>';return;}
+  const all=[];REGS.forEach(r=>{if(r._diaAlta>=R.desde&&r._diaAlta<=R.hasta&&r._lag!=null)all.push(r._lag);});
+  const tr=(nombre,s,tot)=>{const pct=s.within==null?'—':Math.round(s.within*100)+'%';const bad=s.within!=null&&s.within<.5;
+    return '<tr'+(tot?' class="tot"':'')+'><th>'+esc(nombre)+'</th><td>'+fmtInt(s.n)+'</td><td><b>'+fmtDur(s.avg)+'</b></td><td>'+fmtDur(s.med)+'</td><td>'+fmtDur(s.max)+'</td><td style="'+(bad?'color:var(--c-danger);font-weight:800':'')+'">'+pct+'</td><td>'+(s.neg||'·')+'</td></tr>';};
+  el.innerHTML='<div class="note">SLA = <b>Fecha alta</b> (cuándo se cargó) − <b>Fecha</b> (cuándo se hizo la inspección). Los promedios usan sólo diferencias ≥ 0; las negativas (alta anterior a la inspección) se cuentan aparte. Umbral: <b>'+hrs+' h</b>.</div>'
+    +'<div style="overflow-x:auto"><table class="heat"><thead><tr><th style="text-align:left">Usuario</th><th>Incidencias</th><th>SLA promedio</th><th>Mediana</th><th>Máximo</th><th>% dentro de '+hrs+' h</th><th>Negativas</th></tr></thead><tbody>'
+    +filas.map(f=>tr(f.c.usuario,f.sla)).join('')+tr('Total',slaStats(all,R.thr),true)+'</tbody></table></div>'
+    +'<div class="legend"><span>Ordenado de mayor a menor SLA promedio</span><span style="color:var(--c-danger)">Rojo = menos de la mitad dentro del umbral</span></div>';
+}
+function exportarControlExcel(){
+  const R=calcularControl();
+  if(!R.filas.length){toast('No hay datos para exportar.');return;}
+  const resumen=R.filas.map(f=>({'Usuario':f.c.usuario,'Persona':f.c.personaId?nombrePersona(f.c.personaId):'','Modalidad':tagModalidad(f.c),
+    'Total cargas':f.total,'Días que le tocaban':f.programados,'Días con carga':f.trabajados,'Días justificados':f.justificados,
+    'Prom. presencial / Lun–Vie':f.avgPres==null?'':+f.avgPres.toFixed(1),'Prom. home':f.avgHome==null?'':+f.avgHome.toFixed(1),'Prom. Sáb–Dom':f.avgFinde==null?'':+f.avgFinde.toFixed(1),
+    'Huecos sin carga':f.huecos.map(h=>fmtCorta(h[0])+'–'+fmtCorta(h[h.length-1])).join(', '),
+    'SLA prom. (h)':f.sla.avg==null?'':+(f.sla.avg/60).toFixed(1),'SLA mediana (h)':f.sla.med==null?'':+(f.sla.med/60).toFixed(1),'% dentro umbral':f.sla.within==null?'':Math.round(f.sla.within*100)}));
+  const diario=R.filas.map(f=>{const o={'Usuario':f.c.usuario};f.dias.forEach(d=>{o[fmtCorta(d.ds)+' '+DOW[d.dow]]=d.just&&!d.n?'L':d.n;});o['Total']=f.total;return o;});
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resumen),'Resumen');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(diario),'Detalle diario');
+  XLSX.writeFile(wb,'control_cargas_urbetrack_'+R.desde+'_'+R.hasta+'.xlsx');
+}
+
+// ============================================================
+//  CARGA DE EXCEL → FIRESTORE
+// ============================================================
+let PARSEADOS=[];   // [{archivo, regs, error, omitidas}]
+(function(){
+  const ua=document.getElementById('uarea');
+  ['dragenter','dragover'].forEach(ev=>ua.addEventListener(ev,e=>{e.preventDefault();ua.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>ua.addEventListener(ev,e=>{e.preventDefault();ua.classList.remove('drag');}));
+  ua.addEventListener('drop',e=>{const fs=[...(e.dataTransfer.files||[])].filter(f=>/\.xlsx?$/i.test(f.name));if(fs.length)onArchivosElegidos(fs);});
+})();
+function excelADate(v){
+  if(v instanceof Date)return isNaN(v)?null:v;
+  // Serial de Excel (días desde 1899-12-30): se arma en hora LOCAL, igual
+  // que las fechas que devuelve SheetJS con cellDates.
+  if(typeof v==='number'){const d=new Date(Math.round((v-25569)*86400000));return new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds());}
+  if(typeof v==='string'){
+    const s=v.trim();if(!s)return null;
+    let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if(m){let y=+m[3];if(y<100)y+=2000;return new Date(y,+m[2]-1,+m[1],+(m[4]||0),+(m[5]||0),+(m[6]||0));}
+    m=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/);
+    if(m)return new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0));
+  }
+  return null;
+}
+function fmtDTGuardar(d){return d?isoDia(d)+' '+pad(d.getHours())+':'+pad(d.getMinutes()):'';}
+// Algunos exports declaran un rango (!ref) viejo más chico que la hoja real.
+function rangoReal(ws){
+  let maxR=0,maxC=0;
+  for(const k in ws){if(k[0]==='!')continue;const c=XLSX.utils.decode_cell(k);if(c.r>maxR)maxR=c.r;if(c.c>maxC)maxC=c.c;}
+  return {s:{r:0,c:0},e:{r:maxR,c:maxC}};
+}
+const COLS={
+  id:['incidencia'],fecha:['fecha'],alta:['fecha alta'],usuario:['usuario'],solicitante:['solicitante','grupo de trabajo'],
+  calle:['calle'],altura:['altura'],comuna:['comuna'],barrio:['barrio'],tipo:['tipo de servicio'],detalle:['detalle de servicio'],
+  grupo:['grupo'],estado:['estado'],plazo:['plazo'],comentario:['comentario del vecino','comentario','observaciones','observacion'],fotos:['fotos','foto'],
+  codigo:['codigo'],sap:['numero orden sap'],esquina:['esquina'],lat:['latitud'],lng:['longitud'],vencimiento:['vencimiento'],
+};
+// Casi todas las fotos de Urbetrack comparten este prefijo (~85 caracteres
+// de ~180): se guarda "~/" en su lugar y se expande al leer. En un mes real
+// (~11.000 incidencias) eso ahorra ~1 MB, o sea documentos (y lecturas).
+const FOTO_PREFIX='https://fleetcloudfilestorage.blob.core.windows.net/urbetrack-file-container-claro/';
+function comprimirFoto(u){return u.startsWith(FOTO_PREFIX)?'~/'+u.slice(FOTO_PREFIX.length):u;}
+function expandirFoto(u){return String(u).startsWith('~/')?FOTO_PREFIX+String(u).slice(2):u;}
+function parsearWorkbook(wb,archivo){
+  const hoja=wb.SheetNames.includes('Informe')?'Informe':wb.SheetNames[0];
+  const ws=wb.Sheets[hoja];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',range:rangoReal(ws)});
+  let hi=-1;
+  for(let i=0;i<Math.min(rows.length,25);i++){const n=rows[i].map(norm);if(n.includes('incidencia')&&n.includes('usuario')){hi=i;break;}}
+  if(hi<0)throw new Error('No se encontró la fila de encabezados ("Incidencia" / "Usuario") en la hoja "'+hoja+'". ¿Es un export de Urbetrack?');
+  const heads=rows[hi].map(norm);const idx={};
+  Object.entries(COLS).forEach(([k,alts])=>{for(const a of alts){const i=heads.indexOf(a);if(i>=0){idx[k]=i;break;}}});
+  if(idx.fecha===undefined&&idx.alta===undefined)throw new Error('El export no trae columna "Fecha" ni "Fecha alta".');
+  const val=(r,k)=>idx[k]===undefined?'':String(r[idx[k]]??'').trim();
+  const regs=[];let omitidas=0;
+  rows.slice(hi+1).forEach(r=>{
+    const id=val(r,'id');if(!id)return;
+    const fe=idx.fecha!==undefined?excelADate(r[idx.fecha]):null;
+    const al=idx.alta!==undefined?excelADate(r[idx.alta]):null;
+    if(!fe&&!al){omitidas++;return;}
+    const rec={id,fecha:fmtDTGuardar(fe||al),alta:fmtDTGuardar(al),archivo};
+    ['usuario','solicitante','calle','altura','esquina','comuna','barrio','tipo','detalle','grupo','estado','plazo','comentario','codigo','sap','vencimiento'].forEach(k=>{const v=val(r,k);if(v)rec[k]=v;});
+    ['lat','lng'].forEach(k=>{const v=parseFloat(val(r,k));if(!isNaN(v)&&v!==0)rec[k]=Math.round(v*1e6)/1e6;});
+    const fotos=val(r,'fotos');if(fotos)rec.fotos=fotos.split(/\s*[\n,;]\s*/).filter(Boolean).map(comprimirFoto);
+    regs.push(rec);
+  });
+  return {regs,omitidas,hoja};
+}
+async function onArchivosElegidos(files){
+  files=[...files];if(!files.length)return;
+  for(const f of files){
+    try{
+      const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
+      const {regs,omitidas}=parsearWorkbook(wb,f.name);
+      PARSEADOS=PARSEADOS.filter(p=>p.archivo!==f.name);
+      PARSEADOS.push({archivo:f.name,regs,omitidas});
+    }catch(e){PARSEADOS=PARSEADOS.filter(p=>p.archivo!==f.name);PARSEADOS.push({archivo:f.name,regs:[],error:e.message});}
+  }
+  document.getElementById('fileInput').value='';
+  renderPreviewCarga();
+}
+function registrosAUnir(){
+  const porId={};PARSEADOS.forEach(p=>p.regs.forEach(r=>{porId[r.id]=r;}));
+  return Object.values(porId);
+}
+function renderPreviewCarga(){
+  document.getElementById('upFiles').innerHTML=PARSEADOS.map((p,i)=>{
+    const fs=p.regs.map(r=>r.fecha.slice(0,10)).sort();
+    return '<div class="file-row'+(p.error?' err':'')+'"><span class="n">'+esc(p.archivo)+(p.error?' ⚠ '+esc(p.error):'')+'</span>'
+      +(p.error?'':'<span class="muted num">'+fmtInt(p.regs.length)+' filas'+(fs.length?' · '+fmtD(fs[0])+' – '+fmtD(fs[fs.length-1]):'')+(p.omitidas?' · '+p.omitidas+' sin fecha':'')+'</span>')
+      +'<button class="btn btn-sm btn-gris" onclick="quitarArchivo('+i+')">✕</button></div>';
+  }).join('');
+  const regs=registrosAUnir(),btn=document.getElementById('upBtn');
+  btn.disabled=!regs.length;btn.style.opacity=regs.length?'1':'.45';
+  if(!regs.length){document.getElementById('upResumen').innerHTML='';return;}
+  const meses={};regs.forEach(r=>{const m=mesDe(r.fecha);meses[m]=(meses[m]||0)+1;});
+  const usuarios=new Set(regs.map(r=>r.usuario).filter(Boolean));
+  const conAlta=regs.filter(r=>r.alta).length;
+  document.getElementById('upResumen').innerHTML='<div class="note">Listo para subir <b>'+fmtInt(regs.length)+'</b> incidencias únicas de <b>'+usuarios.size+'</b> usuarios, en '
+    +Object.keys(meses).sort().map(m=>'<b>'+fmtMes(m)+'</b> ('+fmtInt(meses[m])+')').join(', ')+'.'
+    +(conAlta<regs.length?'<br><span class="w">'+fmtInt(regs.length-conAlta)+' filas no traen "Fecha alta": no van a tener SLA.</span>':'')
+    +'<br>Se van a leer y reescribir sólo los documentos de esos meses.</div>';
+}
+function quitarArchivo(i){PARSEADOS.splice(i,1);renderPreviewCarga();}
+function limpiarCarga(){PARSEADOS=[];renderPreviewCarga();const t=document.getElementById('upToast');t.style.display='none';}
+const _enc=new TextEncoder();
+function bytesDe(id,rec){return _enc.encode(JSON.stringify(rec)).length+_enc.encode(id).length+40;}
+// Reparte un mapa {id:rec} en documentos de hasta MAX_BYTES_CHUNK.
+function partirEnChunks(mapa){
+  const chunks=[];let act={},tam=0;
+  Object.keys(mapa).sort().forEach(id=>{
+    const b=bytesDe(id,mapa[id]);
+    if(tam+b>MAX_BYTES_CHUNK&&Object.keys(act).length){chunks.push(act);act={};tam=0;}
+    act[id]=mapa[id];tam+=b;
+  });
+  if(Object.keys(act).length)chunks.push(act);
+  return chunks;
+}
+// Firestore no admite "." "/" ni claves que empiecen con "__" en un mapa
+// usado como id de campo; el N° de incidencia es alfanumérico, pero por las
+// dudas se normaliza la clave (el id real sigue guardado dentro del registro).
+function claveId(id){return String(id).replace(/[.\/\[\]*`~]/g,'_').replace(/^__/,'_');}
+async function subirAFirestore(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para cargar datos.');return;}
+  const regs=registrosAUnir();if(!regs.length)return;
+  const btn=document.getElementById('upBtn'),t=document.getElementById('upToast'),pw=document.getElementById('upPwrap'),pf=document.getElementById('upPfill');
+  btn.disabled=true;btn.textContent='Subiendo…';t.className='toast-msg';t.style.display='block';pw.style.display='block';pf.style.width='3%';
+  const u=usuarioActual(),ahora=new Date().toISOString();
+  try{
+    await leerMeta();   // índice fresco por si otro subió algo mientras tanto
+    const baseVacia=!Object.keys(META.meses).length;
+    const porMes={};regs.forEach(r=>{(porMes[mesDe(r.fecha)]=porMes[mesDe(r.fecha)]||[]).push(r);});
+    const meses=Object.keys(porMes).sort();
+    let nuevas=0,actualizadas=0,escrituras=0,corregidas=0,siguenConError=0,nuevasConError=0;const infoMeses={};
+    for(let k=0;k<meses.length;k++){
+      const mes=meses[k];
+      t.textContent='☁️ '+fmtMes(mes)+': leyendo lo que ya hay…';
+      const prev=META.meses[mes]||{chunks:0};
+      const snaps=await Promise.all(Array.from({length:prev.chunks||0},(_,i)=>window._fGetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i))));
+      const mapa={};snaps.forEach(s=>{if(s.exists())Object.assign(mapa,registrosDeDoc(s.data()));});
+      porMes[mes].forEach(r=>{
+        const key=claveId(r.id),viejo=mapa[key];
+        const nuevo={...r,cargadoPor:u?u.nombre:'',cargadoEn:ahora};
+        const errN=erroresPropios(nuevo);
+        if(viejo){
+          actualizadas++;
+          nuevo.primeraCarga=viejo.primeraCarga||viejo.cargadoEn||'';
+          // ¿Se corrigió algo? (errores que tenía la versión anterior y la
+          // nueva ya no tiene). Se conserva la marca de una corrección previa.
+          const antes=erroresPropios({...viejo,fotos:(viejo.fotos||[])});
+          const arreglados=antes.filter(k=>!errN.includes(k));
+          if(arreglados.length){corregidas++;nuevo.corregido={en:ahora,por:u?u.nombre:'',archivo:r.archivo||'',errores:arreglados};}
+          else if(viejo.corregido)nuevo.corregido=viejo.corregido;
+          if(errN.length)siguenConError++;
+        }else{nuevas++;nuevo.primeraCarga=ahora;if(errN.length)nuevasConError++;}
+        mapa[key]=nuevo;
+      });
+      const chunks=partirEnChunks(mapa);
+      t.textContent='💾 '+fmtMes(mes)+': guardando '+fmtInt(Object.keys(mapa).length)+' incidencias en '+chunks.length+' documento'+(chunks.length===1?'':'s')+'…';
+      await Promise.all(chunks.map((reg,i)=>window._fSetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i),{mes,n:Object.keys(reg).length,datos:JSON.stringify(reg),actualizadoEn:ahora})));
+      // Documentos sobrantes de una versión anterior del mes más grande.
+      for(let i=chunks.length;i<(prev.chunks||0);i++)await window._fDeleteDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i));
+      escrituras+=chunks.length;
+      infoMeses[mes]={chunks:chunks.length,count:Object.keys(mapa).length,v:ahora+'#'+Math.random().toString(36).slice(2,7)};
+      pf.style.width=Math.round(5+(k+1)/meses.length*85)+'%';
+    }
+    // Índice: transacción para no pisar meses que otro haya subido en paralelo.
+    const fechas=regs.map(r=>r.fecha.slice(0,10)).sort();
+    const carga={en:ahora,por:u?u.nombre:'',archivos:PARSEADOS.filter(p=>!p.error).map(p=>p.archivo),filas:regs.length,nuevas,actualizadas,corregidas,desde:fechas[0],hasta:fechas[fechas.length-1]};
+    const metaRef=window._fDoc(window._db,COL_META,'index');
+    await window._fRunTransaction(window._db,async tx=>{
+      const s=await tx.get(metaRef);const m=s.exists()?s.data():{};
+      const mm={...(m.meses||{}),...infoMeses};
+      const total=Object.values(mm).reduce((a,x)=>a+(x.count||0),0);
+      const todas=Object.keys(mm).sort();
+      tx.set(metaRef,{meses:mm,totalRegistros:total,
+        primeraFecha:[m.primeraFecha,fechas[0]].filter(Boolean).sort()[0],
+        ultimaFecha:[m.ultimaFecha,fechas[fechas.length-1]].filter(Boolean).sort().pop(),
+        actualizadoEn:ahora,cargas:[carga,...(m.cargas||[])].slice(0,MAX_CARGAS_LOG),mesesCargados:todas.length});
+    });
+    pf.style.width='100%';
+    t.className='toast-msg ok';
+    t.textContent='✅ '+fmtInt(regs.length)+' incidencias guardadas ('+fmtInt(nuevas)+' nuevas, '+fmtInt(actualizadas)+' actualizadas) en '+escrituras+' documento'+(escrituras===1?'':'s')+' de '+meses.length+' mes'+(meses.length===1?'':'es')+'.'
+      +(actualizadas?' Errores: '+fmtInt(corregidas)+' incidencias corregidas desde la carga anterior, '+fmtInt(siguenConError)+' actualizadas siguen con algún error':'')
+      +(nuevas?(actualizadas?';':' Errores:')+' '+fmtInt(nuevasConError)+' nuevas con algún error':'')+'. El detalle, en la pestaña "Errores de carga".';
+    PARSEADOS=[];renderPreviewCarga();
+    for(const m of meses){delete MESES[m];await cacheSet(m,null);}
+    await leerMeta();
+    // Mostrar lo recién cargado en Buscar: se AMPLÍA el rango si hace
+    // falta, nunca se achica (re-subir un archivo parcial de correcciones
+    // no debe esconder el resto).
+    const bd=document.getElementById('bDesde'),bh=document.getElementById('bHasta');
+    if(baseVacia||!bd.value||fechas[0]<bd.value)bd.value=fechas[0];
+    if(baseVacia||!bh.value||fechas[fechas.length-1]>bh.value)bh.value=fechas[fechas.length-1];
+    await asegurarRango(bd.value,bh.value);poblarFiltros();aplicarFiltros();renderCargas();
+  }catch(e){
+    console.error(e);t.className='toast-msg err';t.textContent='❌ Error: '+e.message+' — lo que ya se guardó queda guardado; podés volver a subir el mismo archivo sin duplicar.';
+  }finally{
+    btn.disabled=!registrosAUnir().length;btn.style.opacity=btn.disabled?'.45':'1';btn.textContent='⬆ Subir a Firebase';
+    setTimeout(()=>{pw.style.display='none';},1500);
+  }
+}
+function renderCargas(){
+  if(!META)return;
+  document.getElementById('cargasBody').innerHTML=(META.cargas||[]).map(c=>'<tr><td class="num">'+esc(fmtDT((c.en||'').replace('T',' ')))+'</td><td>'+esc(c.por||'—')+'</td><td style="font-size:.76rem">'+(c.archivos||[]).map(esc).join('<br>')+'</td><td class="num">'+fmtInt(c.filas)+'</td><td class="num">'+fmtInt(c.nuevas)+'</td><td class="num">'+fmtInt(c.actualizadas)+'</td><td class="num">'+(c.corregidas!=null?fmtInt(c.corregidas):'—')+'</td><td class="num">'+fmtD(c.desde)+' – '+fmtD(c.hasta)+'</td></tr>').join('')
+    ||'<tr><td colspan="8" style="padding:12px;color:#999">Todavía no se cargó ningún archivo.</td></tr>';
+  const meses=Object.keys(META.meses).sort().reverse();
+  document.getElementById('mesesInfo').innerHTML=meses.length?'<b>En la base:</b> '+meses.map(m=>fmtMes(m)+' ('+fmtInt(META.meses[m].count)+' · '+META.meses[m].chunks+' doc)').join(' · '):'';
+}
+</script>
+<script src="personal-nav.js?v=3"></script>
+</body>
+</html>

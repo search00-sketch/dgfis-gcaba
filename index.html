@@ -8,7 +8,7 @@
 <script src="config.js"></script>
 <script src="utils.js?v=4"></script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-nav.js?v=2"></script>
+<script src="personal-nav.js?v=3"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -260,6 +260,11 @@ const MODULES = [
     tag: 'Activo', roles: ['admin','relevamientos'], url: 'relevamientos_operativos.html',
   },
   {
+    id: 'urbetrack', icon: '📡', title: 'Urbetrack — Venta sin permiso',
+    desc: 'Carga de los exports de Urbetrack, buscador de incidencias, control de cargas y SLA por usuario, días home.',
+    tag: 'Activo', roles: ['admin','urbetrack'], url: 'urbetrack_venta.html',
+  },
+  {
     id: 'expedientes', icon: '📋', title: 'Gestión de Expedientes',
     desc: 'Alta, baja y seguimiento de expedientes.',
     tag: 'Próximamente', roles: [], url: null,
@@ -331,7 +336,7 @@ function renderModules() {
 // -- TABLA DE USUARIOS (admin) -----------------------------------
 // El id de cada fila/documento ahora es el uid de Firebase Auth, no el
 // nombre de usuario — el nombre de usuario vive en el campo "username".
-const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal','relevamientos'];
+const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal','relevamientos','urbetrack'];
 async function loadUserTable() {
   const tbody = document.getElementById('userTableBody');
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Cargando…</td></tr>';
@@ -474,6 +479,29 @@ window.exportarBackupCompleto = async function() {
       zonas: zSnap.exists() ? (zSnap.data().lista||[]) : [],
       tematicas: tSnap.exists() ? (tSnap.data().lista||[]) : [],
     };
+  });
+  await intentar('urbetrack', async () => {
+    // Incidencias de Urbetrack agrupadas por mes: urbetrack_chunks/AAAA-MM_N
+    const metaSnap = await getDoc(doc(db, 'urbetrack_meta', 'index'));
+    const meta = metaSnap.exists() ? metaSnap.data() : { meses: {} };
+    const docs = Object.entries(meta.meses || {}).flatMap(([mes, info]) =>
+      Array.from({length: info.chunks || 0}, (_, i) => mes + '_' + i));
+    const snaps = await Promise.all(docs.map(id => getDoc(doc(db, 'urbetrack_chunks', id))));
+    const recs = [];
+    // "datos" = mapa de incidencias como texto JSON (ver urbetrack_venta.html)
+    snaps.forEach(s => {
+      if (!s.exists()) return;
+      const d = s.data();
+      recs.push(...Object.values(typeof d.datos === 'string' ? JSON.parse(d.datos) : (d.registros || {})));
+    });
+    return recs;
+  });
+  await intentar('urbetrack_config', async () => {
+    const [meta, crono] = await Promise.all([
+      getDoc(doc(db, 'urbetrack_meta', 'index')),
+      getDoc(doc(db, 'urbetrack_config', 'cronograma')),
+    ]);
+    return { meta: meta.exists() ? meta.data() : null, cronograma: crono.exists() ? (crono.data().lista || []) : [] };
   });
   await intentar('usuarios', async () => {
     const snap = await getDocs(collection(db, 'usuarios'));
