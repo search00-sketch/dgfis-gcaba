@@ -238,6 +238,18 @@
 
 <!-- PANEL COMPENSATORIOS -->
 <div class="panel" id="panel-compensatorios">
+  <div class="gestion-zonas" id="comp-import-box" style="display:none">
+    <div class="gz-title">📥 Importar planilla de compensatorios</div>
+    <p style="font-size:.8rem;color:#777;margin-bottom:10px">
+      El Excel de compensatorios con una hoja por turno: columna <b>INSPECTOR</b>, una columna por operativo con los días ganados,
+      y después <b>TOTAL</b>, <b>TOMADOS</b>, <b>RESTANTES</b> y las <b>fechas</b> en que se los tomó.
+      Cada operativo se carga como un movimiento <b>a favor</b> y cada fecha como un día <b>tomado</b>; si con eso el saldo no da el
+      RESTANTES de la planilla, se agrega un <b>ajuste</b> que lo explica (fechas ilegibles o faltantes, totales que no suman).
+      Se puede volver a importar la planilla actualizada: reemplaza lo importado antes, no duplica, y no toca lo cargado a mano.
+    </p>
+    <label class="btn" style="cursor:pointer;display:inline-flex">Elegir archivo…<input type="file" accept=".xlsx,.xls" hidden onchange="onCompImportFile(event)"></label>
+    <div id="comp-import-preview" style="margin-top:10px"></div>
+  </div>
   <div class="toolbar">
     <button class="btn btn-azul" onclick="abrirModalCompensatorio()">+ Cargar compensatorio</button>
     <input class="search-input" id="comp-buscar" placeholder="🔍 Buscar persona…" oninput="renderCompensatorios()" style="flex:0 1 200px">
@@ -521,7 +533,7 @@
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=9"></script>
 <script src="personal-dominio.js?v=9"></script>
-<script src="personal-datos.js?v=4"></script>
+<script src="personal-datos.js?v=5"></script>
 
 <script type="module">
 
@@ -622,6 +634,7 @@ window._onLogin = function(lu){
     document.getElementById("tabImportAsistencia").style.display="";
     document.getElementById("tabTiposNovedad").style.display="";
   }
+  if(typeof puedeEditar==="function"&&puedeEditar()) document.getElementById("comp-import-box").style.display="";
 };
 
 // ============================================================
@@ -1549,6 +1562,205 @@ function abrirModalCompensatorio(pid){
   const btn=[...document.querySelectorAll("#mn-tipos-grid .tipo-btn")].find(b=>b.textContent.trim().endsWith(tipo));
   if(btn) selTipo(btn,tipo);
 }
+// ============================================================
+//  IMPORTAR PLANILLA DE COMPENSATORIOS (COMPENSATORIOS_FINALES.xlsx)
+// ============================================================
+// Formato real de la planilla (una hoja por turno): INSPECTOR | [TOMADOS]
+// | una columna por operativo (encabezado con nombre y fecha, ej. "RIVER
+// 10/6") | TOTAL | TOMADOS | RESTANTES | fechas (texto libre, ej.
+// "03/07-28/07-2/2/2026-10/3"). La 2ª columna "TOMADOS" (antes de los
+// operativos) NO es consistente entre filas — a veces entra en TOTAL y a
+// veces no — así que no se importa como operativo: la verdad de cada
+// persona son TOTAL/TOMADOS/RESTANTES, y cualquier diferencia entre eso y
+// lo que se puede detallar (operativos + fechas legibles) va a un único
+// movimiento de "ajuste planilla" que lo dice explícitamente.
+const COMPIMP_PREFIX="compimp_";
+let _compImport=null;
+function _ci_norm(s){return String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ").trim();}
+function _ci_slug(s){return _ci_norm(s).toLowerCase().replace(/ /g,"_").slice(0,40)||"col";}
+function _ci_iso(y,m,d){return y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0");}
+function _ci_dias(a,b){return (new Date(a+"T12:00:00")-new Date(b+"T12:00:00"))/86400000;}
+function _ci_dateObj(v){return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0")+"-"+String(v.getDate()).padStart(2,"0");}
+// Lista de fechas "dd/mm[/aa]" separadas por guiones/espacios; las que no
+// traen año se deducen por orden (la lista es cronológica): hacia atrás
+// desde la primera con año, y hacia adelante sumando un año cuando la
+// fecha "vuelve" más de 2 meses.
+function _ci_parseFechas(v){
+  if(v instanceof Date) return {fechas:[_ci_dateObj(v)],ilegibles:0};
+  const txt=String(v??"").trim(); if(!txt) return {fechas:[],ilegibles:0};
+  const toks=[];let ilegibles=0;
+  txt.split(/[-,;\s]+|\by\b/).map(t=>t.replace(/[.]+$/,"")).filter(Boolean).forEach(t=>{
+    const m=t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+    if(!m){ if(/\d/.test(t)) ilegibles++; return; }
+    let y=m[3]?+m[3]:null; if(y!==null&&y<100) y+=2000;
+    const d=+m[1],mo=+m[2];
+    if(mo<1||mo>12||d<1||d>31){ilegibles++;return;}
+    toks.push({d,mo,y});
+  });
+  if(!toks.length) return {fechas:[],ilegibles};
+  let k=toks.findIndex(t=>t.y);
+  if(k<0){ k=0; toks[0].y=toks[0].mo>=6?2025:2026; }
+  for(let i=k-1;i>=0;i--){
+    let y=toks[i+1].y; if(_ci_dias(_ci_iso(y,toks[i].mo,toks[i].d),_ci_iso(toks[i+1].y,toks[i+1].mo,toks[i+1].d))>60) y--;
+    toks[i].y=y;
+  }
+  for(let i=k+1;i<toks.length;i++){
+    if(toks[i].y) continue;
+    let y=toks[i-1].y; if(_ci_dias(_ci_iso(y,toks[i].mo,toks[i].d),_ci_iso(toks[i-1].y,toks[i-1].mo,toks[i-1].d))<-60) y++;
+    toks[i].y=y;
+  }
+  return {fechas:toks.map(t=>_ci_iso(t.y,t.mo,t.d)),ilegibles};
+}
+// Fecha de cada columna de operativo, por orden de columnas (cronológico).
+function _ci_fechasColumnas(heads){
+  let prev=null;
+  return heads.map(h=>{
+    const m=String(h).match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+    if(!m) return prev;
+    const d=+m[1],mo=+m[2]; if(mo<1||mo>12||d<1||d>31) return prev;
+    let y=m[3]?+m[3]:null; if(y!==null&&y<100) y+=2000;
+    const inferida=(()=>{ if(!prev) return mo>=6?2025:2026; let yy=+prev.slice(0,4); if(_ci_dias(_ci_iso(yy,mo,d),prev)<-60) yy++; return yy; })();
+    // Un año explícito que "vuelve" meses atrás respecto del orden de la
+    // planilla es un error de tipeo (ej. "TURNO EXTRA 12/02/25" entre
+    // operativos de octubre 2025): se usa el inferido.
+    if(y===null||(prev&&_ci_dias(_ci_iso(y,mo,d),prev)<-90)) y=inferida;
+    prev=_ci_iso(y,mo,d); return prev;
+  });
+}
+// Busca a la persona en la nómina: nombre exacto (sin tildes/comas), o
+// todas las palabras de uno contenidas en el otro, o apellido + otra
+// palabra — sólo si hay un único candidato.
+function _ci_buscarPersona(nombre){
+  const n=_ci_norm(nombre); if(!n) return null;
+  const toks=n.split(" ");
+  const lista=window.nomina.map(p=>({p,t:_ci_norm(p.nombre).split(" ")}));
+  const exact=lista.filter(x=>x.t.join(" ")===n); if(exact.length===1) return exact[0].p;
+  const cont=lista.filter(x=>toks.every(t=>x.t.includes(t))||x.t.every(t=>toks.includes(t))); if(cont.length===1) return cont[0].p;
+  const ap=lista.filter(x=>x.t.includes(toks[0])&&toks.slice(1).some(t=>x.t.includes(t))); if(ap.length===1) return ap[0].p;
+  return null;
+}
+function _ci_leerHoja(ws,hoja,archivo){
+  const range=(()=>{let mr=0,mc=0;for(const k in ws){if(k[0]==="!")continue;const c=XLSX.utils.decode_cell(k);if(c.r>mr)mr=c.r;if(c.c>mc)mc=c.c;}return {s:{r:0,c:0},e:{r:mr,c:mc}};})();
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",range});
+  const hi=rows.findIndex(r=>r.some(c=>_ci_norm(c)==="INSPECTOR"));
+  if(hi<0) return null;
+  const H=rows[hi].map(c=>_ci_norm(c));
+  const iNom=H.indexOf("INSPECTOR"),iTot=H.indexOf("TOTAL");
+  if(iTot<0) return null;
+  const iTom=H.indexOf("TOMADOS",iTot),iRest=H.indexOf("RESTANTES",iTot);
+  let iFec=H.findIndex((h,i)=>i>iTot&&h.startsWith("FECHA")); if(iFec<0&&iRest>=0) iFec=iRest+1;
+  // Columnas de operativos: entre INSPECTOR y TOTAL, salvo la "TOMADOS"
+  // suelta del principio (ver comentario de arriba).
+  // (La planilla tiene encabezados repetidos, ej. "OP 15/11" dos veces:
+  // el id de cada movimiento lleva también la posición de la columna.)
+  const colsOp=[];for(let c=iNom+1;c<iTot;c++){ if(H[c]&&H[c]!=="TOMADOS") colsOp.push(c); }
+  const fechasCol=_ci_fechasColumnas(colsOp.map(c=>rows[hi][c]));
+  const personas=[];
+  rows.slice(hi+1).forEach(r=>{
+    const nombre=String(r[iNom]??"").trim(); if(!nombre) return;
+    const num=v=>{const x=parseFloat(String(v).replace(",","."));return isNaN(x)?0:x;};
+    const total=num(r[iTot]),tomados=iTom>=0?num(r[iTom]):0,restantes=iRest>=0?num(r[iRest]):total-tomados;
+    const ops=[];colsOp.forEach((c,j)=>{const d=num(r[c]);if(d>0) ops.push({col:String(rows[hi][c]).trim(),c,dias:d,fecha:fechasCol[j]});});
+    const {fechas,ilegibles}=iFec>=0?_ci_parseFechas(r[iFec]):{fechas:[],ilegibles:0};
+    if(!total&&!tomados&&!restantes&&!ops.length&&!fechas.length) return;
+    personas.push({hoja,archivo,nombre,total,tomados,restantes,ops,fechas,ilegibles,fechasTxt:String(r[iFec]??"")});
+  });
+  return personas;
+}
+async function onCompImportFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  e.target.value="";
+  try{
+    const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
+    let personas=[];const hojas=[];
+    wb.SheetNames.forEach(n=>{const ps=_ci_leerHoja(wb.Sheets[n],n.trim(),file.name);if(ps){hojas.push(n.trim()+" ("+ps.length+")");personas=personas.concat(ps);}});
+    if(!personas.length){toast("No encontré ninguna hoja con columnas INSPECTOR y TOTAL.",4000);return;}
+    personas.forEach(p=>{const m=_ci_buscarPersona(p.nombre);p.personaId=m?m.id:"";p.auto=!!m;});
+    _compImport={archivo:file.name,hojas,personas};
+    renderCompImportPreview();
+  }catch(err){console.error(err);toast("❌ No se pudo leer el archivo: "+err.message,4000);}
+}
+// Arma los registros a guardar para una persona ya vinculada a la nómina.
+function _ci_registrosDe(p){
+  const pid=p.personaId,out=[],ctx=p.hoja+" · importado de "+p.archivo;
+  const primerFecha=p.ops.find(o=>o.fecha)?.fecha||p.fechas[0]||todayISO();
+  p.ops.forEach(o=>out.push({id:COMPIMP_PREFIX+pid+"_op_"+_ci_slug(p.hoja)+"_c"+o.c+"_"+_ci_slug(o.col),personaId:pid,tipo:"Compensatorio",
+    fecha:o.fecha||primerFecha,compMovimiento:"otorgado",compDias:o.dias,estadoLic:"Aprobada",detalle:o.col+" · "+ctx}));
+  // Tomados: uno por fecha legible, salvo que ese día ya haya un
+  // compensatorio tomado cargado por fuera (ej. desde Carga diaria).
+  let yaCargados=0;const cuenta={};
+  p.fechas.forEach(f=>{
+    const existe=window.novedades.some(n=>n.personaId===pid&&esCompensatorio(n.tipo)&&!String(n.id).startsWith(COMPIMP_PREFIX)&&compMovimientoDe(n)!=="otorgado"&&novedadCubreFecha(n,f));
+    if(existe){yaCargados++;return;}
+    cuenta[f]=(cuenta[f]||0)+1;
+    out.push({id:COMPIMP_PREFIX+pid+"_tom_"+f+"_"+cuenta[f],personaId:pid,tipo:"Compensatorio",fecha:f,compMovimiento:"descontado",compDias:1,estadoLic:"Aprobada",detalle:"Tomado · "+ctx});
+  });
+  const favor=p.ops.reduce((a,o)=>a+o.dias,0),tom=p.fechas.length;
+  const ajuste=Math.round((p.restantes-(favor-tom))*10)/10;
+  if(ajuste){
+    const motivos=[];
+    if(Math.abs(favor-p.total)>0.01) motivos.push("operativos suman "+favor+" y el TOTAL dice "+p.total);
+    if(tom!==p.tomados) motivos.push("fechas legibles: "+tom+", TOMADOS dice "+p.tomados+(p.ilegibles?" ("+p.ilegibles+" fecha/s ilegible/s)":""));
+    if(!motivos.length) motivos.push("TOTAL − TOMADOS no coincide con RESTANTES");
+    out.push({id:COMPIMP_PREFIX+pid+"_ajuste_"+_ci_slug(p.hoja),personaId:pid,tipo:"Compensatorio",fecha:todayISO(),compMovimiento:ajuste>0?"otorgado":"descontado",compDias:Math.abs(ajuste),estadoLic:"Aprobada",
+      detalle:"Ajuste planilla para que el saldo dé "+p.restantes+" (RESTANTES) — "+motivos.join("; ")+" · "+ctx});
+  }
+  return {registros:out,favor,tom,ajuste,yaCargados};
+}
+function renderCompImportPreview(){
+  const el=document.getElementById("comp-import-preview");
+  if(!_compImport){el.innerHTML="";return;}
+  const P=_compImport.personas;
+  const opts=window.nomina.filter(x=>x.estado!=="Baja").slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""))
+    .map(x=>"<option value=\""+esc(x.id)+"\">"+esc(x.nombre)+"</option>").join("");
+  let tot={regs:0,aj:0,sin:0};
+  const filas=P.map((p,i)=>{
+    const calc=p.personaId?_ci_registrosDe(p):null;
+    if(calc){tot.regs+=calc.registros.length;if(calc.ajuste)tot.aj++;}else tot.sin++;
+    const sel="<select class=\"ctrl\" style=\"font-size:12px;max-width:220px\" onchange=\"_compImport.personas["+i+"].personaId=this.value;renderCompImportPreview()\"><option value=\"\">— no importar —</option>"
+      +opts.replace("value=\""+esc(p.personaId)+"\"","value=\""+esc(p.personaId)+"\" selected")+"</select>";
+    const avisos=[];
+    if(!p.personaId) avisos.push("<span style=\"color:#b91c1c\">No está en la nómina: elegila o queda afuera</span>");
+    if(calc&&calc.ajuste) avisos.push("<span style=\"color:#b45309\">Ajuste "+(calc.ajuste>0?"+":"")+calc.ajuste+"</span>");
+    if(calc&&calc.yaCargados) avisos.push(calc.yaCargados+" tomado/s ya cargado/s");
+    return "<tr><td>"+esc(p.hoja)+"</td><td><b>"+esc(p.nombre)+"</b></td><td>"+sel+(p.personaId&&!p.auto?" <span title=\"Elegida a mano\">✋</span>":"")+"</td>"
+      +"<td class=\"num\">"+p.total+"</td><td class=\"num\">"+p.tomados+(p.fechas.length!==p.tomados?" <span style=\"color:#b45309\" title=\"Fechas legibles\">("+p.fechas.length+")</span>":"")+"</td><td class=\"num\"><b>"+p.restantes+"</b></td>"
+      +"<td style=\"font-size:12px\">"+avisos.join(" · ")+"</td></tr>";
+  }).join("");
+  el.innerHTML="<div class=\"nov-info\">📋 <b>"+P.length+"</b> personas en "+_compImport.hojas.map(esc).join(", ")+" · <b>"+tot.regs+"</b> movimientos para guardar"
+    +(tot.aj?" · <b>"+tot.aj+"</b> con ajuste":"")+(tot.sin?" · <b style=\"color:#b91c1c\">"+tot.sin+" sin vincular</b> (no se importan)":"")+".</div>"
+    +"<div style=\"max-height:380px;overflow:auto;border:1px solid var(--bor)\"><table style=\"width:100%;border-collapse:collapse;font-size:12.5px\">"
+    +"<thead><tr style=\"position:sticky;top:0;background:var(--azul);color:#fff\"><th style=\"text-align:left;padding:6px\">Turno</th><th style=\"text-align:left\">Planilla</th><th style=\"text-align:left\">Nómina</th><th>Total</th><th>Tomados</th><th>Restantes</th><th style=\"text-align:left\">Avisos</th></tr></thead>"
+    +"<tbody>"+filas+"</tbody></table></div>"
+    +"<div class=\"modal-actions\" style=\"max-width:460px;margin-top:10px\"><button class=\"btn btn-verde\" id=\"comp-import-btn\" onclick=\"confirmarCompImport()\">✅ Importar</button><button class=\"btn btn-gris\" onclick=\"_compImport=null;renderCompImportPreview()\">Cancelar</button></div>";
+}
+async function confirmarCompImport(){
+  if(!_compImport) return;
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const vinc=_compImport.personas.filter(p=>p.personaId);
+  const pids=new Set(vinc.map(p=>p.personaId));
+  // Dos filas de la planilla no pueden ir a la misma persona (se pisarían).
+  const rep=vinc.map(p=>p.personaId).filter((x,i,a)=>a.indexOf(x)!==i);
+  if(rep.length){toast("Hay dos filas vinculadas a la misma persona ("+nombrePersonaNomina(rep[0])+"): corregilo antes de importar.",5000);return;}
+  let registros=[];vinc.forEach(p=>{registros=registros.concat(_ci_registrosDe(p).registros);});
+  const nuevosIds=new Set(registros.map(r=>r.id));
+  // Lo importado antes de estas personas que ya no está en la planilla
+  // (ej. una fecha corregida) se borra; lo cargado a mano no se toca.
+  const aBorrar=window.novedades.filter(n=>String(n.id).startsWith(COMPIMP_PREFIX)&&pids.has(n.personaId)&&!nuevosIds.has(n.id));
+  const btn=document.getElementById("comp-import-btn");btn.disabled=true;btn.textContent="Importando…";
+  try{
+    registros=registros.map(r=>{const orig=window.novedades.find(n=>n.id===r.id);if(orig&&orig._chunk!==undefined)r._chunk=orig._chunk;return conAuditoria(r,orig);});
+    await window._guardarNovedadesBulk(registros);
+    if(aBorrar.length) await window._eliminarNovedadesBulk(aBorrar);
+    const borrar=new Set(aBorrar.map(n=>n.id));
+    const porId={};window.novedades.filter(n=>!borrar.has(n.id)).forEach(n=>porId[n.id]=n);registros.forEach(r=>porId[r.id]=r);
+    window.novedades=Object.values(porId);
+    toast("✅ Importados "+registros.length+" movimientos de "+vinc.length+" personas"+(aBorrar.length?" · "+aBorrar.length+" de la importación anterior reemplazados":""),5000);
+    _compImport=null;renderCompImportPreview();renderAll();renderCompensatorios();
+  }catch(e){console.error(e);toast("❌ Error al importar: "+e.message,5000);btn.disabled=false;btn.textContent="✅ Importar";}
+}
+function nombrePersonaNomina(pid){const p=window.nomina.find(x=>x.id===pid);return p?p.nombre:pid;}
+
 function exportarCompensatoriosExcel(){
   const filas=compFiltrados();
   if(!filas.length){toast("Sin datos para exportar.");return;}

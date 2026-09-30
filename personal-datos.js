@@ -255,6 +255,18 @@ window._guardarNovedad = async function(nov) {
 window._eliminarNovedad = async function(registro) {
   await eliminarRegistroChunked('novedades', CACHE.novedades, registro);
 };
+// Baja masiva (reimportar la planilla de compensatorios): una escritura por
+// chunk afectado en vez de una por novedad.
+window._eliminarNovedadesBulk = async function(lista) {
+  const porChunk = {};
+  lista.forEach(r => {
+    if (!r || r._chunk === undefined) return;
+    (porChunk[r._chunk] = porChunk[r._chunk] || {})['registros.'+r.id] = window._fDeleteField();
+  });
+  await Promise.all(Object.entries(porChunk).map(([idx, campos]) =>
+    window._fUpdateOrCrear(window._fDoc(window._db, 'novedades_chunks', 'chunk_'+idx), campos)));
+  clearCache(CACHE.novedades);
+};
 // Alta masiva (import de asistencia desde Excel): agrupa por chunk y hace
 // una escritura por chunk en vez de una por novedad.
 window._guardarNovedadesBulk = async function(lista) {
