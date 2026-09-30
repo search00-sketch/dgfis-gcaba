@@ -265,7 +265,7 @@
     <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosComp()">✕ Limpiar filtros</button>
     <button class="btn btn-verde" onclick="exportarCompensatoriosExcel()">⬇ Exportar Excel</button>
   </div>
-  <p style="font-size:.8rem;color:#777;margin-bottom:10px">Saldo en <b>días</b> = a favor − tomados. Cuentan los compensatorios aprobados (los pendientes o "a la espera" se muestran aparte y no mueven el saldo; los rechazados no cuentan). Los compensatorios cargados desde Carga diaria o el import de Asistencia cuentan como 1 día tomado. Hacé clic en una persona para ver sus movimientos.</p>
+  <p style="font-size:.8rem;color:#777;margin-bottom:10px">Saldo en <b>días</b> = a favor − tomados. Cuentan los compensatorios aprobados (los pendientes o "a la espera" se muestran aparte y no mueven el saldo; los rechazados no cuentan). Los compensatorios cargados desde Carga diaria o el import de Asistencia cuentan como 1 día tomado — salvo para quien tiene la planilla importada: ahí lo cargado antes de la importación ya está incluido en la planilla y no se descuenta de nuevo. Hacé clic en una persona para ver sus movimientos.</p>
   <div class="table-info" id="comp-info"></div>
   <div class="table-wrap">
     <div class="table-head grid-comp mob-hide-head" id="comp-head"></div>
@@ -532,7 +532,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-dominio.js?v=9"></script>
+<script src="personal-dominio.js?v=10"></script>
 <script src="personal-datos.js?v=5"></script>
 
 <script type="module">
@@ -928,6 +928,7 @@ function historialFiltrado(){
   const filtEstado=document.getElementById("hist-estado")?.value||"";
 
   return [...window.novedades].reverse().filter(n=>{
+    if(n.compMovimiento==="corte")return false; // marca de planilla importada (se ve en Compensatorios)
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
     if(busq&&!coincideTexto((p.nombre||"").toLowerCase(),busq))return false;
     if(tiposSel.length&&!tiposSel.includes(n.tipo))return false;
@@ -1335,6 +1336,7 @@ function onCompHastaChange(){
   document.getElementById("mn-comp-dias").value=dias;
 }
 function textoMovComp(n){
+  if(compMovimientoDe(n)==="corte") return COMP_MOV_LABEL.corte;
   const d=compDiasDe(n);
   return COMP_MOV_LABEL[compMovimientoDe(n)]+" · "+d+" día"+(d===1?"":"s");
 }
@@ -1460,15 +1462,39 @@ function movimientosComp(){
   return window.novedades.filter(n=>esCompensatorio(n.tipo)
     &&(!desde||n.fecha>=desde)&&(!hasta||n.fecha<=hasta));
 }
+// La planilla importada es la verdad de cada persona HASTA la fecha en que
+// se importó: sus TOMADOS ya incluyen los días que se hayan cargado por
+// Carga diaria / import de Asistencia. Esos compensatorios cargados por
+// fuera con fecha (y alta) anterior al corte se siguen viendo, pero no
+// suman al saldo — si no, se descuentan dos veces (era la causa de los
+// saldos negativos después de importar). Lo cargado después sí cuenta.
+function compCortes(){
+  const c={};
+  window.novedades.forEach(n=>{
+    if(!String(n.id).startsWith(COMPIMP_PREFIX))return;
+    const f=(n.impCorte||n.modificadoEn||n.creadoEn||"").slice(0,10);
+    if(f&&(!c[n.personaId]||f>c[n.personaId]))c[n.personaId]=f;
+  });
+  return c;
+}
+function incluidoEnPlanilla(n,cortes){
+  const corte=cortes[n.personaId];
+  if(!corte||String(n.id).startsWith(COMPIMP_PREFIX))return false;
+  if(!esCompensatorio(n.tipo)||(n.fecha||"")>corte)return false;
+  const alta=(n.creadoEn||"").slice(0,10);
+  return !alta||alta<=corte;
+}
 function calcularCompensatorios(){
-  const porPersona={};
+  const porPersona={},cortes=compCortes();
   movimientosComp().forEach(n=>{
     const c=porPersona[n.personaId]||(porPersona[n.personaId]={favor:0,tomados:0,sinSaldo:0,pendientes:0,movs:0});
     c.movs++;
+    if(incluidoEnPlanilla(n,cortes))return;
     const est=estadoComp(n);
     if(est==="Rechazada")return;
     if(est!=="Aprobada"){c.pendientes+=compDiasDe(n);return;}
     const mov=compMovimientoDe(n), d=compDiasDe(n);
+    if(mov==="corte") return;
     if(mov==="otorgado") c.favor+=d;
     else { c.tomados+=d; if(mov==="debe") c.sinSaldo+=d; }
   });
@@ -1530,13 +1556,18 @@ function verDetalleComp(pid){
   const r=calcularCompensatorios().find(x=>x.pid===pid);
   document.getElementById("comp-detalle-titulo").textContent="Movimientos de "+p.nombre+(r?" — saldo "+(r.saldo>0?"+":"")+fmtDias(r.saldo)+" días":"");
   document.getElementById("comp-detalle-cargar").onclick=()=>abrirModalCompensatorio(pid);
+  const cortes=compCortes();
   document.getElementById("comp-detalle-body").innerHTML=movs.map(n=>{
     const mov=compMovimientoDe(n);
-    const signo=mov==="otorgado"?"+":"−";
+    if(incluidoEnPlanilla(n,cortes)) return "<div class=\"table-row grid-comp-mov\" style=\"opacity:.55\" title=\"Cargado por fuera de la planilla antes de importarla: ya está incluido en sus TOMADOS, no se descuenta de nuevo\">"
+      +"<span style=\"font-size:12px;color:#777\">"+fmtDate(n.fecha)+"</span><span>"+esc(COMP_MOV_LABEL[mov])+"</span><span>—</span><span style=\"font-size:11px\">No suma</span>"
+      +"<span style=\"font-size:12px;color:#555\">Incluido en la planilla (cargado desde Carga diaria/Asistencia)"+(n.detalle?" · "+esc(n.detalle):"")+"</span>"
+      +"<span style=\"display:flex;gap:4px\"><button onclick=\"editarNovedad('"+escJsAttr(n.id)+"')\" style=\"background:none;border:none;color:#2563a8;cursor:pointer;font-size:13px\">✏️</button><button onclick=\"borrarNovedad('"+escJsAttr(n.id)+"')\" style=\"background:none;border:none;color:#c0392b;cursor:pointer;font-size:13px\">✕</button></span></div>";
+    const signo=mov==="otorgado"?"+":mov==="corte"?"":"−";
     const rango=n.licIni&&n.licFin&&n.licFin!==n.licIni?fmtDate(n.licIni)+" → "+fmtDate(n.licFin):"";
     return "<div class=\"table-row grid-comp-mov\">"
       +"<span style=\"font-size:12px;color:#777\">"+fmtDate(n.fecha)+"</span>"
-      +"<span style=\"font-weight:600;color:"+(mov==="otorgado"?"var(--c-ok)":"var(--c-danger)")+"\">"+esc(COMP_MOV_LABEL[mov])+"</span>"
+      +"<span style=\"font-weight:600;color:"+(mov==="otorgado"?"var(--c-ok)":mov==="corte"?"#555":"var(--c-danger)")+"\">"+esc(COMP_MOV_LABEL[mov])+"</span>"
       +"<span>"+signo+fmtDias(compDiasDe(n))+"</span>"
       +"<span>"+badgeEstadoLic(estadoComp(n))+"</span>"
       +"<span style=\"font-size:12px;color:#555\">"+[rango,n.detalle].filter(Boolean).map(esc).join(" · ")+(n.modificadoPor?" <span style=\"font-size:11px;color:#aaa\">· 👤 "+esc(n.modificadoPor)+"</span>":"")+"</span>"
@@ -1662,7 +1693,8 @@ function _ci_leerHoja(ws,hoja,archivo){
     const total=num(r[iTot]),tomados=iTom>=0?num(r[iTom]):0,restantes=iRest>=0?num(r[iRest]):total-tomados;
     const ops=[];colsOp.forEach((c,j)=>{const d=num(r[c]);if(d>0) ops.push({col:String(rows[hi][c]).trim(),c,dias:d,fecha:fechasCol[j]});});
     const {fechas,ilegibles}=iFec>=0?_ci_parseFechas(r[iFec]):{fechas:[],ilegibles:0};
-    if(!total&&!tomados&&!restantes&&!ops.length&&!fechas.length) return;
+    // Las filas en 0 también se importan: la marca de "planilla importada"
+    // hace que lo cargado antes por fuera no reste (su saldo real es 0).
     personas.push({hoja,archivo,nombre,total,tomados,restantes,ops,fechas,ilegibles,fechasTxt:String(r[iFec]??"")});
   });
   return personas;
@@ -1683,15 +1715,19 @@ async function onCompImportFile(e){
 // Arma los registros a guardar para una persona ya vinculada a la nómina.
 function _ci_registrosDe(p){
   const pid=p.personaId,out=[],ctx=p.hoja+" · importado de "+p.archivo;
+  out.push({id:COMPIMP_PREFIX+pid+"_corte_"+_ci_slug(p.hoja),personaId:pid,tipo:"Compensatorio",fecha:todayISO(),compMovimiento:"corte",compDias:0,estadoLic:"Aprobada",
+    detalle:"Planilla importada ("+ctx+"): TOTAL "+p.total+", TOMADOS "+p.tomados+", RESTANTES "+p.restantes+". Lo cargado antes por fuera ya está incluido acá."});
   const primerFecha=p.ops.find(o=>o.fecha)?.fecha||p.fechas[0]||todayISO();
   p.ops.forEach(o=>out.push({id:COMPIMP_PREFIX+pid+"_op_"+_ci_slug(p.hoja)+"_c"+o.c+"_"+_ci_slug(o.col),personaId:pid,tipo:"Compensatorio",
     fecha:o.fecha||primerFecha,compMovimiento:"otorgado",compDias:o.dias,estadoLic:"Aprobada",detalle:o.col+" · "+ctx}));
   // Tomados: uno por fecha legible, salvo que ese día ya haya un
   // compensatorio tomado cargado por fuera (ej. desde Carga diaria).
-  let yaCargados=0;const cuenta={};
+  // Se crean TODOS los tomados de la planilla. Los compensatorios que ya
+  // estaban cargados por fuera antes de importar dejan de sumar al saldo
+  // (ver incluidoEnPlanilla), así que no hay doble descuento.
+  const yaCargados=window.novedades.filter(n=>n.personaId===pid&&esCompensatorio(n.tipo)&&!String(n.id).startsWith(COMPIMP_PREFIX)&&(n.fecha||"")<=todayISO()).length;
+  const cuenta={};
   p.fechas.forEach(f=>{
-    const existe=window.novedades.some(n=>n.personaId===pid&&esCompensatorio(n.tipo)&&!String(n.id).startsWith(COMPIMP_PREFIX)&&compMovimientoDe(n)!=="otorgado"&&novedadCubreFecha(n,f));
-    if(existe){yaCargados++;return;}
     cuenta[f]=(cuenta[f]||0)+1;
     out.push({id:COMPIMP_PREFIX+pid+"_tom_"+f+"_"+cuenta[f],personaId:pid,tipo:"Compensatorio",fecha:f,compMovimiento:"descontado",compDias:1,estadoLic:"Aprobada",detalle:"Tomado · "+ctx});
   });
@@ -1722,7 +1758,7 @@ function renderCompImportPreview(){
     const avisos=[];
     if(!p.personaId) avisos.push("<span style=\"color:#b91c1c\">No está en la nómina: elegila o queda afuera</span>");
     if(calc&&calc.ajuste) avisos.push("<span style=\"color:#b45309\">Ajuste "+(calc.ajuste>0?"+":"")+calc.ajuste+"</span>");
-    if(calc&&calc.yaCargados) avisos.push(calc.yaCargados+" tomado/s ya cargado/s");
+    if(calc&&calc.yaCargados) avisos.push(calc.yaCargados+" cargado/s por fuera (quedan incluidos en la planilla)");
     return "<tr><td>"+esc(p.hoja)+"</td><td><b>"+esc(p.nombre)+"</b></td><td>"+sel+(p.personaId&&!p.auto?" <span title=\"Elegida a mano\">✋</span>":"")+"</td>"
       +"<td class=\"num\">"+p.total+"</td><td class=\"num\">"+p.tomados+(p.fechas.length!==p.tomados?" <span style=\"color:#b45309\" title=\"Fechas legibles\">("+p.fechas.length+")</span>":"")+"</td><td class=\"num\"><b>"+p.restantes+"</b></td>"
       +"<td style=\"font-size:12px\">"+avisos.join(" · ")+"</td></tr>";
@@ -1749,7 +1785,8 @@ async function confirmarCompImport(){
   const aBorrar=window.novedades.filter(n=>String(n.id).startsWith(COMPIMP_PREFIX)&&pids.has(n.personaId)&&!nuevosIds.has(n.id));
   const btn=document.getElementById("comp-import-btn");btn.disabled=true;btn.textContent="Importando…";
   try{
-    registros=registros.map(r=>{const orig=window.novedades.find(n=>n.id===r.id);if(orig&&orig._chunk!==undefined)r._chunk=orig._chunk;return conAuditoria(r,orig);});
+    const corte=todayISO();
+    registros=registros.map(r=>{const orig=window.novedades.find(n=>n.id===r.id);if(orig&&orig._chunk!==undefined)r._chunk=orig._chunk;r.impCorte=corte;return conAuditoria(r,orig);});
     await window._guardarNovedadesBulk(registros);
     if(aBorrar.length) await window._eliminarNovedadesBulk(aBorrar);
     const borrar=new Set(aBorrar.map(n=>n.id));
@@ -1795,6 +1832,7 @@ function calcularRanking(){
   const porPersona={};
   window.novedades.forEach(n=>{
     if(n.tipo==="Presente")return;
+    if(n.compMovimiento==="corte")return; // marca de planilla importada, no es una novedad
     if(!tipos.includes(n.tipo))return; // tipo viejo ya sacado de la config
     if(desde&&n.fecha<desde)return;
     if(hasta&&n.fecha>hasta)return;

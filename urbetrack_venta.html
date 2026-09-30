@@ -897,7 +897,7 @@ function ausenciaJustificada(personaId,ds){
     if(n.personaId!==personaId||n.estadoLic==='Rechazada')return false;
     const t=(n.tipo||'').toLowerCase();
     if(!(t.includes('licencia')||t.includes('ausencia')||t.includes('compensatorio')||t.includes('articulo')||t.includes('artículo')))return false;
-    if(t.includes('compensatorio')&&n.compMovimiento==='otorgado')return false;
+    if(t.includes('compensatorio')&&(n.compMovimiento==='otorgado'||n.compMovimiento==='corte'))return false;
     return n.fecha===ds||(n.licIni&&n.licFin&&ds>=n.licIni&&ds<=n.licFin);
   })||null;
 }
