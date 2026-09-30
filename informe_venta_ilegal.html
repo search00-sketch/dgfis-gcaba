@@ -284,7 +284,12 @@ function calcular(anio){
       if(mc)com='COMUNA '+(+mc[1]);else if(z==='COSTANERA SUR')com='COMUNA 1';else if(z==='COSTANERA NORTE')com='COMUNA 14';
       if(com){G.PATRULLAS[m]++;acumular(pat,com,m);}
       else{G.POLIGONOS[m]++;acumular(pol,z||'(SIN ZONA)',m,zl);}
-    } else {G.OTROS[m]++;const raw=String(a.operativo||'(vacío)').trim()||'(vacío)';(diag.opRaros[raw]=diag.opRaros[raw]||vacio())[m]++;}
+    } else {
+      // Operativo no reconocido → se suma a Partidos de fútbol (criterio de
+      // la gerencia); queda listado en "Control de datos" con su valor.
+      G.PARTIDO[m]++;acumular(par,z||'(SIN ZONA)',m,zl);
+      const raw=String(a.operativo||'(vacío)').trim()||'(vacío)';(diag.opRaros[raw]=diag.opRaros[raw]||vacio())[m]++;
+    }
   });
   const U={};let urbAnio=0;
   Object.entries(URB||{}).forEach(([mes,c])=>{
@@ -339,7 +344,6 @@ function render(){
 
   const SERIES=[{k:'EVENTO',l:'Evento masivo',c:'var(--s1)',hex:'#2a78d6'},{k:'PARTIDO',l:'Partido de fútbol',c:'var(--s2)',hex:'#eb6834'},{k:'POLIGONOS',l:'Polígonos',c:'var(--s3)',hex:'#1baf7a'},{k:'PATRULLAS',l:'Patrullas',c:'var(--s4)',hex:'#eda100'}];
   const general=SERIES.map(s=>({label:s.l.toUpperCase(),m:R.G[s.k],sw:s.c}));
-  if(suma(R.G.OTROS))general.push({label:'OTROS OPERATIVOS',m:R.G.OTROS});
   const mesesActas=new Set(totMes.map((v,i)=>v?i:-1).filter(i=>i>=0));
   const urbFilas=ordenar(R.U,ORDEN_URB);
   const mesesUrb=new Set(Object.keys(URB||{}).filter(m=>m.startsWith(anio)).map(m=>+m.slice(5,7)-1));
@@ -371,7 +375,7 @@ function render(){
 
   document.getElementById('notaReglas').innerHTML='<b>Cómo se calcula</b> — se actualiza solo cada vez que se cargan actas o exports de Urbetrack (mismas reglas que la hoja INFORME del Excel):<br>'
     +'· <b>Duplicadas</b>: si dos actas tienen el mismo N° de acta de secuestro y la misma dirección, cuenta una sola (regla del README del informe). Se listan en "Control de datos".<br>'
-    +'· <b>Evento masivo</b> y <b>Partido de fútbol</b>: actas por Operativo (sin importar cómo esté escrito: "Partidos de fútbol", etc.); el detalle, por Zona.<br>'
+    +'· <b>Evento masivo</b> y <b>Partido de fútbol</b>: actas por Operativo (sin importar cómo esté escrito: "Partidos de fútbol", etc.); el detalle, por Zona. Las actas con un operativo que no se reconoce se suman a Partidos de fútbol (se listan en "Control de datos").<br>'
     +'· <b>Polígonos</b>: actas de Venta ilegal en zonas que no son "COMUNA N" — incluye todas (en el Excel el total sólo sumaba de Once a Parque 3 de Febrero y dejaba afuera Plaza Francia y Patrulla 4AM; Casco Histórico y Microcentro estaban vacíos o a mano).<br>'
     +'· <b>Patrullas</b>: Venta ilegal en "COMUNA N"; Costanera Sur suma a la Comuna 1 y Costanera Norte a la 14 (en el Excel esa suma estaba rota en algunos meses).<br>'
     +'· <b>Urbetrack</b>: incidencias por Grupo según el mes de la Fecha de inspección, con el "grupo normalizado" del Excel; además se unifican "PARTIDO DE FUTBOL", "AGRESION" y "CONSULTA FISCALIA" sin tilde, que el Excel no contaba.';
@@ -380,7 +384,7 @@ function render(){
 function bloqueControl(R,meses){
   const d=R.diag,filas=[];
   if(suma(d.dup))filas.push({label:'Duplicadas excluidas (mismo N° de acta de secuestro y dirección)',m:d.dup});
-  Object.entries(d.opRaros).forEach(([op,m])=>filas.push({label:'Operativo no reconocido: "'+op+'" (va a OTROS)',m}));
+  Object.entries(d.opRaros).forEach(([op,m])=>filas.push({label:'Operativo no reconocido: "'+op+'" (sumado a Partidos de fútbol)',m}));
   const pie=(d.sinFecha?'<br>'+fmt(d.sinFecha)+' acta(s) sin fecha de labrado válida no entran en ningún mes.':'');
   if(!filas.length)return '<div class="note"><b>Control de datos de actas:</b> sin duplicadas ni operativos desconocidos en '+document.getElementById('anio').value+'.'+pie+'</div>';
   return tabla('Control de datos de actas','lo que el informe excluye o no puede clasificar'+(d.dupLista.length?' · <a href="#" onclick="exportarDuplicadas();return false">⬇ lista de duplicadas</a>':''),filas,{meses,sinTotal:true,col1:'Control'})
@@ -403,7 +407,7 @@ function exportarExcel(){
     filas.forEach(f=>{f.m.forEach((v,i)=>tot[i]+=v);aoa.push([f.label,...f.m.map(v=>v||''),suma(f.m)]);});
     aoa.push(['TOTAL',...tot.map(v=>v||''),suma(tot)]);
   };
-  if(ACTAS)bloque('GENERAL',[{label:'EVENTO MASIVO',m:R.G.EVENTO},{label:'PARTIDO DE FUTBOL',m:R.G.PARTIDO},{label:'POLIGONOS',m:R.G.POLIGONOS},{label:'PATRULLAS',m:R.G.PATRULLAS}].concat(suma(R.G.OTROS)?[{label:'OTROS OPERATIVOS',m:R.G.OTROS}]:[]));
+  if(ACTAS)bloque('GENERAL',[{label:'EVENTO MASIVO',m:R.G.EVENTO},{label:'PARTIDO DE FUTBOL',m:R.G.PARTIDO},{label:'POLIGONOS',m:R.G.POLIGONOS},{label:'PATRULLAS',m:R.G.PATRULLAS}]);
   if(URB)bloque('URBETRACK',ordenar(R.U,ORDEN_URB));
   if(ACTAS){
     bloque('POLIGONOS',ordenar(R.pol,ORDEN_POLIGONOS));
