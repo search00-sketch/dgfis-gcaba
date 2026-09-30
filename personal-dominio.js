@@ -90,9 +90,11 @@ function novedadDePersonaEnFecha(pid,fecha){return (window.novedades||[]).find(n
 // ausencia en Carga diaria / Asignación de Zonas.
 function esCompensatorio(tipo){return (tipo||'').toLowerCase().includes('compensatorio');}
 function compMovimientoDe(n){return n.compMovimiento||'descontado';}
-function compDiasDe(n){const d=parseFloat(n.compDias);return d>0?d:1;}
-function esMovimientoSoloSaldo(n){return !!n&&esCompensatorio(n.tipo)&&n.compMovimiento==='otorgado';}
-const COMP_MOV_LABEL={otorgado:'A favor',descontado:'Tomado',debe:'Tomado sin saldo'};
+function compDiasDe(n){if(n.compMovimiento==='corte')return 0;const d=parseFloat(n.compDias);return d>0?d:1;}
+// "corte" = marca de "planilla de compensatorios importada" (0 días): no
+// mueve el saldo ni ocupa el día; sólo dice desde cuándo manda la planilla.
+function esMovimientoSoloSaldo(n){return !!n&&esCompensatorio(n.tipo)&&(n.compMovimiento==='otorgado'||n.compMovimiento==='corte');}
+const COMP_MOV_LABEL={otorgado:'A favor',descontado:'Tomado',debe:'Tomado sin saldo',corte:'Planilla importada'};
 
 // Tipos de novedad que implican que la persona no está disponible ese día
 // (licencia, ausencia, compensatorio, artículo, etc. — por nombre, ya que
