@@ -259,6 +259,7 @@
       <option value="pos">Con saldo a favor</option>
       <option value="neg">Que deben días</option>
       <option value="cero">En cero</option>
+      <option value="sin">Sin planilla (sólo tomados)</option>
     </select>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Desde<input type="date" class="pinput" id="comp-desde" onchange="renderCompensatorios()"></label>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Hasta<input type="date" class="pinput" id="comp-hasta" onchange="renderCompensatorios()"></label>
@@ -1468,31 +1469,39 @@ function movimientosComp(){
 // fuera con fecha (y alta) anterior al corte se siguen viendo, pero no
 // suman al saldo — si no, se descuentan dos veces (era la causa de los
 // saldos negativos después de importar). Lo cargado después sí cuenta.
+// Corte = momento de la importación. Se guarda como timestamp ISO (UTC) y
+// se compara contra el "creadoEn" (también ISO UTC) de lo cargado por
+// fuera — antes se comparaba la fecha LOCAL del corte contra la fecha UTC
+// del alta, y lo cargado a la noche en Argentina (ya día siguiente en UTC)
+// quedaba del lado equivocado. La fecha del día (n.fecha) se compara
+// contra la fecha local del corte.
+function _isoLocalDe(ts){const d=new Date(ts);return isNaN(d)?"":d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function compCortes(){
   const c={};
   window.novedades.forEach(n=>{
     if(!String(n.id).startsWith(COMPIMP_PREFIX))return;
-    const f=(n.impCorte||n.modificadoEn||n.creadoEn||"").slice(0,10);
-    if(f&&(!c[n.personaId]||f>c[n.personaId]))c[n.personaId]=f;
+    // impCorte viejo = "AAAA-MM-DD" (fecha local): se toma el fin de ese día.
+    let ts=n.impCorte||n.modificadoEn||n.creadoEn||"";
+    if(/^\d{4}-\d{2}-\d{2}$/.test(ts))ts=new Date(ts+"T23:59:59").toISOString();
+    if(ts&&(!c[n.personaId]||ts>c[n.personaId]))c[n.personaId]=ts;
   });
   return c;
 }
 function incluidoEnPlanilla(n,cortes){
   const corte=cortes[n.personaId];
   if(!corte||String(n.id).startsWith(COMPIMP_PREFIX))return false;
-  if(!esCompensatorio(n.tipo)||(n.fecha||"")>corte)return false;
-  const alta=(n.creadoEn||"").slice(0,10);
-  return !alta||alta<=corte;
+  if(!esCompensatorio(n.tipo)||(n.fecha||"")>_isoLocalDe(corte))return false;
+  return !n.creadoEn||n.creadoEn<=corte;
 }
 function calcularCompensatorios(){
   const porPersona={},cortes=compCortes();
   movimientosComp().forEach(n=>{
-    const c=porPersona[n.personaId]||(porPersona[n.personaId]={favor:0,tomados:0,sinSaldo:0,pendientes:0,movs:0});
+    const c=porPersona[n.personaId]||(porPersona[n.personaId]={favor:0,tomados:0,sinSaldo:0,pendientes:0,movs:0,pendFavor:0});
     c.movs++;
     if(incluidoEnPlanilla(n,cortes))return;
     const est=estadoComp(n);
     if(est==="Rechazada")return;
-    if(est!=="Aprobada"){c.pendientes+=compDiasDe(n);return;}
+    if(est!=="Aprobada"){c.pendientes+=compDiasDe(n);if(compMovimientoDe(n)==="otorgado")c.pendFavor++;return;}
     const mov=compMovimientoDe(n), d=compDiasDe(n);
     if(mov==="corte") return;
     if(mov==="otorgado") c.favor+=d;
@@ -1500,7 +1509,11 @@ function calcularCompensatorios(){
   });
   return Object.entries(porPersona).map(([pid,c])=>{
     const p=window.nomina.find(x=>x.id===pid)||{nombre:"(persona eliminada)",turno:""};
-    return {pid,nombre:p.nombre,turno:p.turno||"",...c,saldo:c.favor-c.tomados};
+    // Sin planilla importada y sin ningún día a favor cargado: sólo hay
+    // días tomados (de Carga diaria / Asistencia) sin saber de dónde salían
+    // — no es que "deba" días, falta el origen. Saldo = null ("sin planilla").
+    const sinOrigen=!cortes[pid]&&c.favor===0&&!c.pendFavor;
+    return {pid,nombre:p.nombre,turno:p.turno||"",...c,sinOrigen,saldo:sinOrigen?null:c.favor-c.tomados};
   });
 }
 function compFiltrados(){
@@ -1513,14 +1526,16 @@ function compFiltrados(){
     if(saldo==="pos"&&!(r.saldo>0))return false;
     if(saldo==="neg"&&!(r.saldo<0))return false;
     if(saldo==="cero"&&r.saldo!==0)return false;
+    if(saldo==="sin"&&!r.sinOrigen)return false;
     return true;
   }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
 }
 const fmtDias=d=>(Math.round(d*10)/10).toLocaleString("es-AR");
 function renderCompensatorios(){
   const filas=ordenarLista(compFiltrados(),"comp",(r,campo)=>r[campo]);
-  const tot=filas.reduce((a,r)=>({favor:a.favor+r.favor,tomados:a.tomados+r.tomados,saldo:a.saldo+r.saldo}),{favor:0,tomados:0,saldo:0});
-  document.getElementById("comp-info").textContent=filas.length+" personas con movimientos · "+fmtDias(tot.favor)+" días a favor · "+fmtDias(tot.tomados)+" tomados · saldo total "+fmtDias(tot.saldo);
+  const tot=filas.reduce((a,r)=>({favor:a.favor+r.favor,tomados:a.tomados+r.tomados,saldo:a.saldo+(r.saldo||0),sin:a.sin+(r.sinOrigen?1:0)}),{favor:0,tomados:0,saldo:0,sin:0});
+  document.getElementById("comp-info").textContent=filas.length+" personas con movimientos · "+fmtDias(tot.favor)+" días a favor · "+fmtDias(tot.tomados)+" tomados · saldo total "+fmtDias(tot.saldo)
+    +(tot.sin?" · "+tot.sin+" sin planilla (tienen días tomados pero ningún día a favor cargado)":"");
   document.getElementById("comp-head").innerHTML=
     thOrden("comp","nombre","Persona","renderCompensatorios")
     +thOrden("comp","turno","Turno","renderCompensatorios")
@@ -1530,6 +1545,7 @@ function renderCompensatorios(){
     +thOrden("comp","saldo","Saldo","renderCompensatorios");
   document.getElementById("comp-body").innerHTML=filas.map(r=>{
     const cls=r.saldo>0?"comp-saldo-pos":r.saldo<0?"comp-saldo-neg":"";
+    const saldoTxt=r.sinOrigen?"<span style=\"font-size:11px;color:#888\" title=\"No está en la planilla de compensatorios ni tiene días a favor cargados: sólo días tomados (Carga diaria / Asistencia)\">sin planilla</span>":(r.saldo>0?"+":"")+fmtDias(r.saldo);
     const sinSaldo=r.sinSaldo?" <span style=\"font-size:11px;color:#b45309\" title=\"Días tomados sin tener saldo\">("+fmtDias(r.sinSaldo)+" sin saldo)</span>":"";
     return "<div class=\"table-row grid-comp\" style=\"cursor:pointer\" onclick=\"verDetalleComp('"+escJsAttr(r.pid)+"')\" title=\"Ver movimientos\">"
       +"<span style=\"font-weight:600\">"+esc(r.nombre)+"</span>"
@@ -1537,13 +1553,13 @@ function renderCompensatorios(){
       +"<span>"+fmtDias(r.favor)+"</span>"
       +"<span>"+fmtDias(r.tomados)+sinSaldo+"</span>"
       +"<span style=\"color:#888\">"+(r.pendientes?fmtDias(r.pendientes):"—")+"</span>"
-      +"<span class=\""+cls+"\">"+(r.saldo>0?"+":"")+fmtDias(r.saldo)+"</span>"
+      +"<span class=\""+cls+"\">"+saldoTxt+"</span>"
       +"</div>"
       +"<div class=\"mob-list-item\" onclick=\"verDetalleComp('"+escJsAttr(r.pid)+"')\">"
       +"<div class=\"mob-avatar\">"+esc(inicialesNombre(r.nombre))+"</div>"
       +"<div class=\"mob-main\"><div class=\"mob-nombre\">"+esc(r.nombre)+"</div>"
       +"<div class=\"mob-sub\">+"+fmtDias(r.favor)+" a favor · −"+fmtDias(r.tomados)+" tomados"+(r.pendientes?" · "+fmtDias(r.pendientes)+" pend.":"")+"</div></div>"
-      +"<span class=\""+cls+"\">"+(r.saldo>0?"+":"")+fmtDias(r.saldo)+"</span>"
+      +"<span class=\""+cls+"\">"+saldoTxt+"</span>"
       +"</div>";
   }).join("")||"<div style=\"padding:16px;color:#aaa;text-align:center\">Sin movimientos de compensatorio para estos filtros.</div>";
   if(_compDetallePid) verDetalleComp(_compDetallePid);
@@ -1554,7 +1570,7 @@ function verDetalleComp(pid){
   const p=window.nomina.find(x=>x.id===pid)||{nombre:"(persona eliminada)"};
   const movs=movimientosComp().filter(n=>n.personaId===pid).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   const r=calcularCompensatorios().find(x=>x.pid===pid);
-  document.getElementById("comp-detalle-titulo").textContent="Movimientos de "+p.nombre+(r?" — saldo "+(r.saldo>0?"+":"")+fmtDias(r.saldo)+" días":"");
+  document.getElementById("comp-detalle-titulo").textContent="Movimientos de "+p.nombre+(r?(r.sinOrigen?" — sin planilla (sólo días tomados, sin días a favor cargados)":" — saldo "+(r.saldo>0?"+":"")+fmtDias(r.saldo)+" días"):"");
   document.getElementById("comp-detalle-cargar").onclick=()=>abrirModalCompensatorio(pid);
   const cortes=compCortes();
   document.getElementById("comp-detalle-body").innerHTML=movs.map(n=>{
@@ -1785,7 +1801,7 @@ async function confirmarCompImport(){
   const aBorrar=window.novedades.filter(n=>String(n.id).startsWith(COMPIMP_PREFIX)&&pids.has(n.personaId)&&!nuevosIds.has(n.id));
   const btn=document.getElementById("comp-import-btn");btn.disabled=true;btn.textContent="Importando…";
   try{
-    const corte=todayISO();
+    const corte=new Date().toISOString();
     registros=registros.map(r=>{const orig=window.novedades.find(n=>n.id===r.id);if(orig&&orig._chunk!==undefined)r._chunk=orig._chunk;r.impCorte=corte;return conAuditoria(r,orig);});
     await window._guardarNovedadesBulk(registros);
     if(aBorrar.length) await window._eliminarNovedadesBulk(aBorrar);
@@ -1801,7 +1817,7 @@ function nombrePersonaNomina(pid){const p=window.nomina.find(x=>x.id===pid);retu
 function exportarCompensatoriosExcel(){
   const filas=compFiltrados();
   if(!filas.length){toast("Sin datos para exportar.");return;}
-  const resumen=filas.map(r=>({"Persona":r.nombre,"Turno":r.turno,"A favor (días)":r.favor,"Tomados (días)":r.tomados,"Tomados sin saldo (días)":r.sinSaldo,"Pendientes (días)":r.pendientes,"Saldo (días)":r.saldo}));
+  const resumen=filas.map(r=>({"Persona":r.nombre,"Turno":r.turno,"A favor (días)":r.favor,"Tomados (días)":r.tomados,"Tomados sin saldo (días)":r.sinSaldo,"Pendientes (días)":r.pendientes,"Saldo (días)":r.sinOrigen?"":r.saldo,"Sin planilla":r.sinOrigen?"Sí":""}));
   const pids=new Set(filas.map(r=>r.pid));
   const movs=movimientosComp().filter(n=>pids.has(n.personaId)).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"")).map(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};
