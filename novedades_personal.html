@@ -1477,19 +1477,23 @@ function movimientosComp(){
 // contra la fecha local del corte.
 function _isoLocalDe(ts){const d=new Date(ts);return isNaN(d)?"":d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function compCortes(){
-  const c={};
+  const c={},usa=new Set();
   window.novedades.forEach(n=>{
     if(!String(n.id).startsWith(COMPIMP_PREFIX))return;
     // impCorte viejo = "AAAA-MM-DD" (fecha local): se toma el fin de ese día.
     let ts=n.impCorte||n.modificadoEn||n.creadoEn||"";
     if(/^\d{4}-\d{2}-\d{2}$/.test(ts))ts=new Date(ts+"T23:59:59").toISOString();
     if(ts&&(!c[n.personaId]||ts>c[n.personaId]))c[n.personaId]=ts;
+    // Compensatorios cargados por fuera que la importación usó como "tomado"
+    // de la planilla (mismo día): ésos siguen sumando al saldo.
+    (n.impUsa||[]).forEach(id=>usa.add(id));
   });
+  Object.defineProperty(c,"_usa",{value:usa});
   return c;
 }
 function incluidoEnPlanilla(n,cortes){
   const corte=cortes[n.personaId];
-  if(!corte||String(n.id).startsWith(COMPIMP_PREFIX))return false;
+  if(!corte||String(n.id).startsWith(COMPIMP_PREFIX)||cortes._usa.has(n.id))return false;
   if(!esCompensatorio(n.tipo)||(n.fecha||"")>_isoLocalDe(corte))return false;
   return !n.creadoEn||n.creadoEn<=corte;
 }
@@ -1738,18 +1742,28 @@ function _ci_registrosDe(p){
   p.ops.forEach(o=>out.push({id:COMPIMP_PREFIX+pid+"_op_"+_ci_slug(p.hoja)+"_c"+o.c+"_"+_ci_slug(o.col),personaId:pid,tipo:"Compensatorio",
     fecha:o.fecha||primerFecha,compMovimiento:"otorgado",compDias:o.dias,estadoLic:"Aprobada",detalle:o.col+" · "+ctx}));
   // Tomados: uno por fecha legible, salvo que ese día ya haya un
-  // compensatorio tomado cargado por fuera (ej. desde Carga diaria).
-  // Se crean TODOS los tomados de la planilla. Los compensatorios que ya
-  // estaban cargados por fuera antes de importar dejan de sumar al saldo
-  // (ver incluidoEnPlanilla), así que no hay doble descuento.
-  const yaCargados=window.novedades.filter(n=>n.personaId===pid&&esCompensatorio(n.tipo)&&!String(n.id).startsWith(COMPIMP_PREFIX)&&(n.fecha||"")<=todayISO()).length;
-  const cuenta={};
+  // compensatorio tomado cargado por fuera (ej. desde Carga diaria): en ese
+  // caso se usa el que ya estaba (no se duplica) y sigue sumando al saldo.
+  // El resto de lo cargado por fuera antes de importar deja de sumar (ver
+  // incluidoEnPlanilla), así que no hay doble descuento.
+  const previos=window.novedades.filter(n=>n.personaId===pid&&esCompensatorio(n.tipo)&&!String(n.id).startsWith(COMPIMP_PREFIX)
+    &&["descontado","debe"].includes(compMovimientoDe(n))&&(n.fecha||"")<=todayISO());
+  const yaCargados=previos.length;
+  const diasDe=n=>{const ini=n.licIni||n.fecha,fin=n.licFin||ini,out=[];if(!ini)return out;
+    for(let d=ini;d<=fin&&out.length<400;d=_ci_iso(...(x=>{const z=new Date(x+"T12:00:00");z.setDate(z.getDate()+1);return [z.getFullYear(),z.getMonth()+1,z.getDate()];})(d)))out.push(d);
+    if(!out.length)out.push(n.fecha);return out;};
+  const libre={};previos.forEach(n=>diasDe(n).forEach(d=>(libre[d]=libre[d]||[]).push(n)));
+  const usa=new Set(),cuenta={};let tomImp=0;
   p.fechas.forEach(f=>{
-    cuenta[f]=(cuenta[f]||0)+1;
+    const prev=(libre[f]||[]).shift();
+    if(prev){usa.add(prev.id);return;}
+    cuenta[f]=(cuenta[f]||0)+1;tomImp++;
     out.push({id:COMPIMP_PREFIX+pid+"_tom_"+f+"_"+cuenta[f],personaId:pid,tipo:"Compensatorio",fecha:f,compMovimiento:"descontado",compDias:1,estadoLic:"Aprobada",detalle:"Tomado · "+ctx});
   });
+  out[0].impUsa=[...usa];
+  const diasUsados=previos.filter(n=>usa.has(n.id)).reduce((a,n)=>a+compDiasDe(n),0);
   const favor=p.ops.reduce((a,o)=>a+o.dias,0),tom=p.fechas.length;
-  const ajuste=Math.round((p.restantes-(favor-tom))*10)/10;
+  const ajuste=Math.round((p.restantes-(favor-tomImp-diasUsados))*10)/10;
   if(ajuste){
     const motivos=[];
     if(Math.abs(favor-p.total)>0.01) motivos.push("operativos suman "+favor+" y el TOTAL dice "+p.total);
@@ -1758,7 +1772,7 @@ function _ci_registrosDe(p){
     out.push({id:COMPIMP_PREFIX+pid+"_ajuste_"+_ci_slug(p.hoja),personaId:pid,tipo:"Compensatorio",fecha:todayISO(),compMovimiento:ajuste>0?"otorgado":"descontado",compDias:Math.abs(ajuste),estadoLic:"Aprobada",
       detalle:"Ajuste planilla para que el saldo dé "+p.restantes+" (RESTANTES) — "+motivos.join("; ")+" · "+ctx});
   }
-  return {registros:out,favor,tom,ajuste,yaCargados};
+  return {registros:out,favor,tom,ajuste,yaCargados,usados:usa.size};
 }
 function renderCompImportPreview(){
   const el=document.getElementById("comp-import-preview");
@@ -1775,7 +1789,8 @@ function renderCompImportPreview(){
     const avisos=[];
     if(!p.personaId) avisos.push("<span style=\"color:#b91c1c\">No está en la nómina: elegila o queda afuera</span>");
     if(calc&&calc.ajuste) avisos.push("<span style=\"color:#b45309\">Ajuste "+(calc.ajuste>0?"+":"")+calc.ajuste+"</span>");
-    if(calc&&calc.yaCargados) avisos.push(calc.yaCargados+" cargado/s por fuera (quedan incluidos en la planilla)");
+    if(calc&&calc.usados) avisos.push(calc.usados+" ya cargado/s el mismo día (no se duplican)");
+    if(calc&&calc.yaCargados>calc.usados) avisos.push((calc.yaCargados-calc.usados)+" cargado/s por fuera en otras fechas (quedan incluidos en la planilla)");
     return "<tr><td>"+esc(p.hoja)+"</td><td><b>"+esc(p.nombre)+"</b></td><td>"+sel+(p.personaId&&!p.auto?" <span title=\"Elegida a mano\">✋</span>":"")+"</td>"
       +"<td class=\"num\">"+p.total+"</td><td class=\"num\">"+p.tomados+(p.fechas.length!==p.tomados?" <span style=\"color:#b45309\" title=\"Fechas legibles\">("+p.fechas.length+")</span>":"")+"</td><td class=\"num\"><b>"+p.restantes+"</b></td>"
       +"<td style=\"font-size:12px\">"+avisos.join(" · ")+"</td></tr>";
