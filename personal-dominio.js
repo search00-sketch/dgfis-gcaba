@@ -68,7 +68,9 @@ function getEstadoPersona(p, hoy) {
 }
 function novedadesHoy() {
   const hoy=getFecha();
-  return window.novedades.filter(n=>!esMovimientoSoloSaldo(n)&&(n.fecha===hoy||(n.tipo.toLowerCase().includes('licencia')&&n.licIni&&n.licFin&&hoy>=n.licIni&&hoy<=n.licFin)));
+  // Cualquier novedad con rango (licencia, compensatorio de varios días…)
+  // aparece todos los días del rango, no sólo el primero.
+  return window.novedades.filter(n=>!esMovimientoSoloSaldo(n)&&novedadCubreFecha(n,hoy));
 }
 function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
 function allZonas(){return [...(window.zonas||[]),'EVENTO ESPECIAL','PARTIDO FÚTBOL'];}
