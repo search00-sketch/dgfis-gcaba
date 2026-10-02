@@ -585,13 +585,17 @@ async function cargarResumen(){
   renderZonas(fecha);
 }
 
+// Resumen por zona: primero los coordinadores, después el resto, cada grupo
+// por orden alfabético.
+function esCoordinador(p){return /coordinador/i.test(p.rol||"");}
+function ordenResumen(a,b){return (esCoordinador(b)-esCoordinador(a))||(a.nombre||"").localeCompare(b.nombre||"");}
 function renderZonas(fecha){
   fecha=fecha||document.getElementById("resumen-fecha")?.value||todayISO();
   const dist=window.distribuciones[fecha]||{};
   const filtTurno=document.getElementById("resumen-turno")?.value||"";
   // Filtrar: solo activos que PUEDEN ser asignados en esa fecha (rol/turno/baja/ausencia)
   const activos=window.nomina.filter(p=>puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno))
-    .sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
+    .sort(ordenResumen);
   const novHoy=novedadesHoy();
   const idc={};novHoy.forEach(n=>{if(!idc[n.personaId])idc[n.personaId]=[];idc[n.personaId].push(n);});
   // Contar solo los que corresponden a ese día
@@ -625,7 +629,7 @@ function renderZonas(fecha){
           const rol=p.rol||"Inspector";
           const novP=idc[p.id]||[];
           return "<div class=\"zona-persona\">"
-            +"<span style=\"font-weight:600\">"+esc(p.nombre)+(rol==="Chofer"?" 🚗":"")+"</span>"
+            +"<span style=\"font-weight:600\">"+esc(p.nombre)+(rol==="Chofer"?" 🚗":esCoordinador(p)?" <span class=\"rol-coord\">Coord.</span>":"")+"</span>"
             +"<div>"+badgeTurno(p.turno)+" "+novP.map(n=>badgeNov(n.tipo)).join(" ")+"</div>"
             +"</div>";
         }).join(""))
@@ -655,7 +659,7 @@ function exportarResumenZonas(){
   const fecha=document.getElementById("resumen-fecha")?.value||todayISO();
   const dist=window.distribuciones[fecha]||{};
   const filtTurno=document.getElementById("resumen-turno")?.value||"";
-  const activos=window.nomina.filter(p=>puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno));
+  const activos=window.nomina.filter(p=>puedeAsignarse(p,fecha)&&(!filtTurno||p.turno===filtTurno)).sort(ordenResumen);
   const fechaObj=new Date(fecha+"T12:00:00");
   const DIAS=["DOMINGO","LUNES","MARTES","MIERCOLES","JUEVES","VIERNES","SABADO"];
   const MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];

@@ -1861,15 +1861,23 @@ function calcularRanking(){
   const hasta=document.getElementById("rank-hasta").value;
   const turnoFiltro=document.getElementById("rank-turno").value;
   const tipos=(window.tiposNovedad||[]).filter(t=>t!=="Presente");
-  const porPersona={};
+  const porPersona={},cortes=compCortes();
   window.novedades.forEach(n=>{
     if(n.tipo==="Presente")return;
-    if(n.compMovimiento==="corte")return; // marca de planilla importada, no es una novedad
+    if(esCompensatorio(n.tipo)){
+      // Sólo cuentan los días tomados: no los "a favor", la marca de la
+      // planilla ni el ajuste. Y lo cargado a mano antes de importar la
+      // planilla ya está en sus tomados: no se cuenta dos veces.
+      if(!["descontado","debe"].includes(compMovimientoDe(n)))return;
+      if(String(n.id).includes("_ajuste_")&&String(n.id).startsWith(COMPIMP_PREFIX))return;
+      if(incluidoEnPlanilla(n,cortes))return;
+    }
     if(!tipos.includes(n.tipo))return; // tipo viejo ya sacado de la config
     if(desde&&n.fecha<desde)return;
     if(hasta&&n.fecha>hasta)return;
     const p=window.nomina.find(x=>x.id===n.personaId);
-    if(turnoFiltro&&(!p||p.turno!==turnoFiltro))return;
+    if(!p||getEstadoPersona(p,todayISO())==="Baja")return; // dados de baja (o borrados de la nómina) no van al ranking
+    if(turnoFiltro&&p.turno!==turnoFiltro)return;
     if(!porPersona[n.personaId]){
       porPersona[n.personaId]={personaId:n.personaId,nombre:p?p.nombre:n.personaId,turno:p?p.turno:"",counts:{},total:0};
     }
