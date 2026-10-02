@@ -411,7 +411,7 @@
     <div class="modal-title" id="mn-title">Cargar novedad</div>
     <div id="mn-form-body">
       <div class="form-field full" style="margin-bottom:12px" id="mn-fecha-wrap">
-        <label class="fl">Fecha de la novedad</label>
+        <label class="fl" id="mn-fecha-label">Fecha de la novedad</label>
         <input type="date" class="form-input" id="mn-fecha">
       </div>
       <div class="form-field full" id="mn-persona-wrap" style="margin-bottom:12px">
@@ -442,7 +442,7 @@
           <button type="button" class="comp-mov-btn" data-mov="debe" onclick="selCompMov('debe')">➖ Sin saldo<small>se lo tomó, queda debiendo</small></button>
         </div>
         <div class="lic-dates">
-          <div class="form-field" id="mn-comp-hasta-wrap"><label class="fl">Hasta (si se toma varios días)</label><input type="date" class="form-input" id="mn-comp-hasta" onchange="onCompHastaChange()"></div>
+          <div class="form-field" id="mn-comp-hasta-wrap"><label class="fl">Hasta (vacío = un solo día)</label><input type="date" class="form-input" id="mn-comp-hasta" onchange="onCompHastaChange()"></div>
           <div class="form-field"><label class="fl">Días</label><input type="number" min="0.5" step="0.5" class="form-input" id="mn-comp-dias" placeholder="Ej: 1"></div>
         </div>
       </div>
@@ -533,7 +533,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-dominio.js?v=10"></script>
+<script src="personal-dominio.js?v=11"></script>
 <script src="personal-datos.js?v=5"></script>
 
 <script type="module">
@@ -1314,6 +1314,7 @@ function selTipo(btn,tipo){
   document.getElementById("mn-lic-estado").style.display=(esLic||esComp)?"":"none";
   document.getElementById("mn-lic-estado-label").textContent=esComp?"Estado":"Estado de la licencia";
   document.getElementById("mn-comp-campos").style.display=esComp?"":"none";
+  actualizarLabelFecha();
   // Un compensatorio cargado a mano ya está decidido casi siempre: se
   // propone "Aprobada" (se puede cambiar a Pendiente si falta el OK).
   if(esComp&&!_editNovId) document.getElementById("mn-lic-estado-sel").value="Aprobada";
@@ -1326,6 +1327,12 @@ function selCompMov(mov){
   // "A favor" es un reconocimiento de días (no un rango de ausencia): no
   // lleva "Hasta" — los días se cargan directo en el campo Días.
   document.getElementById("mn-comp-hasta-wrap").style.display=mov==="otorgado"?"none":"";
+  actualizarLabelFecha();
+}
+// Compensatorio tomado: "Desde" / "Hasta", como las licencias.
+function actualizarLabelFecha(){
+  const comp=esCompensatorio(_novTipo)&&_compMov!=="otorgado";
+  document.getElementById("mn-fecha-label").textContent=comp?"Desde":"Fecha de la novedad";
 }
 // Al elegir "Hasta", propone la cantidad de días del rango (se puede
 // corregir a mano, ej. si en el medio cae un franco).
