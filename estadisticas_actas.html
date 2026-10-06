@@ -339,8 +339,11 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   <div class="twrap">
     <div style="padding:12px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span style="font-size:.8rem;color:var(--mut)">Mostrando <strong id="tblCount">–</strong> registros</span>
-      <input type="text" id="tblSearch" placeholder="Buscar por inspector, dirección, acta, precinto…" oninput="renderTabla()"
-             style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:0;font-size:.82rem;outline:none;width:260px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="tblSearch" placeholder="Buscar por inspector, dirección, acta, precinto…" oninput="renderTabla()"
+               style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:0;font-size:.82rem;outline:none;width:260px">
+        <button class="fbtn" onclick="exportarRegistros()" title="Descarga lo que se ve con los filtros y la búsqueda aplicados">⬇ Descargar filtrado (Excel)</button>
+      </div>
     </div>
     <div style="overflow-x:auto">
       <table>
@@ -969,14 +972,52 @@ function renderMapa() {
 }
 
 // ── TABLA ──────────────────────────────────────────────────────────────────
-function renderTabla() {
+// Registros = filtros de arriba + búsqueda de la tabla.
+function registrosTabla() {
   const q = (document.getElementById('tblSearch').value||'').toLowerCase();
-  let datos = datosFiltrados.filter(r => {
+  return datosFiltrados.filter(r => {
     if (!q) return true;
     const camposDirectos = [r.id,r.inspector,r.zona,r.direccion,r.barrio,r.actaSecuestro,r.actaComprobacion,r.operativo];
     if (camposDirectos.some(v => v && String(v).toLowerCase().includes(q))) return true;
     return (r.precintos||[]).some(p => p.precinto && String(p.precinto).toLowerCase().includes(q));
   });
+}
+// Excel para informes con lo filtrado: hoja "Actas" (una fila por acta),
+// "Precintos" (una fila por precinto, con los datos del acta) y "Filtros"
+// (qué se aplicó, para dejar constancia en el informe).
+function exportarRegistros() {
+  const datos = registrosTabla().slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
+  if (!datos.length) { alert('No hay registros para descargar con estos filtros.'); return; }
+  const base = r => ({'ID':r.id??'','Fecha':r.fecha||'','Inspector':r.inspector||'','Cargó':r.cargaEmail||r.cargaNombre||'','Turno':r.turno||'',
+    'Operativo':r.operativo||'','Zona':r.zona||'','Dirección':r.direccion||'','Barrio':r.barrio||'','Comuna':r.comuna||'',
+    'Infractor':r.infractor||'','Acta secuestro':r.actaSecuestro||'','Acta comprobación':r.actaComprobacion||'',
+    'Food truck':r.foodTruck||'','Tipo de conexión':r.tipoConexion||'','Decomisado':r.fueDecomisado||''});
+  const actas = datos.map(r => ({...base(r),'Cant. precintos':(r.precintos||[]).length,
+    'Precintos':(r.precintos||[]).map(p=>p.precinto).filter(Boolean).join(', '),
+    'Categorías':[...new Set((r.precintos||[]).map(p=>p.categoria).filter(Boolean))].join(', '),
+    'Lat':r.lat??'','Lng':r.lng??'','Foto':r.fotoActa||''}));
+  const precs = [];
+  datos.forEach(r => (r.precintos||[]).forEach(p => precs.push({...base(r),'Precinto':p.precinto??'','Cantidad':p.cantidad??'','Artículo':p.articulo??'','Categoría':p.categoria??''})));
+  const sel = id => { const el=document.getElementById(id); return el&&el.value ? (el.options&&el.selectedIndex>=0?el.options[el.selectedIndex].text:el.value) : ''; };
+  const filtros = [['Filtro','Valor'],['Operativo',sel('fOperativo')||'Todos'],['Zona',sel('fZona')||'Todas'],['Categoría',sel('fCategoria')||'Todas'],
+    ['Food truck',sel('fFoodTruck')||'Todos'],['Tipo de conexión',sel('fTipoConexion')||'Todos'],['Turno',sel('fTurno')||'Todos'],
+    ['Desde',document.getElementById('fDesde').value||'—'],['Hasta',document.getElementById('fHasta').value||'—'],
+    ['Búsqueda',document.getElementById('tblSearch').value||'—'],[],['Actas',datos.length],['Precintos',precs.length],
+    ['Descargado',new Date().toLocaleString('es-AR')]];
+  const wb = XLSX.utils.book_new();
+  const w1 = XLSX.utils.json_to_sheet(actas);
+  w1['!cols']=[8,11,26,26,12,16,18,30,18,8,24,14,14,10,14,10,8,30,24,10,10,40].map(w=>({wch:w}));
+  w1['!autofilter']={ref:w1['!ref']};
+  XLSX.utils.book_append_sheet(wb, w1, 'Actas');
+  if (precs.length) { const w2=XLSX.utils.json_to_sheet(precs); w2['!cols']=[8,11,26,26,12,16,18,30,18,8,24,14,14,10,14,10,12,9,30,20].map(w=>({wch:w})); w2['!autofilter']={ref:w2['!ref']}; XLSX.utils.book_append_sheet(wb, w2, 'Precintos'); }
+  const w3 = XLSX.utils.aoa_to_sheet(filtros); w3['!cols']=[{wch:18},{wch:40}];
+  XLSX.utils.book_append_sheet(wb, w3, 'Filtros');
+  const d=document.getElementById('fDesde').value, h=document.getElementById('fHasta').value;
+  XLSX.writeFile(wb, 'actas_filtradas'+(d||h?'_'+(d||'inicio')+'_a_'+(h||'hoy'):'')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+window.exportarRegistros = exportarRegistros;
+function renderTabla() {
+  let datos = registrosTabla();
 
   const total = datos.length;
   const pages = Math.max(1, Math.ceil(total/TBL_PER));
