@@ -533,7 +533,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-dominio.js?v=11"></script>
+<script src="personal-dominio.js?v=12"></script>
 <script src="personal-datos.js?v=5"></script>
 
 <script type="module">
@@ -1507,7 +1507,7 @@ function incluidoEnPlanilla(n,cortes){
 function calcularCompensatorios(){
   const porPersona={},cortes=compCortes();
   movimientosComp().forEach(n=>{
-    const c=porPersona[n.personaId]||(porPersona[n.personaId]={favor:0,tomados:0,sinSaldo:0,pendientes:0,movs:0,pendFavor:0});
+    const c=porPersona[n.personaId]||(porPersona[n.personaId]={favor:0,tomados:0,sinSaldo:0,vencidos:0,pendientes:0,movs:0,pendFavor:0});
     c.movs++;
     if(incluidoEnPlanilla(n,cortes))return;
     const est=estadoComp(n);
@@ -1516,6 +1516,7 @@ function calcularCompensatorios(){
     const mov=compMovimientoDe(n), d=compDiasDe(n);
     if(mov==="corte") return;
     if(mov==="otorgado") c.favor+=d;
+    else if(mov==="vencido"||mov==="quita"||(esAjustePlanilla(n)&&mov==="descontado")) c.vencidos+=d;
     else { c.tomados+=d; if(mov==="debe") c.sinSaldo+=d; }
   });
   return Object.entries(porPersona).map(([pid,c])=>{
@@ -1525,7 +1526,7 @@ function calcularCompensatorios(){
     // diaria / Asistencia sin saber de dónde salían. No "deben" días: su
     // saldo es 0 (criterio de la gerencia); los tomados se siguen viendo.
     const sinOrigen=!cortes[pid]&&c.favor===0&&!c.pendFavor;
-    return {pid,nombre:p.nombre,turno:p.turno||"",...c,sinOrigen,saldo:sinOrigen?0:c.favor-c.tomados};
+    return {pid,nombre:p.nombre,turno:p.turno||"",...c,sinOrigen,saldo:sinOrigen?0:c.favor-c.tomados-c.vencidos};
   });
 }
 function compFiltrados(){
@@ -1545,8 +1546,8 @@ function compFiltrados(){
 const fmtDias=d=>(Math.round(d*10)/10).toLocaleString("es-AR");
 function renderCompensatorios(){
   const filas=ordenarLista(compFiltrados(),"comp",(r,campo)=>r[campo]);
-  const tot=filas.reduce((a,r)=>({favor:a.favor+r.favor,tomados:a.tomados+r.tomados,saldo:a.saldo+(r.saldo||0),sin:a.sin+(r.sinOrigen?1:0)}),{favor:0,tomados:0,saldo:0,sin:0});
-  document.getElementById("comp-info").textContent=filas.length+" personas con movimientos · "+fmtDias(tot.favor)+" días a favor · "+fmtDias(tot.tomados)+" tomados · saldo total "+fmtDias(tot.saldo)
+  const tot=filas.reduce((a,r)=>({favor:a.favor+r.favor,tomados:a.tomados+r.tomados,vencidos:a.vencidos+r.vencidos,saldo:a.saldo+(r.saldo||0),sin:a.sin+(r.sinOrigen?1:0)}),{favor:0,tomados:0,vencidos:0,saldo:0,sin:0});
+  document.getElementById("comp-info").textContent=filas.length+" personas con movimientos · "+fmtDias(tot.favor)+" días a favor · "+fmtDias(tot.tomados)+" tomados"+(tot.vencidos?" · "+fmtDias(tot.vencidos)+" vencidos/ajustes":"")+" · saldo total "+fmtDias(tot.saldo)
     +(tot.sin?" · "+tot.sin+" sin planilla (saldo 0: tienen días tomados pero ningún día a favor cargado)":"");
   document.getElementById("comp-head").innerHTML=
     thOrden("comp","nombre","Persona","renderCompensatorios")
@@ -1727,34 +1728,72 @@ function _ci_leerHoja(ws,hoja,archivo){
   });
   return personas;
 }
+// Formato "por movimientos" (ej. COMPENSATORIOS FIN DE SEMANA): una fila por
+// operativo con AGENTES · Operativo / Motivo · Fecha de origen · Días a favor ·
+// Fecha que lo tomó · Días usados · Saldo · Vencidos · Disponibles (este
+// último, en la primera fila de cada persona, es su saldo final).
+function _ci_leerHojaMovs(ws,hoja,archivo){
+  const range=(()=>{let mr=0,mc=0;for(const k in ws){if(k[0]==="!")continue;const c=XLSX.utils.decode_cell(k);if(c.r>mr)mr=c.r;if(c.c>mc)mc=c.c;}return {s:{r:0,c:0},e:{r:mr,c:mc}};})();
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",range});
+  const hi=rows.findIndex(r=>r.some(c=>_ci_norm(c)==="AGENTES")&&r.some(c=>_ci_norm(c).startsWith("FECHA DE ORIGEN")));
+  if(hi<0) return null;
+  const H=rows[hi].map(c=>_ci_norm(c)),col=pre=>H.findIndex(h=>h.startsWith(pre));
+  const iNom=H.indexOf("AGENTES"),iMot=col("OPERATIVO"),iOri=col("FECHA DE ORIGEN"),iFav=col("DIAS A FAVOR"),iTom=col("FECHA QUE LO TOMO"),
+    iUsa=col("DIAS USADOS"),iVen=col("VENCIDOS"),iDis=col("DISPONIBLES");
+  if(iFav<0) return null;
+  // Celdas con formato fecha por error: 1 → 01/01/1900, 2 → 02/01/1900.
+  const num=v=>{if(v instanceof Date){return v.getFullYear()<1901?Math.round((v-new Date(1899,11,30))/86400000):0;}const x=parseFloat(String(v).replace(",","."));return isNaN(x)?0:x;};
+  const por={},orden=[];
+  rows.slice(hi+1).forEach((r,k)=>{
+    const nombre=String(r[iNom]??"").trim(); if(!nombre) return;
+    const key=_ci_norm(nombre);
+    if(!por[key]){por[key]={hoja,archivo,formato:"movs",nombre,total:0,tomados:0,vencidos:0,restantes:null,ops:[],vencs:[],fechas:[],ilegibles:0,fechasTxt:[]};orden.push(key);}
+    const p=por[key],fila=hi+1+k;
+    const origen=_ci_parseFechas(r[iOri]).fechas[0]||"";
+    const motivo=String(r[iMot]??"").trim()||"Operativo";
+    const fav=num(r[iFav]),usa=iUsa>=0?num(r[iUsa]):0,ven=iVen>=0?num(r[iVen]):0;
+    if(fav>0){p.ops.push({col:motivo,c:fila,dias:fav,fecha:origen});p.total+=fav;}
+    p.tomados+=usa;
+    if(ven>0){p.vencs.push({col:motivo,c:fila,dias:ven,fecha:origen});p.vencidos+=ven;}
+    if(iTom>=0&&String(r[iTom]).trim()){const f=_ci_parseFechas(r[iTom]);p.fechas.push(...f.fechas);p.ilegibles+=f.ilegibles;p.fechasTxt.push(String(r[iTom]).trim());}
+    if(iDis>=0&&p.restantes===null&&String(r[iDis]).trim()!=="") p.restantes=num(r[iDis]);
+  });
+  return orden.map(k=>{const p=por[k];if(p.restantes===null)p.restantes=p.total-p.tomados-p.vencidos;p.fechas.sort();p.fechasTxt=p.fechasTxt.join(" · ");return p;});
+}
 async function onCompImportFile(e){
   const file=e.target.files[0]; if(!file) return;
   e.target.value="";
   try{
     const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
     let personas=[];const hojas=[];
-    wb.SheetNames.forEach(n=>{const ps=_ci_leerHoja(wb.Sheets[n],n.trim(),file.name);if(ps){hojas.push(n.trim()+" ("+ps.length+")");personas=personas.concat(ps);}});
-    if(!personas.length){toast("No encontré ninguna hoja con columnas INSPECTOR y TOTAL.",4000);return;}
+    wb.SheetNames.forEach(n=>{const ps=_ci_leerHoja(wb.Sheets[n],n.trim(),file.name)||_ci_leerHojaMovs(wb.Sheets[n],n.trim(),file.name);if(ps){hojas.push(n.trim()+" ("+ps.length+")");personas=personas.concat(ps);}});
+    if(!personas.length){toast("No encontré ninguna hoja con columnas INSPECTOR y TOTAL, ni AGENTES y FECHA DE ORIGEN.",4000);return;}
     personas.forEach(p=>{const m=_ci_buscarPersona(p.nombre);p.personaId=m?m.id:"";p.auto=!!m;});
     _compImport={archivo:file.name,hojas,personas};
     renderCompImportPreview();
   }catch(err){console.error(err);toast("❌ No se pudo leer el archivo: "+err.message,4000);}
 }
+function _ci_fuente(p){return p.formato==="movs"?"movs:"+_ci_slug(p.archivo.replace(/\.[a-z]+$/i,""))+":"+_ci_slug(p.hoja):"planilla";}
 // Arma los registros a guardar para una persona ya vinculada a la nómina.
 function _ci_registrosDe(p){
   const pid=p.personaId,out=[],ctx=p.hoja+" · importado de "+p.archivo;
+  // Cada planilla es una "fuente": reimportar una no borra lo de la otra
+  // (hay personas en las dos). La planilla original no tenía este campo.
+  const fuente=_ci_fuente(p),src=p.formato==="movs"?"m"+_ci_slug(p.hoja)+"_":"";
   out.push({id:COMPIMP_PREFIX+pid+"_corte_"+_ci_slug(p.hoja),personaId:pid,tipo:"Compensatorio",fecha:todayISO(),compMovimiento:"corte",compDias:0,estadoLic:"Aprobada",
-    detalle:"Planilla importada ("+ctx+"): TOTAL "+p.total+", TOMADOS "+p.tomados+", RESTANTES "+p.restantes+". Lo cargado antes por fuera ya está incluido acá."});
+    detalle:"Planilla importada ("+ctx+"): TOTAL "+p.total+", TOMADOS "+p.tomados+(p.vencidos?", VENCIDOS "+p.vencidos:"")+", RESTANTES "+p.restantes+". Lo cargado antes por fuera ya está incluido acá."});
   const primerFecha=p.ops.find(o=>o.fecha)?.fecha||p.fechas[0]||todayISO();
   p.ops.forEach(o=>out.push({id:COMPIMP_PREFIX+pid+"_op_"+_ci_slug(p.hoja)+"_c"+o.c+"_"+_ci_slug(o.col),personaId:pid,tipo:"Compensatorio",
     fecha:o.fecha||primerFecha,compMovimiento:"otorgado",compDias:o.dias,estadoLic:"Aprobada",detalle:o.col+" · "+ctx}));
+  (p.vencs||[]).forEach(o=>out.push({id:COMPIMP_PREFIX+pid+"_venc_"+_ci_slug(p.hoja)+"_c"+o.c,personaId:pid,tipo:"Compensatorio",
+    fecha:o.fecha||primerFecha,compMovimiento:"vencido",compDias:o.dias,estadoLic:"Aprobada",detalle:"Vencido: "+o.col+" · "+ctx}));
   // Tomados: uno por fecha legible, salvo que ese día ya haya un
   // compensatorio tomado cargado por fuera (ej. desde Carga diaria): en ese
   // caso se usa el que ya estaba (no se duplica) y sigue sumando al saldo.
   // El resto de lo cargado por fuera antes de importar deja de sumar (ver
   // incluidoEnPlanilla), así que no hay doble descuento.
   const previos=window.novedades.filter(n=>n.personaId===pid&&esCompensatorio(n.tipo)&&!String(n.id).startsWith(COMPIMP_PREFIX)
-    &&["descontado","debe"].includes(compMovimientoDe(n))&&(n.fecha||"")<=todayISO());
+    &&["descontado","debe"].includes(compMovimientoDe(n)));
   const yaCargados=previos.length;
   const diasDe=n=>{const ini=n.licIni||n.fecha,fin=n.licFin||ini,out=[];if(!ini)return out;
     for(let d=ini;d<=fin&&out.length<400;d=_ci_iso(...(x=>{const z=new Date(x+"T12:00:00");z.setDate(z.getDate()+1);return [z.getFullYear(),z.getMonth()+1,z.getDate()];})(d)))out.push(d);
@@ -1765,20 +1804,21 @@ function _ci_registrosDe(p){
     const prev=(libre[f]||[]).shift();
     if(prev){usa.add(prev.id);return;}
     cuenta[f]=(cuenta[f]||0)+1;tomImp++;
-    out.push({id:COMPIMP_PREFIX+pid+"_tom_"+f+"_"+cuenta[f],personaId:pid,tipo:"Compensatorio",fecha:f,compMovimiento:"descontado",compDias:1,estadoLic:"Aprobada",detalle:"Tomado · "+ctx});
+    out.push({id:COMPIMP_PREFIX+pid+"_tom_"+src+f+"_"+cuenta[f],personaId:pid,tipo:"Compensatorio",fecha:f,compMovimiento:"descontado",compDias:1,estadoLic:"Aprobada",detalle:"Tomado · "+ctx});
   });
   out[0].impUsa=[...usa];
   const diasUsados=previos.filter(n=>usa.has(n.id)).reduce((a,n)=>a+compDiasDe(n),0);
-  const favor=p.ops.reduce((a,o)=>a+o.dias,0),tom=p.fechas.length;
-  const ajuste=Math.round((p.restantes-(favor-tomImp-diasUsados))*10)/10;
+  const favor=p.ops.reduce((a,o)=>a+o.dias,0),tom=p.fechas.length,venc=p.vencidos||0;
+  const ajuste=Math.round((p.restantes-(favor-tomImp-diasUsados-venc))*10)/10;
   if(ajuste){
     const motivos=[];
     if(Math.abs(favor-p.total)>0.01) motivos.push("operativos suman "+favor+" y el TOTAL dice "+p.total);
     if(tom!==p.tomados) motivos.push("fechas legibles: "+tom+", TOMADOS dice "+p.tomados+(p.ilegibles?" ("+p.ilegibles+" fecha/s ilegible/s)":""));
-    if(!motivos.length) motivos.push("TOTAL − TOMADOS no coincide con RESTANTES");
-    out.push({id:COMPIMP_PREFIX+pid+"_ajuste_"+_ci_slug(p.hoja),personaId:pid,tipo:"Compensatorio",fecha:todayISO(),compMovimiento:ajuste>0?"otorgado":"descontado",compDias:Math.abs(ajuste),estadoLic:"Aprobada",
-      detalle:"Ajuste planilla para que el saldo dé "+p.restantes+" (RESTANTES) — "+motivos.join("; ")+" · "+ctx});
+    if(!motivos.length) motivos.push(p.formato==="movs"?"a favor − usados − vencidos no coincide con DISPONIBLES":"TOTAL − TOMADOS no coincide con RESTANTES");
+    out.push({id:COMPIMP_PREFIX+pid+"_ajuste_"+_ci_slug(p.hoja),personaId:pid,tipo:"Compensatorio",fecha:todayISO(),compMovimiento:ajuste>0?"otorgado":"quita",compDias:Math.abs(ajuste),estadoLic:"Aprobada",
+      detalle:"Ajuste planilla para que el saldo dé "+p.restantes+" ("+(p.formato==="movs"?"DISPONIBLES":"RESTANTES")+") — "+motivos.join("; ")+" · "+ctx});
   }
+  out.forEach(r=>r.impFuente=fuente);
   return {registros:out,favor,tom,ajuste,yaCargados,usados:usa.size};
 }
 function renderCompImportPreview(){
@@ -1795,6 +1835,7 @@ function renderCompImportPreview(){
       +opts.replace("value=\""+esc(p.personaId)+"\"","value=\""+esc(p.personaId)+"\" selected")+"</select>";
     const avisos=[];
     if(!p.personaId) avisos.push("<span style=\"color:#b91c1c\">No está en la nómina: elegila o queda afuera</span>");
+    if(p.vencidos) avisos.push(p.vencidos+" vencido/s");
     if(calc&&calc.ajuste) avisos.push("<span style=\"color:#b45309\">Ajuste "+(calc.ajuste>0?"+":"")+calc.ajuste+"</span>");
     if(calc&&calc.usados) avisos.push(calc.usados+" ya cargado/s el mismo día (no se duplican)");
     if(calc&&calc.yaCargados>calc.usados) avisos.push((calc.yaCargados-calc.usados)+" cargado/s por fuera en otras fechas (quedan incluidos en la planilla)");
@@ -1821,7 +1862,8 @@ async function confirmarCompImport(){
   const nuevosIds=new Set(registros.map(r=>r.id));
   // Lo importado antes de estas personas que ya no está en la planilla
   // (ej. una fecha corregida) se borra; lo cargado a mano no se toca.
-  const aBorrar=window.novedades.filter(n=>String(n.id).startsWith(COMPIMP_PREFIX)&&pids.has(n.personaId)&&!nuevosIds.has(n.id));
+  const fuenteDe={};vinc.forEach(p=>fuenteDe[p.personaId]=_ci_fuente(p));
+  const aBorrar=window.novedades.filter(n=>String(n.id).startsWith(COMPIMP_PREFIX)&&pids.has(n.personaId)&&!nuevosIds.has(n.id)&&(n.impFuente||"planilla")===fuenteDe[n.personaId]);
   const btn=document.getElementById("comp-import-btn");btn.disabled=true;btn.textContent="Importando…";
   try{
     const corte=new Date().toISOString();
@@ -1840,7 +1882,7 @@ function nombrePersonaNomina(pid){const p=window.nomina.find(x=>x.id===pid);retu
 function exportarCompensatoriosExcel(){
   const filas=compFiltrados();
   if(!filas.length){toast("Sin datos para exportar.");return;}
-  const resumen=filas.map(r=>({"Persona":r.nombre,"Turno":r.turno,"A favor (días)":r.favor,"Tomados (días)":r.tomados,"Tomados sin saldo (días)":r.sinSaldo,"Pendientes (días)":r.pendientes,"Saldo (días)":r.saldo,"Sin planilla":r.sinOrigen?"Sí":""}));
+  const resumen=filas.map(r=>({"Persona":r.nombre,"Turno":r.turno,"A favor (días)":r.favor,"Tomados (días)":r.tomados,"Tomados sin saldo (días)":r.sinSaldo,"Vencidos / ajustes (días)":r.vencidos,"Pendientes (días)":r.pendientes,"Saldo (días)":r.saldo,"Sin planilla":r.sinOrigen?"Sí":""}));
   const pids=new Set(filas.map(r=>r.pid));
   const movs=movimientosComp().filter(n=>pids.has(n.personaId)).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"")).map(n=>{
     const p=window.nomina.find(x=>x.id===n.personaId)||{};

@@ -95,8 +95,12 @@ function compMovimientoDe(n){return n.compMovimiento||'descontado';}
 function compDiasDe(n){if(n.compMovimiento==='corte')return 0;const d=parseFloat(n.compDias);return d>0?d:1;}
 // "corte" = marca de "planilla de compensatorios importada" (0 días): no
 // mueve el saldo ni ocupa el día; sólo dice desde cuándo manda la planilla.
-function esMovimientoSoloSaldo(n){return !!n&&esCompensatorio(n.tipo)&&(n.compMovimiento==='otorgado'||n.compMovimiento==='corte');}
-const COMP_MOV_LABEL={otorgado:'A favor',descontado:'Tomado',debe:'Tomado sin saldo',corte:'Planilla importada'};
+// "vencido" = días a favor que vencieron sin tomarse, "quita" = ajuste en
+// menos de una planilla importada: restan saldo pero no son días de
+// ausencia. (Los ajustes viejos se guardaban como "descontado": por id.)
+function esAjustePlanilla(n){const id=String(n.id||'');return id.startsWith('compimp_')&&id.includes('_ajuste_');}
+function esMovimientoSoloSaldo(n){return !!n&&esCompensatorio(n.tipo)&&(['otorgado','corte','vencido','quita'].includes(n.compMovimiento)||esAjustePlanilla(n));}
+const COMP_MOV_LABEL={otorgado:'A favor',descontado:'Tomado',debe:'Tomado sin saldo',corte:'Planilla importada',vencido:'Vencido',quita:'Ajuste (−)'};
 
 // Tipos de novedad que implican que la persona no está disponible ese día
 // (licencia, ausencia, compensatorio, artículo, etc. — por nombre, ya que
