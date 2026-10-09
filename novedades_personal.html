@@ -261,12 +261,14 @@
       <option value="cero">En cero</option>
       <option value="sin">Sin planilla (sólo tomados)</option>
     </select>
+    <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px"><input type="checkbox" id="comp-bajas" onchange="renderCompensatorios()">Incluir bajas</label>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Desde<input type="date" class="pinput" id="comp-desde" onchange="renderCompensatorios()"></label>
     <label style="font-size:.78rem;color:#777;display:flex;align-items:center;gap:4px">Hasta<input type="date" class="pinput" id="comp-hasta" onchange="renderCompensatorios()"></label>
     <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosComp()">✕ Limpiar filtros</button>
     <button class="btn btn-verde" onclick="exportarCompensatoriosExcel()">⬇ Exportar Excel</button>
   </div>
   <p style="font-size:.8rem;color:#777;margin-bottom:10px">Saldo en <b>días</b> = a favor − tomados. Cuentan los compensatorios aprobados (los pendientes o "a la espera" se muestran aparte y no mueven el saldo; los rechazados no cuentan). Los compensatorios cargados desde Carga diaria o el import de Asistencia cuentan como 1 día tomado — salvo para quien tiene la planilla importada: ahí lo cargado antes de la importación ya está incluido en la planilla y no se descuenta de nuevo. Hacé clic en una persona para ver sus movimientos.</p>
+  <div id="comp-dup"></div>
   <div class="table-info" id="comp-info"></div>
   <div class="table-wrap">
     <div class="table-head grid-comp mob-hide-head" id="comp-head"></div>
@@ -1526,14 +1528,17 @@ function calcularCompensatorios(){
     // diaria / Asistencia sin saber de dónde salían. No "deben" días: su
     // saldo es 0 (criterio de la gerencia); los tomados se siguen viendo.
     const sinOrigen=!cortes[pid]&&c.favor===0&&!c.pendFavor;
-    return {pid,nombre:p.nombre,turno:p.turno||"",...c,sinOrigen,saldo:sinOrigen?0:c.favor-c.tomados-c.vencidos};
+    const baja=!p.id||getEstadoPersona(p,todayISO())==="Baja";
+    return {pid,nombre:p.nombre,turno:p.turno||"",...c,sinOrigen,baja,saldo:sinOrigen?0:c.favor-c.tomados-c.vencidos};
   });
 }
 function compFiltrados(){
   const busq=(document.getElementById("comp-buscar").value||"").toLowerCase();
   const turno=document.getElementById("comp-turno").value;
   const saldo=document.getElementById("comp-saldo").value;
+  const conBajas=document.getElementById("comp-bajas").checked;
   return calcularCompensatorios().filter(r=>{
+    if(r.baja&&!conBajas)return false;
     if(busq&&!coincideTexto((r.nombre||"").toLowerCase(),busq))return false;
     if(turno&&r.turno!==turno)return false;
     if(saldo==="pos"&&!(r.saldo>0))return false;
@@ -1544,7 +1549,53 @@ function compFiltrados(){
   }).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
 }
 const fmtDias=d=>(Math.round(d*10)/10).toLocaleString("es-AR");
+// Misma persona cargada dos veces en la nómina (una ficha activa y otra de
+// baja con el mismo nombre, ej. del import de bajas): sus compensatorios
+// quedan repartidos y la persona aparece dos veces.
+function _nomClave(n){return _ci_norm(n).split(" ").filter(Boolean).sort().join(" ");}
+function compDuplicados(){
+  const activos={};window.nomina.forEach(p=>{if(getEstadoPersona(p,todayISO())!=="Baja"){const k=_nomClave(p.nombre);(activos[k]=activos[k]||[]).push(p);}});
+  const out={};
+  window.novedades.forEach(n=>{
+    if(!esCompensatorio(n.tipo))return;
+    const p=window.nomina.find(x=>x.id===n.personaId);
+    if(!p||getEstadoPersona(p,todayISO())!=="Baja")return;
+    const act=activos[_nomClave(p.nombre)];
+    if(!act||act.length!==1||act[0].id===p.id)return;
+    (out[p.id]=out[p.id]||{de:p,a:act[0],movs:[]}).movs.push(n);
+  });
+  return Object.values(out);
+}
+async function unificarDuplicadosComp(){
+  if(!puedeEditar()){toast("🔒 Sólo lectura: no tenés permiso para editar este módulo.");return;}
+  const dups=compDuplicados();if(!dups.length)return;
+  if(!confirm("Se pasan los compensatorios de la ficha de BAJA a la ficha ACTIVA con el mismo nombre:\n\n"+dups.map(d=>"• "+d.a.nombre+": "+d.movs.length+" movimiento/s").join("\n")+"\n\n¿Continuar?"))return;
+  const mover=[],borrar=[];
+  dups.forEach(d=>{
+    // Si el mismo movimiento de planilla se importó a las dos fichas (mismo
+    // id salvo la persona), queda el de la activa.
+    const idsAct=new Set(window.novedades.filter(n=>n.personaId===d.a.id).map(n=>n.id));
+    const u=(typeof usuarioActual==="function")?usuarioActual():null;
+    d.movs.forEach(n=>{
+      const id=String(n.id);
+      if(id.startsWith(COMPIMP_PREFIX+d.de.id+"_")&&idsAct.has(COMPIMP_PREFIX+d.a.id+"_"+id.slice((COMPIMP_PREFIX+d.de.id+"_").length))) borrar.push(n);
+      // Se conserva creadoEn: define si quedó incluido en la planilla importada.
+      else mover.push({...n,personaId:d.a.id,modificadoPor:u?u.nombre:"—",modificadoEn:new Date().toISOString()});
+    });
+  });
+  try{
+    if(mover.length) await window._guardarNovedadesBulk(mover);
+    if(borrar.length) await window._eliminarNovedadesBulk(borrar);
+    const bor=new Set(borrar.map(n=>n.id)),mov={};mover.forEach(n=>mov[n.id]=n);
+    window.novedades=window.novedades.filter(n=>!bor.has(n.id)).map(n=>mov[n.id]||n);
+    toast("✅ Unificado: "+mover.length+" movimiento/s pasados a la ficha activa"+(borrar.length?" · "+borrar.length+" repetido/s de la misma planilla eliminados":""),5000);
+    renderAll();renderCompensatorios();
+  }catch(e){console.error(e);toast("❌ Error al unificar: "+e.message,5000);}
+}
 function renderCompensatorios(){
+  const dups=compDuplicados();
+  document.getElementById("comp-dup").innerHTML=dups.length?"<div class=\"nov-info\" style=\"background:#fff7ed;border-color:#fdba74\">⚠️ "+dups.length+" persona/s tienen compensatorios en una ficha <b>dada de baja</b> con el mismo nombre que su ficha activa ("
+    +dups.map(d=>esc(d.a.nombre)).join(", ")+"), por eso aparecían dos veces. <button class=\"btn btn-azul btn-sm\" onclick=\"unificarDuplicadosComp()\">Unificar en la ficha activa</button></div>":"";
   const filas=ordenarLista(compFiltrados(),"comp",(r,campo)=>r[campo]);
   const tot=filas.reduce((a,r)=>({favor:a.favor+r.favor,tomados:a.tomados+r.tomados,vencidos:a.vencidos+r.vencidos,saldo:a.saldo+(r.saldo||0),sin:a.sin+(r.sinOrigen?1:0)}),{favor:0,tomados:0,vencidos:0,saldo:0,sin:0});
   document.getElementById("comp-info").textContent=filas.length+" personas con movimientos · "+fmtDias(tot.favor)+" días a favor · "+fmtDias(tot.tomados)+" tomados"+(tot.vencidos?" · "+fmtDias(tot.vencidos)+" vencidos/ajustes":"")+" · saldo total "+fmtDias(tot.saldo)
@@ -1649,7 +1700,7 @@ function _ci_parseFechas(v){
   if(v instanceof Date) return {fechas:[_ci_dateObj(v)],ilegibles:0};
   const txt=String(v??"").trim(); if(!txt) return {fechas:[],ilegibles:0};
   const toks=[];let ilegibles=0;
-  txt.split(/[-,;\s]+|\by\b/).map(t=>t.replace(/[.]+$/,"")).filter(Boolean).forEach(t=>{
+  txt.replace(/\(\s*\d+\s*\)/g," ").replace(/\/-/g,"/").split(/[-,;\s]+|\by\b/i).map(t=>t.replace(/[./]+$/,"")).filter(Boolean).forEach(t=>{
     const m=t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
     if(!m){ if(/\d/.test(t)) ilegibles++; return; }
     let y=m[3]?+m[3]:null; if(y!==null&&y<100) y+=2000;
@@ -1693,7 +1744,13 @@ function _ci_fechasColumnas(heads){
 function _ci_buscarPersona(nombre){
   const n=_ci_norm(nombre); if(!n) return null;
   const toks=n.split(" ");
-  const lista=window.nomina.map(p=>({p,t:_ci_norm(p.nombre).split(" ")}));
+  // Primero entre las fichas activas (puede haber una de baja con el mismo
+  // nombre); si no aparece, entre todas.
+  const activos=window.nomina.filter(p=>getEstadoPersona(p,todayISO())!=="Baja");
+  return _ci_buscarEn(activos,n,toks)||_ci_buscarEn(window.nomina,n,toks);
+}
+function _ci_buscarEn(nomina,n,toks){
+  const lista=nomina.map(p=>({p,t:_ci_norm(p.nombre).split(" ")}));
   const exact=lista.filter(x=>x.t.join(" ")===n); if(exact.length===1) return exact[0].p;
   const cont=lista.filter(x=>toks.every(t=>x.t.includes(t))||x.t.every(t=>toks.includes(t))); if(cont.length===1) return cont[0].p;
   const ap=lista.filter(x=>x.t.includes(toks[0])&&toks.slice(1).some(t=>x.t.includes(t))); if(ap.length===1) return ap[0].p;
