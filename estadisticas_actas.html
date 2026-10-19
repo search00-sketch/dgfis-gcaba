@@ -222,6 +222,18 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
     </select>
   </div>
   <div class="ffield">
+    <label>Tipo de acta</label>
+    <select id="fTipoActa" onchange="aplicarFiltros()">
+      <option value="">Todas</option>
+      <option value="com">Con acta de comprobación</option>
+      <option value="solocom">Sólo comprobación (sin secuestro)</option>
+      <option value="sec">Con acta de secuestro</option>
+      <option value="solosec">Sólo secuestro (sin comprobación)</option>
+      <option value="ambas">Secuestro + comprobación</option>
+      <option value="ninguna">Sin acta (las dos en 0)</option>
+    </select>
+  </div>
+  <div class="ffield">
     <label>Zona</label>
     <select id="fZona" onchange="aplicarFiltros()"><option value="">Todas</option></select>
   </div>
@@ -264,6 +276,8 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
     <!-- KPIs -->
     <div class="kpigrid">
       <div class="kpi"><div class="kpi-val" id="kTotal">–</div><div class="kpi-lbl">Actas totales</div></div>
+      <div class="kpi"><div class="kpi-val" id="kSec">–</div><div class="kpi-lbl">Actas de secuestro</div></div>
+      <div class="kpi acc"><div class="kpi-val" id="kCom">–</div><div class="kpi-lbl">Actas de comprobación</div><div id="kComSub" style="font-size:.68rem;color:var(--mut);margin-top:3px"></div></div>
       <div class="kpi acc"><div class="kpi-val" id="kVI">–</div><div class="kpi-lbl">Venta ilegal</div></div>
       <div class="kpi warn"><div class="kpi-val" id="kEM">–</div><div class="kpi-lbl">Eventos masivos</div></div>
       <div class="kpi da"><div class="kpi-val" id="kFT">–</div><div class="kpi-lbl">Partidos de fútbol</div></div>
@@ -597,6 +611,24 @@ function badgeOp(op) {
   return `<span class="bdg ${cls}">${esc(op)}</span>`;
 }
 
+// ── TIPO DE ACTA ───────────────────────────────────────────────────────────
+// "0" (o vacío) = no hay acta de ese tipo. Puede haber comprobación sin
+// secuestro y al revés.
+const nroActa = v => String(v ?? '').replace(/\D/g, '').replace(/^0+/, '');
+const tieneSec = r => !!nroActa(r.actaSecuestro);
+const tieneCom = r => !!nroActa(r.actaComprobacion);
+function tipoActa(r) {
+  const s = tieneSec(r), c = tieneCom(r);
+  return s && c ? 'Secuestro + comprobación' : s ? 'Sólo secuestro' : c ? 'Sólo comprobación' : 'Sin acta';
+}
+function pasaTipoActa(r, f) {
+  if (!f) return true;
+  const s = tieneSec(r), c = tieneCom(r);
+  return f === 'com' ? c : f === 'solocom' ? c && !s : f === 'sec' ? s : f === 'solosec' ? s && !c : f === 'ambas' ? s && c : !s && !c;
+}
+// Por defecto: el año en curso.
+const DESDE_DEFAULT = new Date().getFullYear() + '-01-01';
+
 // ── FILTROS ────────────────────────────────────────────────────────────────
 let datosFiltrados = [];
 let tblPage = 1;
@@ -626,6 +658,7 @@ function poblarFiltros() {
 function aplicarFiltros() {
   actualizarBadgeFiltros('filtrosBar','filtrosToggleBtn');
   const op        = document.getElementById('fOperativo').value;
+  const tipoA     = document.getElementById('fTipoActa').value;
   const zona      = document.getElementById('fZona').value;
   const categoria = document.getElementById('fCategoria').value;
   const foodTruck = document.getElementById('fFoodTruck').value;
@@ -636,6 +669,7 @@ function aplicarFiltros() {
 
   datosFiltrados = (window.ACTAS||[]).filter(r => {
     if (op && (r.operativo||'').toUpperCase().trim() !== op) return false;
+    if (!pasaTipoActa(r, tipoA)) return false;
     if (zona && r.zona !== zona) return false;
     if (categoria && !(r.precintos||[]).some(p=>p.categoria===categoria)) return false;
     if (foodTruck && r.foodTruck !== foodTruck) return false;
@@ -654,14 +688,17 @@ function aplicarFiltros() {
 }
 
 function limpiarFiltros() {
-  ['fOperativo','fZona','fCategoria','fFoodTruck','fTipoConexion','fTurno'].forEach(id => document.getElementById(id).value = '');
+  ['fOperativo','fTipoActa','fZona','fCategoria','fFoodTruck','fTipoConexion','fTurno'].forEach(id => document.getElementById(id).value = '');
   ['fDesde','fHasta'].forEach(id => document.getElementById(id).value = '');
   aplicarFiltros();
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
+let filtroAnioPuesto = false;
 function init() {
   poblarFiltros();
+  // Sólo la primera vez: después se respeta lo que elija el usuario.
+  if (!filtroAnioPuesto) { filtroAnioPuesto = true; const d = document.getElementById('fDesde'); if (!d.value) d.value = DESDE_DEFAULT; }
   aplicarFiltros();
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('statsContent').style.display = 'block';
@@ -685,6 +722,14 @@ function renderStats() {
   // de estos conteos.
   const normOp = v => (v||'').toUpperCase().trim();
   document.getElementById('kTotal').textContent     = D.length.toLocaleString('es-AR');
+  // Actas = números distintos (una comprobación puede abarcar varios
+  // secuestros y figurar en más de un registro).
+  const conSec = D.filter(tieneSec), conCom = D.filter(tieneCom);
+  const nSec = new Set(conSec.map(r=>nroActa(r.actaSecuestro))).size, nCom = new Set(conCom.map(r=>nroActa(r.actaComprobacion))).size;
+  document.getElementById('kSec').textContent = nSec.toLocaleString('es-AR');
+  document.getElementById('kCom').textContent = nCom.toLocaleString('es-AR');
+  const soloCom = conCom.filter(r=>!tieneSec(r)).length;
+  document.getElementById('kComSub').textContent = conCom.length.toLocaleString('es-AR')+' registros'+(soloCom?' · '+soloCom+' sin secuestro':'');
   document.getElementById('kVI').textContent        = D.filter(r=>normOp(r.operativo)==='VENTA ILEGAL').length.toLocaleString('es-AR');
   document.getElementById('kEM').textContent        = D.filter(r=>normOp(r.operativo)==='EVENTO MASIVO').length.toLocaleString('es-AR');
   document.getElementById('kFT').textContent        = D.filter(r=>normOp(r.operativo)==='PARTIDO DE FUTBOL').length.toLocaleString('es-AR');
@@ -990,7 +1035,7 @@ function exportarRegistros() {
   if (!datos.length) { alert('No hay registros para descargar con estos filtros.'); return; }
   const base = r => ({'ID':r.id??'','Fecha':r.fecha||'','Inspector':r.inspector||'','Cargó':r.cargaEmail||r.cargaNombre||'','Turno':r.turno||'',
     'Operativo':r.operativo||'','Zona':r.zona||'','Dirección':r.direccion||'','Barrio':r.barrio||'','Comuna':r.comuna||'',
-    'Infractor':r.infractor||'','Acta secuestro':r.actaSecuestro||'','Acta comprobación':r.actaComprobacion||'',
+    'Infractor':r.infractor||'','Acta secuestro':r.actaSecuestro||'','Acta comprobación':r.actaComprobacion||'','Tipo de acta':tipoActa(r),
     'Food truck':r.foodTruck||'','Tipo de conexión':r.tipoConexion||'','Decomisado':r.fueDecomisado||''});
   const actas = datos.map(r => ({...base(r),'Cant. precintos':(r.precintos||[]).length,
     'Precintos':(r.precintos||[]).map(p=>p.precinto).filter(Boolean).join(', '),
@@ -999,17 +1044,17 @@ function exportarRegistros() {
   const precs = [];
   datos.forEach(r => (r.precintos||[]).forEach(p => precs.push({...base(r),'Precinto':p.precinto??'','Cantidad':p.cantidad??'','Artículo':p.articulo??'','Categoría':p.categoria??''})));
   const sel = id => { const el=document.getElementById(id); return el&&el.value ? (el.options&&el.selectedIndex>=0?el.options[el.selectedIndex].text:el.value) : ''; };
-  const filtros = [['Filtro','Valor'],['Operativo',sel('fOperativo')||'Todos'],['Zona',sel('fZona')||'Todas'],['Categoría',sel('fCategoria')||'Todas'],
+  const filtros = [['Filtro','Valor'],['Operativo',sel('fOperativo')||'Todos'],['Tipo de acta',sel('fTipoActa')||'Todas'],['Zona',sel('fZona')||'Todas'],['Categoría',sel('fCategoria')||'Todas'],
     ['Food truck',sel('fFoodTruck')||'Todos'],['Tipo de conexión',sel('fTipoConexion')||'Todos'],['Turno',sel('fTurno')||'Todos'],
     ['Desde',document.getElementById('fDesde').value||'—'],['Hasta',document.getElementById('fHasta').value||'—'],
     ['Búsqueda',document.getElementById('tblSearch').value||'—'],[],['Actas',datos.length],['Precintos',precs.length],
     ['Descargado',new Date().toLocaleString('es-AR')]];
   const wb = XLSX.utils.book_new();
   const w1 = XLSX.utils.json_to_sheet(actas);
-  w1['!cols']=[8,11,26,26,12,16,18,30,18,8,24,14,14,10,14,10,8,30,24,10,10,40].map(w=>({wch:w}));
+  w1['!cols']=[8,11,26,26,12,16,18,30,18,8,24,14,14,22,10,14,10,8,30,24,10,10,40].map(w=>({wch:w}));
   w1['!autofilter']={ref:w1['!ref']};
   XLSX.utils.book_append_sheet(wb, w1, 'Actas');
-  if (precs.length) { const w2=XLSX.utils.json_to_sheet(precs); w2['!cols']=[8,11,26,26,12,16,18,30,18,8,24,14,14,10,14,10,12,9,30,20].map(w=>({wch:w})); w2['!autofilter']={ref:w2['!ref']}; XLSX.utils.book_append_sheet(wb, w2, 'Precintos'); }
+  if (precs.length) { const w2=XLSX.utils.json_to_sheet(precs); w2['!cols']=[8,11,26,26,12,16,18,30,18,8,24,14,14,22,10,14,10,12,9,30,20].map(w=>({wch:w})); w2['!autofilter']={ref:w2['!ref']}; XLSX.utils.book_append_sheet(wb, w2, 'Precintos'); }
   const w3 = XLSX.utils.aoa_to_sheet(filtros); w3['!cols']=[{wch:18},{wch:40}];
   XLSX.utils.book_append_sheet(wb, w3, 'Filtros');
   const d=document.getElementById('fDesde').value, h=document.getElementById('fHasta').value;
