@@ -12,13 +12,13 @@
 
 <!-- Leaflet para mapa -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Leaflet heatmap -->
-<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script defer src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- XLSX para carga -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
@@ -960,7 +960,10 @@ let mapMode = 'heat';
 
 function initMap() {
   if (mapInstance) return;
-  mapInstance = L.map('map').setView([-34.615, -58.433], 12);
+  // preferCanvas: los puntos se dibujan en un único <canvas> en vez de un
+  // elemento SVG por acta — con miles de actas, pan/zoom y redibujar al
+  // filtrar eran lentos.
+  mapInstance = L.map('map', { preferCanvas: true }).setView([-34.615, -58.433], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution:'© OpenStreetMap'
   }).addTo(mapInstance);
@@ -1007,7 +1010,8 @@ function renderMapa() {
       const m = L.circleMarker([lat, lng], {
         radius:5, fillColor:color, color:'#fff', weight:1, fillOpacity:0.8
       });
-      m.bindPopup(`<b>${esc(r.actaSecuestro||'–')}</b><br>${esc(r.zona||'')}<br>${esc(r.direccion||'')}<br><i>${fmtFecha(r.fecha)}</i>`);
+      // Contenido del popup armado recién al abrirlo, no para cada punto.
+      m.bindPopup(() => `<b>${esc(r.actaSecuestro||'–')}</b><br>${esc(r.zona||'')}<br>${esc(r.direccion||'')}<br><i>${fmtFecha(r.fecha)}</i>`);
       markersGroup.addLayer(m);
     });
     markersGroup.addTo(mapInstance);

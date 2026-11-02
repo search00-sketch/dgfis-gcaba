@@ -10,9 +10,9 @@
 <script src="utils.js?v=6"></script>
 <script>window.MODULO_ID='permisos'; window.LOGIN_REQUERIDO=false;</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
@@ -480,6 +480,20 @@ var PG=20, curPage=1, curRes=[], selIdx=null;
 function norm(s) {
   return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
+// Campos de búsqueda ya normalizados, calculados una sola vez por registro
+// (antes se normalizaban — minúsculas + sin acentos — los 5 campos de
+// TODOS los registros en cada búsqueda). WeakMap: no se agrega nada al
+// registro en sí (que se guarda tal cual en Firestore/caché), y al
+// reemplazarse window.DB los registros viejos se liberan solos.
+var _normDB = new WeakMap();
+function normRec(r) {
+  var n = _normDB.get(r);
+  if (!n) {
+    n = { dni:norm(r.dni), nombre:norm(r.nombre), locacion:norm(r.locacion), barrio:norm(r.barrio), expediente:norm(r.expediente) };
+    _normDB.set(r, n);
+  }
+  return n;
+}
 function doSearch() {
   var qn=norm(document.getElementById('qN').value.trim());
   var qd=norm(document.getElementById('qD').value.trim());
@@ -491,10 +505,11 @@ function doSearch() {
     return;
   }
   curRes=window.DB.filter(function(r){
-    if (qd && norm(r.dni).indexOf(qd)===-1) return false;
-    if (qn && !coincideTexto(norm(r.nombre), qn)) return false;
-    if (ql && norm(r.locacion).indexOf(ql)===-1 && norm(r.barrio).indexOf(ql)===-1) return false;
-    if (qe && norm(r.expediente).indexOf(qe)===-1) return false;
+    var n=normRec(r);
+    if (qd && n.dni.indexOf(qd)===-1) return false;
+    if (qn && !coincideTexto(n.nombre, qn)) return false;
+    if (ql && n.locacion.indexOf(ql)===-1 && n.barrio.indexOf(ql)===-1) return false;
+    if (qe && n.expediente.indexOf(qe)===-1) return false;
     return true;
   });
   curPage=1; selIdx=null;
