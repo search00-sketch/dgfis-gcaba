@@ -406,7 +406,9 @@ async function init(){
   // Fecha asignación: mañana por defecto
   const manana=new Date();manana.setDate(manana.getDate()+1);
   const asigEl=document.getElementById("dist-fecha-asig");
-  if(asigEl){asigEl.value=manana.toISOString().slice(0,10);window.cargarDistFecha(asigEl.value);}
+  // Sin esperar, pero redibujando al llegar: antes, si esa fecha no estaba en
+  // caché, la tabla quedaba mostrando a todos "Sin asignar" hasta el primer cambio.
+  if(asigEl){asigEl.value=manana.toISOString().slice(0,10);window.cargarDistFecha(asigEl.value).then(()=>renderDist()).catch(e=>console.error(e));}
   // Fecha resumen: hoy
   const resEl=document.getElementById("resumen-fecha");
   if(resEl)resEl.value=todayISO();

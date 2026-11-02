@@ -372,8 +372,10 @@ async function init() {
   const asigEl = document.getElementById('dist-fecha-asig');
   if (asigEl) {
     asigEl.value = manana.toISOString().slice(0,10);
-    // Cargar la distribución de esa fecha
-    window.cargarDistFecha(asigEl.value);
+    // Cargar la distribución de esa fecha. No se espera (renderAll de abajo
+    // no la necesita para arrancar), pero sí hay que redibujar cuando llega:
+    // antes, sin caché, la tabla quedaba mostrando a todos "Sin asignar".
+    window.cargarDistFecha(asigEl.value).then(()=>renderDist()).catch(e=>console.error(e));
   }
 
   poblarSelects();
