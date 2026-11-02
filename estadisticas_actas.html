@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Estadísticas Actas</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
+<script src="utils.js?v=6"></script>
 <script>window.MODULO_ID='estadisticas';</script>
 <script src="personal-auth.js?v=9"></script>
 
@@ -354,7 +354,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
     <div style="padding:12px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span style="font-size:.8rem;color:var(--mut)">Mostrando <strong id="tblCount">–</strong> registros</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="text" id="tblSearch" placeholder="Buscar por inspector, dirección, acta, precinto…" oninput="renderTabla()"
+        <input type="text" id="tblSearch" placeholder="Buscar por inspector, dirección, acta, precinto…" oninput="diferir('renderTabla')"
                style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:0;font-size:.82rem;outline:none;width:260px">
         <button class="fbtn" onclick="exportarRegistros()" title="Descarga lo que se ve con los filtros y la búsqueda aplicados">⬇ Descargar filtrado (Excel)</button>
       </div>
@@ -397,7 +397,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
     <div style="padding:12px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span style="font-size:.8rem;color:var(--mut)" id="errInfo"></span>
       <span style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="errBuscar" placeholder="Buscar acta, precinto, quién cargó…" oninput="renderErroresActas()" style="padding:6px 10px;border:1.5px solid var(--bor);font-size:.82rem;width:230px">
+        <input type="text" id="errBuscar" placeholder="Buscar acta, precinto, quién cargó…" oninput="diferir('renderErroresActas')" style="padding:6px 10px;border:1.5px solid var(--bor);font-size:.82rem;width:230px">
         <button class="fbtn" onclick="exportarErroresActas()">⬇ Exportar Excel</button>
       </span>
     </div>

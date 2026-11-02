@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Gestión de Personal</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
+<script src="utils.js?v=6"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
@@ -128,7 +128,7 @@
     </div>
     <button class="btn btn-verde" onclick="exportarDia()">⬇ Nómina del día</button>
     <a class="btn btn-gris" href="asignacion_zonas.html" style="text-decoration:none;display:inline-block">📍 Ir a Asignación de Zonas →</a>
-    <input class="search-input" id="dist-buscar" placeholder="🔍 Buscar nombre o DNI..." oninput="renderDist()">
+    <input class="search-input" id="dist-buscar" placeholder="🔍 Buscar nombre o DNI..." oninput="diferir('renderDist')">
     <select class="ctrl" id="dist-turno" onchange="renderDist()"><option value="">Todos los turnos</option></select>
     <select class="ctrl" id="dist-zona-filtro" onchange="renderDist()">
       <option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>
@@ -149,7 +149,7 @@
     <button class="btn btn-verde" onclick="exportarActivos()">⬇ Exportar activos</button>
     <button class="btn btn-gris" onclick="exportarNominaCompleta()">⬇ Nómina completa</button>
     <a class="btn btn-gris" href="novedades_personal.html" style="text-decoration:none;display:inline-block">👥 Gestionar personal →</a>
-    <input class="search-input" id="nom-buscar" placeholder="🔍 Nombre o DNI..." oninput="renderNomina()">
+    <input class="search-input" id="nom-buscar" placeholder="🔍 Nombre o DNI..." oninput="diferir('renderNomina')">
     <select class="ctrl" id="nom-turno" onchange="renderNomina()"><option value="">Todos los turnos</option></select>
     <select class="ctrl" id="nom-estado" onchange="renderNomina()">
       <option value="">Todos</option><option value="Activo" selected>Activos</option>
@@ -168,7 +168,7 @@
   <div class="toolbar">
     <button class="btn btn-verde" onclick="exportarHistorialNovedades()">⬇ Exportar historial</button>
     <a class="btn btn-gris" href="novedades_personal.html" style="text-decoration:none;display:inline-block">📋 Cargar novedad →</a>
-    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar..." oninput="renderNovedades()">
+    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar..." oninput="diferir('renderNovedades')">
     <select class="ctrl" id="nov-tipo" onchange="renderNovedades()">
       <option value="">Todos los tipos</option>
     </select>
@@ -1009,5 +1009,6 @@ function exportNominaExcel(personas, filename, sheetName) {
 }
 </script>
 <script src="personal-nav.js?v=4"></script>
+<script>perfInstrumentar(["cargarTodo","init","renderAll","actualizarBadgeActivos","renderDist","renderNomina","renderNovedades","renderZonas","asignarZona","_guardarAsignacion","_guardarNovedad","_guardarNovedadesBulk"]);</script>
 </body>
 </html>

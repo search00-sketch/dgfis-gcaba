@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Novedades de Personal</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
+<script src="utils.js?v=6"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
@@ -151,7 +151,7 @@
 
   <div class="toolbar">
     <button class="btn btn-azul" onclick="abrirModalNovedad(null)">+ Cargar novedad</button>
-    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar nombre…" oninput="renderNovedades()">
+    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar nombre…" oninput="diferir('renderNovedades')">
     <select class="ctrl" id="nov-tipo" onchange="renderNovedades()"><option value="">Todos los tipos</option></select>
   </div>
   <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--azul)" id="nov-hoy-title"></div>
@@ -166,7 +166,7 @@
       (ausencia, llegada tarde, etc.) y guardá. Para licencias de varios días seguís usando "+ Cargar novedad".
     </p>
     <div class="toolbar" style="margin-bottom:10px">
-      <input class="search-input" id="carga-buscar" placeholder="🔍 Buscar nombre…" oninput="renderCargaDiaria()">
+      <input class="search-input" id="carga-buscar" placeholder="🔍 Buscar nombre…" oninput="diferir('renderCargaDiaria')">
       <select class="ctrl" id="carga-turno" onchange="renderCargaDiaria()"><option value="">Todos los turnos</option></select>
       <select class="ctrl" id="carga-zona" onchange="renderCargaDiaria()">
         <option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>
@@ -190,7 +190,7 @@
     <button class="btn btn-azul" onclick="abrirModalPersona(null)">+ Agregar persona</button>
     <button class="btn btn-verde" onclick="exportarActivos()">⬇ Exportar activos</button>
     <button class="btn btn-gris" onclick="exportarNominaCompleta()">⬇ Nómina completa</button>
-    <input class="search-input" id="nom-buscar" placeholder="🔍 Nombre o DNI…" oninput="renderNomina()">
+    <input class="search-input" id="nom-buscar" placeholder="🔍 Nombre o DNI…" oninput="diferir('renderNomina')">
     <select class="ctrl" id="nom-turno" onchange="renderNomina()"><option value="">Todos los turnos</option></select>
     <select class="ctrl" id="nom-rol" onchange="renderNomina()">
       <option value="">Todos los roles</option>
@@ -213,7 +213,7 @@
 <div class="panel" id="panel-historial">
   <div class="toolbar">
     <button class="btn btn-verde" onclick="exportarHistorialNovedades()">⬇ Exportar historial Excel</button>
-    <input class="search-input" id="hist-buscar" placeholder="🔍 Buscar…" oninput="renderHistorial()" style="flex:0 1 200px">
+    <input class="search-input" id="hist-buscar" placeholder="🔍 Buscar…" oninput="diferir('renderHistorial')" style="flex:0 1 200px">
     <div class="autocomplete-wrap" id="hist-tipo-wrap" style="min-width:150px">
       <button type="button" class="btn btn-gris btn-sm" style="width:100%;text-align:left" onclick="toggleHistTipoDropdown(event)" id="hist-tipo-btn">Todos los tipos ▾</button>
       <div class="autocomplete-list" id="hist-tipo-list"></div>
@@ -252,7 +252,7 @@
   </div>
   <div class="toolbar">
     <button class="btn btn-azul" onclick="abrirModalCompensatorio()">+ Cargar compensatorio</button>
-    <input class="search-input" id="comp-buscar" placeholder="🔍 Buscar persona…" oninput="renderCompensatorios()" style="flex:0 1 200px">
+    <input class="search-input" id="comp-buscar" placeholder="🔍 Buscar persona…" oninput="diferir('renderCompensatorios')" style="flex:0 1 200px">
     <select class="ctrl" id="comp-turno" onchange="renderCompensatorios()"><option value="">Todos los turnos</option></select>
     <select class="ctrl" id="comp-saldo" onchange="renderCompensatorios()">
       <option value="">Todos los saldos</option>
@@ -2626,5 +2626,6 @@ async function renombrarTipoNov(idx, nuevoNombre) {
 
 </script>
 <script src="personal-nav.js?v=4"></script>
+<script>perfInstrumentar(["cargarTodo","init","renderAll","actualizarBadgeActivos","renderNovedades","renderCargaDiaria","renderNomina","renderHistorial","renderCompensatorios","renderRanking","confirmarGuardarNovedad","guardarCargaDiaria","onCargaZonaChange","_guardarAsignacion","_guardarNovedad","_guardarNovedadesBulk"]);</script>
 </body>
 </html>

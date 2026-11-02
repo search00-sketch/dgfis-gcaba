@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Asignación de Zonas</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
+<script src="utils.js?v=6"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
@@ -132,7 +132,7 @@
     <button class="btn btn-verde" onclick="exportarDia()">⬇ Nómina del día</button>
     <button class="btn btn-naranja" onclick="abrirModalEvento()">⚽ + Evento</button>
     <button class="btn btn-gris" onclick="abrirModalMasivo()">📌 Asignación masiva</button>
-    <input class="search-input" id="dist-buscar" placeholder="🔍 Buscar nombre o DNI…" oninput="renderDist()">
+    <input class="search-input" id="dist-buscar" placeholder="🔍 Buscar nombre o DNI…" oninput="diferir('renderDist')">
     <select class="ctrl" id="dist-turno" onchange="renderDist()"><option value="">Todos los turnos</option></select>
     <select class="ctrl" id="dist-zona-filtro" onchange="renderDist()">
       <option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>
@@ -968,5 +968,6 @@ document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{
 
 </script>
 <script src="personal-nav.js?v=4"></script>
+<script>perfInstrumentar(["cargarTodo","init","renderAll","actualizarBadgeActivos","renderDist","renderNomina","renderNovedades","renderZonas","asignarZona","_guardarAsignacion","_guardarNovedad","_guardarNovedadesBulk"]);</script>
 </body>
 </html>
