@@ -225,7 +225,7 @@
 
 <script>window.MODULO_ID='personal';</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-dominio.js?v=12"></script>
+<script src="personal-dominio.js?v=13"></script>
 <script src="personal-datos.js?v=5"></script>
 
 <!-- Firebase module -->
@@ -588,13 +588,13 @@ function renderNovedades(){
   const filtTipo=selTipoEl.value;
 
   const novHoy=novedadesHoy().filter(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     return coincideTexto((p.nombre||'').toLowerCase(),busq);
   });
   document.getElementById('nov-hoy-title').textContent=`Novedades activas — ${fmtDate(hoy)}`;
   document.getElementById('nov-hoy-list').innerHTML=novHoy.length?
     novHoy.map(n=>{
-      const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:'Desconocido'};
+      const p=personaPorId(n.personaId)||{nombre:'Desconocido'};
       const extra=n.licIni?` (${fmtDate(n.licIni)} → ${fmtDate(n.licFin)})`:''
       return `<div style="background:#f9f9f9;border:1px solid var(--bor);border-radius:0;padding:10px 14px;display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
         <span style="font-weight:700;font-size:13px">${esc(p.nombre)}</span>
@@ -606,13 +606,13 @@ function renderNovedades(){
     :`<div style="color:#aaa;font-size:13px;padding:8px 0">Sin novedades activas para hoy.</div>`;
 
   let hist=[...window.novedades].reverse().filter(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     if(busq&&!coincideTexto((p.nombre||'').toLowerCase(),busq)) return false;
     if(filtTipo&&n.tipo!==filtTipo) return false;
     return true;
   });
   hist=ordenarLista(hist,'hist',(n,campo)=>{
-    if(campo==='persona') return (window.nomina.find(x=>x.id===n.personaId)||{}).nombre||'';
+    if(campo==='persona') return (personaPorId(n.personaId)||{}).nombre||'';
     return n[campo];
   }).slice(0,150);
 
@@ -623,7 +623,7 @@ function renderNovedades(){
     +'<span>Detalle</span><span></span>';
 
   document.getElementById('nov-body').innerHTML=hist.map(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:'—'};
+    const p=personaPorId(n.personaId)||{nombre:'—'};
     const extra=n.licIni?`${fmtDate(n.licIni)}→${fmtDate(n.licFin)}`:'';
     return `<div class="table-row grid-hist">
       <span style="font-size:12px;color:#777">${fmtDate(n.fecha)}</span>
@@ -716,7 +716,7 @@ async function exportarHistPersonaId(id){
   const dists=Object.keys(window.distribuciones).filter(d=>window.distribuciones[d][id]).sort().reverse().map(d=>({
     'Fecha':d,
     'Zona':window.distribuciones[d][id],
-    'Novedades':window.novedades.filter(n=>n.personaId===id&&n.fecha===d).map(n=>n.tipo).join('; ')||''
+    'Novedades':novedadesDePersona(id).filter(n=>n.fecha===d).map(n=>n.tipo).join('; ')||''
   }));
   if(!dists.length){toast('Sin historial para exportar.');return;}
   const ws=XLSX.utils.json_to_sheet(dists);
@@ -744,7 +744,7 @@ function exportarDia(){
   const rows=activos.filter(p=>dist[p.id]).map(p=>({
     'Nombre':p.nombre,'Turno':p.turno,'Zona':dist[p.id]||'',
     'Rol':p.rol||'Inspector','Coordinador':p.coordinador||'',
-    'Celular':p.celular||'','Novedad':window.novedades.filter(n=>n.personaId===p.id&&novedadCubreFecha(n,fechaAsig)).map(n=>n.tipo).join(', ')||''
+    'Celular':p.celular||'','Novedad':novedadesDePersona(p.id).filter(n=>novedadCubreFecha(n,fechaAsig)).map(n=>n.tipo).join(', ')||''
   }));
   if(!rows.length){toast('Sin personal asignado para exportar.');return;}
   const ws=XLSX.utils.json_to_sheet(rows);
@@ -766,7 +766,7 @@ function exportarNominaCompleta(){
 async function exportarHistorialNovedades(){
   await window.cargarTodasLasDistribuciones();
   const rows=[...window.novedades].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     const zona=(window.distribuciones[n.fecha]||{})[n.personaId]||'';
     return {
       'Fecha':          n.fecha,

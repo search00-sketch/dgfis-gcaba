@@ -55,6 +55,49 @@ function moverFecha(inputId, dias){
   input.dispatchEvent(new Event("change"));
 }
 
+// ============================================================
+//  ÍNDICES DE CONSULTA (rendimiento)
+//  Antes, cada consulta "novedades de esta persona" recorría TODAS las
+//  novedades (miles) y se hacía una vez por persona y por fila: dibujar la
+//  tabla de Asignación/Carga diaria/Nómina eran millones de comparaciones,
+//  y se redibuja con cada cambio de zona o tecla en un buscador. Ahora se
+//  agrupan una sola vez: novedades por persona y nómina por id.
+//
+//  Invalidación: el índice vale sólo durante la tarea JS en curso (un
+//  render, un handler) y se descarta solo al terminar (queueMicrotask). En
+//  el código de las páginas los cambios a window.novedades/window.nomina
+//  ocurren siempre después de un await (tarea nueva), así que nunca se usa
+//  un índice armado antes del cambio. Además se rearma igual si cambió el
+//  array (reasignado) o su largo (push/splice). Rearmarlo cuesta O(n): con
+//  ~10.000 novedades, del orden de 1 ms.
+//  Se guardan referencias a los mismos objetos de window.novedades, así que
+//  los resultados son exactamente los mismos objetos y en el mismo orden que
+//  devolvía el recorrido completo.
+// ============================================================
+let _idxPersonal = null;
+function _indicesPersonal() {
+  const nov = window.novedades || [], nom = window.nomina || [];
+  const ix = _idxPersonal;
+  if (ix && ix.nov === nov && ix.novLen === nov.length && ix.nom === nom && ix.nomLen === nom.length) return ix;
+  const porPersona = new Map();
+  for (const n of nov) {
+    let l = porPersona.get(n.personaId);
+    if (!l) { l = []; porPersona.set(n.personaId, l); }
+    l.push(n);
+  }
+  const porId = new Map();
+  // Igual que nomina.find(): ante ids repetidos gana el primero.
+  for (const p of nom) if (!porId.has(p.id)) porId.set(p.id, p);
+  _idxPersonal = { nov, novLen: nov.length, nom, nomLen: nom.length, porPersona, porId, hoyPorFecha: new Map() };
+  queueMicrotask(invalidarIndicesPersonal);
+  return _idxPersonal;
+}
+function invalidarIndicesPersonal() { _idxPersonal = null; }
+const _SIN_NOVEDADES = Object.freeze([]);
+function novedadesDePersona(pid) { return _indicesPersonal().porPersona.get(pid) || _SIN_NOVEDADES; }
+// Reemplazo directo de window.nomina.find(x=>x.id===id) (undefined si no está).
+function personaPorId(id) { return _indicesPersonal().porId.get(id); }
+
 function getEstadoPersona(p, hoy) {
   if(p.estado==='Baja'){
     // Si la baja tiene fecha, sigue "Activo" para consultas de fechas anteriores
@@ -62,7 +105,7 @@ function getEstadoPersona(p, hoy) {
     if(p.fechaBaja && hoy<p.fechaBaja) return 'Activo';
     return 'Baja';
   }
-  const lics=window.novedades.filter(n=>n.personaId===p.id&&n.tipo.toLowerCase().includes('licencia')&&n.licIni&&n.licFin&&n.estadoLic!=='Rechazada');
+  const lics=novedadesDePersona(p.id).filter(n=>n.tipo.toLowerCase().includes('licencia')&&n.licIni&&n.licFin&&n.estadoLic!=='Rechazada');
   if(lics.some(n=>hoy>=n.licIni&&hoy<=n.licFin)) return 'Licencia';
   return 'Activo';
 }
@@ -70,14 +113,17 @@ function novedadesHoy() {
   const hoy=getFecha();
   // Cualquier novedad con rango (licencia, compensatorio de varios días…)
   // aparece todos los días del rango, no sólo el primero.
-  return window.novedades.filter(n=>!esMovimientoSoloSaldo(n)&&novedadCubreFecha(n,hoy));
+  const ix=_indicesPersonal();
+  let r=ix.hoyPorFecha.get(hoy);
+  if(!r){ r=ix.nov.filter(n=>!esMovimientoSoloSaldo(n)&&novedadCubreFecha(n,hoy)); ix.hoyPorFecha.set(hoy,r); }
+  return r.slice(); // copia: quien la reciba puede ordenarla/modificarla
 }
-function novsDePersonaHoy(pid){return novedadesHoy().filter(n=>n.personaId===pid);}
+function novsDePersonaHoy(pid){const hoy=getFecha();return novedadesDePersona(pid).filter(n=>!esMovimientoSoloSaldo(n)&&novedadCubreFecha(n,hoy));}
 function allZonas(){return [...(window.zonas||[]),'EVENTO ESPECIAL','PARTIDO FÚTBOL'];}
 
 // Novedad "puntual" (mismo día) o de rango (licencia con licIni/licFin) que cubre `fecha`
 function novedadCubreFecha(n,fecha){return n.fecha===fecha||(n.licIni&&n.licFin&&fecha>=n.licIni&&fecha<=n.licFin);}
-function novedadDePersonaEnFecha(pid,fecha){return (window.novedades||[]).find(n=>n.personaId===pid&&!esMovimientoSoloSaldo(n)&&novedadCubreFecha(n,fecha));}
+function novedadDePersonaEnFecha(pid,fecha){return novedadesDePersona(pid).find(n=>!esMovimientoSoloSaldo(n)&&novedadCubreFecha(n,fecha));}
 
 // ---- Compensatorios --------------------------------------------------
 // Una novedad de tipo Compensatorio puede ser de tres clases (campo
@@ -110,7 +156,7 @@ function esNovedadAusencia(tipo){
   return t.includes('licencia')||t.includes('ausencia')||t.includes('compensatorio')||t.includes('articulo')||t.includes('artículo');
 }
 function personaAusenteEnFecha(pid,fecha){
-  return (window.novedades||[]).some(n=>n.personaId===pid&&esNovedadAusencia(n.tipo)&&!esMovimientoSoloSaldo(n)&&n.estadoLic!=='Rechazada'&&novedadCubreFecha(n,fecha));
+  return novedadesDePersona(pid).some(n=>esNovedadAusencia(n.tipo)&&!esMovimientoSoloSaldo(n)&&n.estadoLic!=='Rechazada'&&novedadCubreFecha(n,fecha));
 }
 
 function badgeTurno(t){return `<span class="badge ${TURNOS_BADGE[t]||'bdg-admin'}">${esc(t||'—')}</span>`;}

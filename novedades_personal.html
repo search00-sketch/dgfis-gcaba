@@ -535,7 +535,7 @@
 
 <script>window.MODULO_ID='novedades';</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-dominio.js?v=12"></script>
+<script src="personal-dominio.js?v=13"></script>
 <script src="personal-datos.js?v=5"></script>
 
 <script type="module">
@@ -729,14 +729,14 @@ function renderNovedades(){
   const filtTipo=selTipoEl.value;
 
   const novHoy=novedadesHoy().filter(n=>n.tipo!=="Presente").filter(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     return coincideTexto((p.nombre||"").toLowerCase(),busq);
   }).filter(n=>!filtTipo||n.tipo===filtTipo);
 
   document.getElementById("nov-hoy-title").textContent="Novedades activas — "+fmtDate(hoy)+" ("+novHoy.length+")";
   document.getElementById("nov-hoy-list").innerHTML=novHoy.length?
     novHoy.map(n=>{
-      const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:"Desconocido"};
+      const p=personaPorId(n.personaId)||{nombre:"Desconocido"};
       const extra=n.licIni?" ("+fmtDate(n.licIni)+" al "+fmtDate(n.licFin)+")":"";
       return "<div style=\"background:#f9f9f9;border:1px solid var(--bor);border-radius:0;padding:10px 14px;display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap\">"
         +"<span style=\"font-weight:700;font-size:13px\">"+esc(p.nombre)+"</span>"
@@ -932,7 +932,7 @@ function historialFiltrado(){
 
   return [...window.novedades].reverse().filter(n=>{
     if(n.compMovimiento==="corte")return false; // marca de planilla importada (se ve en Compensatorios)
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     if(busq&&!coincideTexto((p.nombre||"").toLowerCase(),busq))return false;
     if(tiposSel.length&&!tiposSel.includes(n.tipo))return false;
     if(desde&&n.fecha<desde)return false;
@@ -982,7 +982,7 @@ function renderHistorial(){
   actualizarHistTipoBtn();
 
   const filtrado=ordenarLista(historialFiltrado(),"hist",(n,campo)=>{
-    if(campo==="persona") return (window.nomina.find(x=>x.id===n.personaId)||{}).nombre||"";
+    if(campo==="persona") return (personaPorId(n.personaId)||{}).nombre||"";
     return n[campo];
   });
   const hist=filtrado.slice(0,200);
@@ -995,7 +995,7 @@ function renderHistorial(){
     +"<span>Detalle</span><span></span>";
 
   document.getElementById("hist-body").innerHTML=hist.map(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:"—"};
+    const p=personaPorId(n.personaId)||{nombre:"—"};
     const extra=n.licIni?fmtDate(n.licIni)+"→"+fmtDate(n.licFin):"";
     const compTxt=esCompensatorio(n.tipo)?textoMovComp(n):"";
     const detalleTxt=[compTxt,extra,n.detalle].filter(Boolean).map(esc).join(" · ")||"—";
@@ -1443,7 +1443,7 @@ async function exportarHistorialNovedades(){
   // varios tipos a la vez, rango de fechas) — no sólo los primeros 200 mostrados
   await window.cargarTodasLasDistribuciones();
   const rows=historialFiltrado().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     const zona=(window.distribuciones[n.fecha]||{})[n.personaId]||"";
     const comp=esCompensatorio(n.tipo);
     return{"Fecha":n.fecha,"Nombre":p.nombre||n.personaId,"Turno":p.turno||"","Rol":p.rol||"","DNI":p.dni||"","Zona":zona,"Tipo":n.tipo,"Inicio Licencia":n.licIni||"","Fin Licencia":n.licFin||"","Estado":n.estadoLic||"","Movimiento comp.":comp?COMP_MOV_LABEL[compMovimientoDe(n)]:"","Días comp.":comp?compDiasDe(n):"","Detalle":n.detalle||""};
@@ -1522,7 +1522,7 @@ function calcularCompensatorios(){
     else { c.tomados+=d; if(mov==="debe") c.sinSaldo+=d; }
   });
   return Object.entries(porPersona).map(([pid,c])=>{
-    const p=window.nomina.find(x=>x.id===pid)||{nombre:"(persona eliminada)",turno:""};
+    const p=personaPorId(pid)||{nombre:"(persona eliminada)",turno:""};
     // Sin planilla importada y sin ningún día a favor cargado (ej. SADOFE,
     // que no está en ninguna planilla): sólo hay días tomados de Carga
     // diaria / Asistencia sin saber de dónde salían. No "deben" días: su
@@ -1558,7 +1558,7 @@ function compDuplicados(){
   const out={};
   window.novedades.forEach(n=>{
     if(!esCompensatorio(n.tipo))return;
-    const p=window.nomina.find(x=>x.id===n.personaId);
+    const p=personaPorId(n.personaId);
     if(!p||getEstadoPersona(p,todayISO())!=="Baja")return;
     const act=activos[_nomClave(p.nombre)];
     if(!act||act.length!==1||act[0].id===p.id)return;
@@ -1631,7 +1631,7 @@ function renderCompensatorios(){
 let _compDetallePid=null;
 function verDetalleComp(pid){
   _compDetallePid=pid;
-  const p=window.nomina.find(x=>x.id===pid)||{nombre:"(persona eliminada)"};
+  const p=personaPorId(pid)||{nombre:"(persona eliminada)"};
   const movs=movimientosComp().filter(n=>n.personaId===pid).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
   const r=calcularCompensatorios().find(x=>x.pid===pid);
   document.getElementById("comp-detalle-titulo").textContent="Movimientos de "+p.nombre+(r?(r.sinOrigen?" — saldo 0 (sin planilla: sólo días tomados, sin días a favor cargados)":" — saldo "+(r.saldo>0?"+":"")+fmtDias(r.saldo)+" días"):"");
@@ -1849,7 +1849,7 @@ function _ci_registrosDe(p){
   // caso se usa el que ya estaba (no se duplica) y sigue sumando al saldo.
   // El resto de lo cargado por fuera antes de importar deja de sumar (ver
   // incluidoEnPlanilla), así que no hay doble descuento.
-  const previos=window.novedades.filter(n=>n.personaId===pid&&esCompensatorio(n.tipo)&&!String(n.id).startsWith(COMPIMP_PREFIX)
+  const previos=novedadesDePersona(pid).filter(n=>esCompensatorio(n.tipo)&&!String(n.id).startsWith(COMPIMP_PREFIX)
     &&["descontado","debe"].includes(compMovimientoDe(n)));
   const yaCargados=previos.length;
   const diasDe=n=>{const ini=n.licIni||n.fecha,fin=n.licFin||ini,out=[];if(!ini)return out;
@@ -1934,7 +1934,7 @@ async function confirmarCompImport(){
     _compImport=null;renderCompImportPreview();renderAll();renderCompensatorios();
   }catch(e){console.error(e);toast("❌ Error al importar: "+e.message,5000);btn.disabled=false;btn.textContent="✅ Importar";}
 }
-function nombrePersonaNomina(pid){const p=window.nomina.find(x=>x.id===pid);return p?p.nombre:pid;}
+function nombrePersonaNomina(pid){const p=personaPorId(pid);return p?p.nombre:pid;}
 
 function exportarCompensatoriosExcel(){
   const filas=compFiltrados();
@@ -1942,7 +1942,7 @@ function exportarCompensatoriosExcel(){
   const resumen=filas.map(r=>({"Persona":r.nombre,"Turno":r.turno,"A favor (días)":r.favor,"Tomados (días)":r.tomados,"Tomados sin saldo (días)":r.sinSaldo,"Vencidos / ajustes (días)":r.vencidos,"Pendientes (días)":r.pendientes,"Saldo (días)":r.saldo,"Sin planilla":r.sinOrigen?"Sí":""}));
   const pids=new Set(filas.map(r=>r.pid));
   const movs=movimientosComp().filter(n=>pids.has(n.personaId)).sort((a,b)=>(a.fecha||"").localeCompare(b.fecha||"")).map(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     return {"Fecha":n.fecha,"Hasta":n.licFin||"","Persona":p.nombre||n.personaId,"Movimiento":COMP_MOV_LABEL[compMovimientoDe(n)],"Días":compDiasDe(n),"Estado":estadoComp(n),"Detalle":n.detalle||"","Cargado por":n.creadoPor||"","Modificado por":n.modificadoPor||""};
   });
   const wb=XLSX.utils.book_new();
@@ -1981,7 +1981,7 @@ function calcularRanking(){
     if(!tipos.includes(n.tipo))return; // tipo viejo ya sacado de la config
     if(desde&&n.fecha<desde)return;
     if(hasta&&n.fecha>hasta)return;
-    const p=window.nomina.find(x=>x.id===n.personaId);
+    const p=personaPorId(n.personaId);
     if(!p||getEstadoPersona(p,todayISO())==="Baja")return; // dados de baja (o borrados de la nómina) no van al ranking
     if(turnoFiltro&&p.turno!==turnoFiltro)return;
     if(!porPersona[n.personaId]){

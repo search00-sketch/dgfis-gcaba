@@ -252,7 +252,7 @@
 
 <script>window.MODULO_ID='asignacion';</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-dominio.js?v=12"></script>
+<script src="personal-dominio.js?v=13"></script>
 <script src="personal-datos.js?v=5"></script>
 
 <script type="module">
@@ -562,7 +562,7 @@ async function copiarAsignacionAnterior(){
   let copiados=0,saltados=0;
   const campos={};
   Object.entries(prevDist).forEach(([pid,zona])=>{
-    const persona=window.nomina.find(p=>p.id===pid);
+    const persona=personaPorId(pid);
     if(!persona)return;
     // puedeAsignarse ya excluye baja/licencia/ausencia a la fecha destino
     if(!puedeAsignarse(persona,fechaAsig)){saltados++;return;}
@@ -939,7 +939,7 @@ async function limpiarInvalidosDelDia(){
   const dist=window.distribuciones[fecha]||{};
   if(!Object.keys(dist).length){toast("Sin asignaciones para limpiar.");return;}
   const invalidos=Object.keys(dist).filter(pid=>{
-    const p=window.nomina.find(x=>x.id===pid);
+    const p=personaPorId(pid);
     return !p||!puedeAsignarse(p,fecha);
   });
   if(!invalidos.length){toast("No hay asignaciones inválidas para ese día.");return;}
