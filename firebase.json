@@ -16,7 +16,8 @@
       "**/.*",
       "**/.*/**",
       "docs/**",
-      "migration-scripts/**"
+      "migration-scripts/**",
+      "pruebas/**"
     ],
     "headers": [
       {

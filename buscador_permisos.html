@@ -7,12 +7,12 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <!-- config.js carga FIREBASE_CONFIG desde variables de entorno (NO hardcodeado) -->
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
+<script src="utils.js?v=7"></script>
 <script>window.MODULO_ID='permisos'; window.LOGIN_REQUERIDO=false;</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
@@ -268,10 +268,10 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
   <div class="card">
     <div class="ctitle">&#128269; Buscar registro</div>
     <div class="sgrid">
-      <div class="field"><label>Nombre / Apellido</label><input type="text" id="qN" placeholder="Ej: Garc&#237;a L&#243;pez" oninput="doSearch()" autocomplete="off"></div>
-      <div class="field"><label>DNI</label><input type="text" id="qD" placeholder="Ej: 30123456" oninput="doSearch()" autocomplete="off"></div>
-      <div class="field"><label>Direcci&#243;n / Ubicaci&#243;n</label><input type="text" id="qL" placeholder="Ej: Costanera Norte" oninput="doSearch()" autocomplete="off"></div>
-      <div class="field"><label>Expediente</label><input type="text" id="qE" placeholder="Ej: EX-2021-04593" oninput="doSearch()" autocomplete="off"></div>
+      <div class="field"><label>Nombre / Apellido</label><input type="text" id="qN" placeholder="Ej: Garc&#237;a L&#243;pez" oninput="diferir('doSearch')" autocomplete="off"></div>
+      <div class="field"><label>DNI</label><input type="text" id="qD" placeholder="Ej: 30123456" oninput="diferir('doSearch')" autocomplete="off"></div>
+      <div class="field"><label>Direcci&#243;n / Ubicaci&#243;n</label><input type="text" id="qL" placeholder="Ej: Costanera Norte" oninput="diferir('doSearch')" autocomplete="off"></div>
+      <div class="field"><label>Expediente</label><input type="text" id="qE" placeholder="Ej: EX-2021-04593" oninput="diferir('doSearch')" autocomplete="off"></div>
       <div><button class="btn btn-sec" onclick="clearSearch()">&#10005; Limpiar</button></div>
     </div>
   </div>
@@ -480,6 +480,20 @@ var PG=20, curPage=1, curRes=[], selIdx=null;
 function norm(s) {
   return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
+// Campos de búsqueda ya normalizados, calculados una sola vez por registro
+// (antes se normalizaban — minúsculas + sin acentos — los 5 campos de
+// TODOS los registros en cada búsqueda). WeakMap: no se agrega nada al
+// registro en sí (que se guarda tal cual en Firestore/caché), y al
+// reemplazarse window.DB los registros viejos se liberan solos.
+var _normDB = new WeakMap();
+function normRec(r) {
+  var n = _normDB.get(r);
+  if (!n) {
+    n = { dni:norm(r.dni), nombre:norm(r.nombre), locacion:norm(r.locacion), barrio:norm(r.barrio), expediente:norm(r.expediente) };
+    _normDB.set(r, n);
+  }
+  return n;
+}
 function doSearch() {
   var qn=norm(document.getElementById('qN').value.trim());
   var qd=norm(document.getElementById('qD').value.trim());
@@ -491,10 +505,11 @@ function doSearch() {
     return;
   }
   curRes=window.DB.filter(function(r){
-    if (qd && norm(r.dni).indexOf(qd)===-1) return false;
-    if (qn && !coincideTexto(norm(r.nombre), qn)) return false;
-    if (ql && norm(r.locacion).indexOf(ql)===-1 && norm(r.barrio).indexOf(ql)===-1) return false;
-    if (qe && norm(r.expediente).indexOf(qe)===-1) return false;
+    var n=normRec(r);
+    if (qd && n.dni.indexOf(qd)===-1) return false;
+    if (qn && !coincideTexto(n.nombre, qn)) return false;
+    if (ql && n.locacion.indexOf(ql)===-1 && n.barrio.indexOf(ql)===-1) return false;
+    if (qe && n.expediente.indexOf(qe)===-1) return false;
     return true;
   });
   curPage=1; selIdx=null;

@@ -93,3 +93,61 @@ function categoriaUrbetrack(grupo) {
   if (j.startsWith('AGRESION')) return 'AGRESION';
   return s;
 }
+
+// Buscadores: antes cada tecla redibujaba la tabla entera (oninput=
+// "renderX()"); con diferir('renderX') se dibuja una sola vez cuando se deja
+// de tipear (200 ms). Recibe el NOMBRE de la función global, no la función,
+// para poder usarse directo en el atributo oninput del HTML.
+const _diferirTimers = {};
+function diferir(nombreFn, ms) {
+  clearTimeout(_diferirTimers[nombreFn]);
+  _diferirTimers[nombreFn] = setTimeout(() => {
+    const f = window[nombreFn];
+    if (typeof f === 'function') f();
+  }, ms == null ? 200 : ms);
+}
+
+// -- MEDICIÓN DE RENDIMIENTO (opcional, apagada por defecto) ---------------
+// Abrir cualquier página con ?perf=1 la activa (queda recordado en este
+// navegador hasta abrir una con ?perf=0). Con eso, perfInstrumentar([...])
+// envuelve las funciones globales listadas y escribe en la consola del
+// navegador (F12) cuánto tardó cada llamada. Las async se miden hasta que
+// terminan (incluye la espera de red de Firestore). Apagada no hace nada.
+const DGF_PERF = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get('perf');
+    if (q !== null) { if (q === '1') localStorage.setItem('dgf_perf', '1'); else localStorage.removeItem('dgf_perf'); }
+    return localStorage.getItem('dgf_perf') === '1';
+  } catch (e) { return false; }
+})();
+function perfInstrumentar(nombres) {
+  if (!DGF_PERF) return;
+  const log = (nombre, t0, async) => {
+    const ms = performance.now() - t0;
+    console.log('%c⏱ ' + nombre + ': ' + ms.toFixed(1) + ' ms' + (async ? ' (async, con red)' : ''),
+      'color:' + (ms > 200 ? '#c0392b' : ms > 50 ? '#e67e22' : '#2e7d32'));
+  };
+  nombres.forEach(nombre => {
+    const fn = window[nombre];
+    if (typeof fn !== 'function' || fn._perf) return;
+    const envuelta = function (...args) {
+      const t0 = performance.now();
+      const r = fn.apply(this, args);
+      if (r && typeof r.then === 'function') r.then(() => log(nombre, t0, true), () => log(nombre, t0, true));
+      else log(nombre, t0, false);
+      return r;
+    };
+    envuelta._perf = true;
+    window[nombre] = envuelta;
+  });
+  console.log('⏱ Medición de rendimiento activa (?perf=0 para apagarla):', nombres.join(', '));
+}
+
+// Fecha "AAAA-MM-DD" de un Date en el huso horario LOCAL del navegador.
+// No usar d.toISOString().slice(0,10) para esto: toISOString() está en UTC,
+// y en Argentina (UTC-3) entre las 21:00 y la medianoche ya da el día
+// siguiente (ej: "mañana" calculado a las 22hs salía pasado mañana).
+function fechaLocalISO(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
