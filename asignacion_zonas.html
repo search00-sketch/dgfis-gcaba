@@ -6,8 +6,8 @@
 <title>DGFIS-GCABA — Asignación de Zonas</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="utils.js?v=7"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
@@ -132,7 +132,7 @@
     <button class="btn btn-verde" onclick="exportarDia()">⬇ Nómina del día</button>
     <button class="btn btn-naranja" onclick="abrirModalEvento()">⚽ + Evento</button>
     <button class="btn btn-gris" onclick="abrirModalMasivo()">📌 Asignación masiva</button>
-    <input class="search-input" id="dist-buscar" placeholder="🔍 Buscar nombre o DNI…" oninput="renderDist()">
+    <input class="search-input" id="dist-buscar" placeholder="🔍 Buscar nombre o DNI…" oninput="diferir('renderDist')">
     <select class="ctrl" id="dist-turno" onchange="renderDist()"><option value="">Todos los turnos</option></select>
     <select class="ctrl" id="dist-zona-filtro" onchange="renderDist()">
       <option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>
@@ -252,7 +252,7 @@
 
 <script>window.MODULO_ID='asignacion';</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-dominio.js?v=12"></script>
+<script src="personal-dominio.js?v=13"></script>
 <script src="personal-datos.js?v=5"></script>
 
 <script type="module">
@@ -406,7 +406,10 @@ async function init(){
   // Fecha asignación: mañana por defecto
   const manana=new Date();manana.setDate(manana.getDate()+1);
   const asigEl=document.getElementById("dist-fecha-asig");
-  if(asigEl){asigEl.value=manana.toISOString().slice(0,10);window.cargarDistFecha(asigEl.value);}
+  // Sin esperar, pero redibujando al llegar: antes, si esa fecha no estaba en
+  // caché, la tabla quedaba mostrando a todos "Sin asignar" hasta el primer cambio.
+  if(asigEl){asigEl.value=fechaLocalISO(manana); // local, no UTC (ver utils.js)
+    window.cargarDistFecha(asigEl.value).then(()=>renderDist()).catch(e=>console.error(e));}
   // Fecha resumen: hoy
   const resEl=document.getElementById("resumen-fecha");
   if(resEl)resEl.value=todayISO();
@@ -551,7 +554,7 @@ async function copiarAsignacionAnterior(){
   const dt=new Date(fechaAsig+"T12:00:00");
   for(let i=1;i<=30;i++){
     dt.setDate(dt.getDate()-1);
-    const f=dt.toISOString().slice(0,10);
+    const f=fechaLocalISO(dt);
     await window.cargarDistFecha(f);
     const d=window.distribuciones[f];
     if(d&&Object.keys(d).length>0){prevFecha=f;prevDist=d;break;}
@@ -562,7 +565,7 @@ async function copiarAsignacionAnterior(){
   let copiados=0,saltados=0;
   const campos={};
   Object.entries(prevDist).forEach(([pid,zona])=>{
-    const persona=window.nomina.find(p=>p.id===pid);
+    const persona=personaPorId(pid);
     if(!persona)return;
     // puedeAsignarse ya excluye baja/licencia/ausencia a la fecha destino
     if(!puedeAsignarse(persona,fechaAsig)){saltados++;return;}
@@ -939,7 +942,7 @@ async function limpiarInvalidosDelDia(){
   const dist=window.distribuciones[fecha]||{};
   if(!Object.keys(dist).length){toast("Sin asignaciones para limpiar.");return;}
   const invalidos=Object.keys(dist).filter(pid=>{
-    const p=window.nomina.find(x=>x.id===pid);
+    const p=personaPorId(pid);
     return !p||!puedeAsignarse(p,fecha);
   });
   if(!invalidos.length){toast("No hay asignaciones inválidas para ese día.");return;}
@@ -968,5 +971,6 @@ document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{
 
 </script>
 <script src="personal-nav.js?v=4"></script>
+<script>perfInstrumentar(["cargarTodo","init","renderAll","actualizarBadgeActivos","renderDist","renderNomina","renderNovedades","renderZonas","asignarZona","_guardarAsignacion","_guardarNovedad","_guardarNovedadesBulk"]);</script>
 </body>
 </html>

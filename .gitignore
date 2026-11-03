@@ -86,3 +86,7 @@ Asistencia.xlsx
 migration-scripts/service-account-key.json
 migration-scripts/usuarios-email.json
 migration-scripts/node_modules
+
+# Pruebas de rendimiento: librerías bajadas de npm y copia de la versión de referencia
+pruebas/rendimiento/.libs/
+pruebas/rendimiento/.version-ref/

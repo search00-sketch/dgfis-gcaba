@@ -6,14 +6,14 @@
 <title>DGFIS-GCABA — Relevamientos Operativos</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
+<script src="utils.js?v=7"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+<script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script defer src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
@@ -190,7 +190,7 @@
 <!-- PANEL DASHBOARD -->
 <div class="panel active" id="panel-dashboard">
   <div class="toolbar">
-    <input class="search-input" id="rf-buscar" placeholder="🔍 Buscar en observaciones/zona…" oninput="aplicarFiltrosRel()">
+    <input class="search-input" id="rf-buscar" placeholder="🔍 Buscar en observaciones/zona…" oninput="diferir('aplicarFiltrosRel')">
     <select class="ctrl" id="rf-zona" onchange="aplicarFiltrosRel()"><option value="">Todas las zonas</option></select>
     <select class="ctrl" id="rf-tematica" onchange="aplicarFiltrosRel()"><option value="">Todas las temáticas</option></select>
     <select class="ctrl" id="rf-estado" onchange="aplicarFiltrosRel()"><option value="">Todos los estados</option></select>

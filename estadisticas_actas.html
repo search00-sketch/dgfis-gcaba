@@ -6,19 +6,19 @@
 <title>DGFIS-GCABA — Estadísticas Actas</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
+<script src="utils.js?v=7"></script>
 <script>window.MODULO_ID='estadisticas';</script>
 <script src="personal-auth.js?v=9"></script>
 
 <!-- Leaflet para mapa -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Leaflet heatmap -->
-<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script defer src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- XLSX para carga -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
@@ -354,7 +354,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
     <div style="padding:12px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span style="font-size:.8rem;color:var(--mut)">Mostrando <strong id="tblCount">–</strong> registros</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="text" id="tblSearch" placeholder="Buscar por inspector, dirección, acta, precinto…" oninput="renderTabla()"
+        <input type="text" id="tblSearch" placeholder="Buscar por inspector, dirección, acta, precinto…" oninput="diferir('renderTabla')"
                style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:0;font-size:.82rem;outline:none;width:260px">
         <button class="fbtn" onclick="exportarRegistros()" title="Descarga lo que se ve con los filtros y la búsqueda aplicados">⬇ Descargar filtrado (Excel)</button>
       </div>
@@ -397,7 +397,7 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
     <div style="padding:12px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span style="font-size:.8rem;color:var(--mut)" id="errInfo"></span>
       <span style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="errBuscar" placeholder="Buscar acta, precinto, quién cargó…" oninput="renderErroresActas()" style="padding:6px 10px;border:1.5px solid var(--bor);font-size:.82rem;width:230px">
+        <input type="text" id="errBuscar" placeholder="Buscar acta, precinto, quién cargó…" oninput="diferir('renderErroresActas')" style="padding:6px 10px;border:1.5px solid var(--bor);font-size:.82rem;width:230px">
         <button class="fbtn" onclick="exportarErroresActas()">⬇ Exportar Excel</button>
       </span>
     </div>
@@ -960,7 +960,10 @@ let mapMode = 'heat';
 
 function initMap() {
   if (mapInstance) return;
-  mapInstance = L.map('map').setView([-34.615, -58.433], 12);
+  // preferCanvas: los puntos se dibujan en un único <canvas> en vez de un
+  // elemento SVG por acta — con miles de actas, pan/zoom y redibujar al
+  // filtrar eran lentos.
+  mapInstance = L.map('map', { preferCanvas: true }).setView([-34.615, -58.433], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution:'© OpenStreetMap'
   }).addTo(mapInstance);
@@ -1007,7 +1010,8 @@ function renderMapa() {
       const m = L.circleMarker([lat, lng], {
         radius:5, fillColor:color, color:'#fff', weight:1, fillOpacity:0.8
       });
-      m.bindPopup(`<b>${esc(r.actaSecuestro||'–')}</b><br>${esc(r.zona||'')}<br>${esc(r.direccion||'')}<br><i>${fmtFecha(r.fecha)}</i>`);
+      // Contenido del popup armado recién al abrirlo, no para cada punto.
+      m.bindPopup(() => `<b>${esc(r.actaSecuestro||'–')}</b><br>${esc(r.zona||'')}<br>${esc(r.direccion||'')}<br><i>${fmtFecha(r.fecha)}</i>`);
       markersGroup.addLayer(m);
     });
     markersGroup.addTo(mapInstance);
@@ -1058,7 +1062,7 @@ function exportarRegistros() {
   const w3 = XLSX.utils.aoa_to_sheet(filtros); w3['!cols']=[{wch:18},{wch:40}];
   XLSX.utils.book_append_sheet(wb, w3, 'Filtros');
   const d=document.getElementById('fDesde').value, h=document.getElementById('fHasta').value;
-  XLSX.writeFile(wb, 'actas_filtradas'+(d||h?'_'+(d||'inicio')+'_a_'+(h||'hoy'):'')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  XLSX.writeFile(wb, 'actas_filtradas'+(d||h?'_'+(d||'inicio')+'_a_'+(h||'hoy'):'')+'_'+fechaLocalISO()+'.xlsx');
 }
 window.exportarRegistros = exportarRegistros;
 function renderTabla() {
@@ -1247,7 +1251,7 @@ function exportarErroresActas(){
     'Foto (nombre)':nombreFoto(x.a.fotoActa),'Foto (link)':x.a.fotoActa||'','Errores':x.e.map(k=>ERR_ACTAS_L[k]).join('; '),'Detalle':x.det.join(' | ')}));
   const ws=XLSX.utils.json_to_sheet(rows);ws['!cols']=[{wch:8},{wch:11},{wch:26},{wch:16},{wch:14},{wch:24},{wch:14},{wch:14},{wch:30},{wch:36},{wch:50},{wch:40},{wch:70}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Errores');
-  XLSX.writeFile(wb,'errores_actas_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  XLSX.writeFile(wb,'errores_actas_'+fechaLocalISO()+'.xlsx');
 }
 window.renderErroresActas=renderErroresActas;
 window.setMapMode = setMapMode;

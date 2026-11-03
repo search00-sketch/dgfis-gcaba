@@ -6,8 +6,8 @@
 <title>DGFIS-GCABA — Gestión de Personal</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=4"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="utils.js?v=7"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
 :root{--azul:var(--c-brand);--azul2:var(--c-brand-2);--verde:var(--c-ok);--rojo:var(--c-danger);--naranja:var(--c-warn);--gris:var(--c-bg);--bor:var(--c-line-soft)}
@@ -128,7 +128,7 @@
     </div>
     <button class="btn btn-verde" onclick="exportarDia()">⬇ Nómina del día</button>
     <a class="btn btn-gris" href="asignacion_zonas.html" style="text-decoration:none;display:inline-block">📍 Ir a Asignación de Zonas →</a>
-    <input class="search-input" id="dist-buscar" placeholder="🔍 Buscar nombre o DNI..." oninput="renderDist()">
+    <input class="search-input" id="dist-buscar" placeholder="🔍 Buscar nombre o DNI..." oninput="diferir('renderDist')">
     <select class="ctrl" id="dist-turno" onchange="renderDist()"><option value="">Todos los turnos</option></select>
     <select class="ctrl" id="dist-zona-filtro" onchange="renderDist()">
       <option value="">Todas las zonas</option><option value="__sin__">Sin asignar</option>
@@ -149,7 +149,7 @@
     <button class="btn btn-verde" onclick="exportarActivos()">⬇ Exportar activos</button>
     <button class="btn btn-gris" onclick="exportarNominaCompleta()">⬇ Nómina completa</button>
     <a class="btn btn-gris" href="novedades_personal.html" style="text-decoration:none;display:inline-block">👥 Gestionar personal →</a>
-    <input class="search-input" id="nom-buscar" placeholder="🔍 Nombre o DNI..." oninput="renderNomina()">
+    <input class="search-input" id="nom-buscar" placeholder="🔍 Nombre o DNI..." oninput="diferir('renderNomina')">
     <select class="ctrl" id="nom-turno" onchange="renderNomina()"><option value="">Todos los turnos</option></select>
     <select class="ctrl" id="nom-estado" onchange="renderNomina()">
       <option value="">Todos</option><option value="Activo" selected>Activos</option>
@@ -168,7 +168,7 @@
   <div class="toolbar">
     <button class="btn btn-verde" onclick="exportarHistorialNovedades()">⬇ Exportar historial</button>
     <a class="btn btn-gris" href="novedades_personal.html" style="text-decoration:none;display:inline-block">📋 Cargar novedad →</a>
-    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar..." oninput="renderNovedades()">
+    <input class="search-input" id="nov-buscar" placeholder="🔍 Buscar..." oninput="diferir('renderNovedades')">
     <select class="ctrl" id="nov-tipo" onchange="renderNovedades()">
       <option value="">Todos los tipos</option>
     </select>
@@ -225,7 +225,7 @@
 
 <script>window.MODULO_ID='personal';</script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-dominio.js?v=12"></script>
+<script src="personal-dominio.js?v=13"></script>
 <script src="personal-datos.js?v=5"></script>
 
 <!-- Firebase module -->
@@ -371,9 +371,11 @@ async function init() {
   manana.setDate(manana.getDate() + 1);
   const asigEl = document.getElementById('dist-fecha-asig');
   if (asigEl) {
-    asigEl.value = manana.toISOString().slice(0,10);
-    // Cargar la distribución de esa fecha
-    window.cargarDistFecha(asigEl.value);
+    asigEl.value = fechaLocalISO(manana); // local, no UTC: a la noche toISOString() ya es el día siguiente
+    // Cargar la distribución de esa fecha. No se espera (renderAll de abajo
+    // no la necesita para arrancar), pero sí hay que redibujar cuando llega:
+    // antes, sin caché, la tabla quedaba mostrando a todos "Sin asignar".
+    window.cargarDistFecha(asigEl.value).then(()=>renderDist()).catch(e=>console.error(e));
   }
 
   poblarSelects();
@@ -588,13 +590,13 @@ function renderNovedades(){
   const filtTipo=selTipoEl.value;
 
   const novHoy=novedadesHoy().filter(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     return coincideTexto((p.nombre||'').toLowerCase(),busq);
   });
   document.getElementById('nov-hoy-title').textContent=`Novedades activas — ${fmtDate(hoy)}`;
   document.getElementById('nov-hoy-list').innerHTML=novHoy.length?
     novHoy.map(n=>{
-      const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:'Desconocido'};
+      const p=personaPorId(n.personaId)||{nombre:'Desconocido'};
       const extra=n.licIni?` (${fmtDate(n.licIni)} → ${fmtDate(n.licFin)})`:''
       return `<div style="background:#f9f9f9;border:1px solid var(--bor);border-radius:0;padding:10px 14px;display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
         <span style="font-weight:700;font-size:13px">${esc(p.nombre)}</span>
@@ -606,13 +608,13 @@ function renderNovedades(){
     :`<div style="color:#aaa;font-size:13px;padding:8px 0">Sin novedades activas para hoy.</div>`;
 
   let hist=[...window.novedades].reverse().filter(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     if(busq&&!coincideTexto((p.nombre||'').toLowerCase(),busq)) return false;
     if(filtTipo&&n.tipo!==filtTipo) return false;
     return true;
   });
   hist=ordenarLista(hist,'hist',(n,campo)=>{
-    if(campo==='persona') return (window.nomina.find(x=>x.id===n.personaId)||{}).nombre||'';
+    if(campo==='persona') return (personaPorId(n.personaId)||{}).nombre||'';
     return n[campo];
   }).slice(0,150);
 
@@ -623,7 +625,7 @@ function renderNovedades(){
     +'<span>Detalle</span><span></span>';
 
   document.getElementById('nov-body').innerHTML=hist.map(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{nombre:'—'};
+    const p=personaPorId(n.personaId)||{nombre:'—'};
     const extra=n.licIni?`${fmtDate(n.licIni)}→${fmtDate(n.licFin)}`:'';
     return `<div class="table-row grid-hist">
       <span style="font-size:12px;color:#777">${fmtDate(n.fecha)}</span>
@@ -716,7 +718,7 @@ async function exportarHistPersonaId(id){
   const dists=Object.keys(window.distribuciones).filter(d=>window.distribuciones[d][id]).sort().reverse().map(d=>({
     'Fecha':d,
     'Zona':window.distribuciones[d][id],
-    'Novedades':window.novedades.filter(n=>n.personaId===id&&n.fecha===d).map(n=>n.tipo).join('; ')||''
+    'Novedades':novedadesDePersona(id).filter(n=>n.fecha===d).map(n=>n.tipo).join('; ')||''
   }));
   if(!dists.length){toast('Sin historial para exportar.');return;}
   const ws=XLSX.utils.json_to_sheet(dists);
@@ -744,7 +746,7 @@ function exportarDia(){
   const rows=activos.filter(p=>dist[p.id]).map(p=>({
     'Nombre':p.nombre,'Turno':p.turno,'Zona':dist[p.id]||'',
     'Rol':p.rol||'Inspector','Coordinador':p.coordinador||'',
-    'Celular':p.celular||'','Novedad':window.novedades.filter(n=>n.personaId===p.id&&novedadCubreFecha(n,fechaAsig)).map(n=>n.tipo).join(', ')||''
+    'Celular':p.celular||'','Novedad':novedadesDePersona(p.id).filter(n=>novedadCubreFecha(n,fechaAsig)).map(n=>n.tipo).join(', ')||''
   }));
   if(!rows.length){toast('Sin personal asignado para exportar.');return;}
   const ws=XLSX.utils.json_to_sheet(rows);
@@ -766,7 +768,7 @@ function exportarNominaCompleta(){
 async function exportarHistorialNovedades(){
   await window.cargarTodasLasDistribuciones();
   const rows=[...window.novedades].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(n=>{
-    const p=window.nomina.find(x=>x.id===n.personaId)||{};
+    const p=personaPorId(n.personaId)||{};
     const zona=(window.distribuciones[n.fecha]||{})[n.personaId]||'';
     return {
       'Fecha':          n.fecha,
@@ -1009,5 +1011,6 @@ function exportNominaExcel(personas, filename, sheetName) {
 }
 </script>
 <script src="personal-nav.js?v=4"></script>
+<script>perfInstrumentar(["cargarTodo","init","renderAll","actualizarBadgeActivos","renderDist","renderNomina","renderNovedades","renderZonas","asignarZona","_guardarAsignacion","_guardarNovedad","_guardarNovedadesBulk"]);</script>
 </body>
 </html>
