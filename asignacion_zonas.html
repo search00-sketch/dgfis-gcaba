@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Asignación de Zonas</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=6"></script>
+<script src="utils.js?v=7"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <style>
@@ -408,7 +408,8 @@ async function init(){
   const asigEl=document.getElementById("dist-fecha-asig");
   // Sin esperar, pero redibujando al llegar: antes, si esa fecha no estaba en
   // caché, la tabla quedaba mostrando a todos "Sin asignar" hasta el primer cambio.
-  if(asigEl){asigEl.value=manana.toISOString().slice(0,10);window.cargarDistFecha(asigEl.value).then(()=>renderDist()).catch(e=>console.error(e));}
+  if(asigEl){asigEl.value=fechaLocalISO(manana); // local, no UTC (ver utils.js)
+    window.cargarDistFecha(asigEl.value).then(()=>renderDist()).catch(e=>console.error(e));}
   // Fecha resumen: hoy
   const resEl=document.getElementById("resumen-fecha");
   if(resEl)resEl.value=todayISO();
@@ -553,7 +554,7 @@ async function copiarAsignacionAnterior(){
   const dt=new Date(fechaAsig+"T12:00:00");
   for(let i=1;i<=30;i++){
     dt.setDate(dt.getDate()-1);
-    const f=dt.toISOString().slice(0,10);
+    const f=fechaLocalISO(dt);
     await window.cargarDistFecha(f);
     const d=window.distribuciones[f];
     if(d&&Object.keys(d).length>0){prevFecha=f;prevDist=d;break;}

@@ -142,3 +142,12 @@ function perfInstrumentar(nombres) {
   });
   console.log('⏱ Medición de rendimiento activa (?perf=0 para apagarla):', nombres.join(', '));
 }
+
+// Fecha "AAAA-MM-DD" de un Date en el huso horario LOCAL del navegador.
+// No usar d.toISOString().slice(0,10) para esto: toISOString() está en UTC,
+// y en Argentina (UTC-3) entre las 21:00 y la medianoche ya da el día
+// siguiente (ej: "mañana" calculado a las 22hs salía pasado mañana).
+function fechaLocalISO(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}

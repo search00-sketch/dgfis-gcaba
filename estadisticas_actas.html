@@ -6,7 +6,7 @@
 <title>DGFIS-GCABA — Estadísticas Actas</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <script src="config.js"></script>
-<script src="utils.js?v=6"></script>
+<script src="utils.js?v=7"></script>
 <script>window.MODULO_ID='estadisticas';</script>
 <script src="personal-auth.js?v=9"></script>
 
@@ -1062,7 +1062,7 @@ function exportarRegistros() {
   const w3 = XLSX.utils.aoa_to_sheet(filtros); w3['!cols']=[{wch:18},{wch:40}];
   XLSX.utils.book_append_sheet(wb, w3, 'Filtros');
   const d=document.getElementById('fDesde').value, h=document.getElementById('fHasta').value;
-  XLSX.writeFile(wb, 'actas_filtradas'+(d||h?'_'+(d||'inicio')+'_a_'+(h||'hoy'):'')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  XLSX.writeFile(wb, 'actas_filtradas'+(d||h?'_'+(d||'inicio')+'_a_'+(h||'hoy'):'')+'_'+fechaLocalISO()+'.xlsx');
 }
 window.exportarRegistros = exportarRegistros;
 function renderTabla() {
@@ -1251,7 +1251,7 @@ function exportarErroresActas(){
     'Foto (nombre)':nombreFoto(x.a.fotoActa),'Foto (link)':x.a.fotoActa||'','Errores':x.e.map(k=>ERR_ACTAS_L[k]).join('; '),'Detalle':x.det.join(' | ')}));
   const ws=XLSX.utils.json_to_sheet(rows);ws['!cols']=[{wch:8},{wch:11},{wch:26},{wch:16},{wch:14},{wch:24},{wch:14},{wch:14},{wch:30},{wch:36},{wch:50},{wch:40},{wch:70}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Errores');
-  XLSX.writeFile(wb,'errores_actas_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  XLSX.writeFile(wb,'errores_actas_'+fechaLocalISO()+'.xlsx');
 }
 window.renderErroresActas=renderErroresActas;
 window.setMapMode = setMapMode;
