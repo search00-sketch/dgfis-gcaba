@@ -10,7 +10,11 @@ const { nuevoCtx, abrir } = require('./real.js');
 const USER = process.env.DGF_TEST_USER, PASS = process.env.DGF_TEST_PASS;
 if (!USER || !PASS) { console.error('Faltan DGF_TEST_USER / DGF_TEST_PASS en el entorno.'); process.exit(2); }
 
-const listo = (page) => page.waitForFunction(() => window._fsReady === true && /✅/.test(document.getElementById('syncTxt')?.textContent || ''), null, { timeout: 120000 });
+// Firestore no garantiza el orden de los registros dentro de cada chunk, así
+// que dos cargas de la misma versión pueden listar en otro orden. Para poder
+// comparar el HTML viejo vs nuevo, se ordenan por id antes de medir.
+const ordenar = (page) => page.evaluate(() => { const c = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); window.nomina.sort(c); window.novedades.sort(c); });
+const listo = async (page) => { await page.waitForFunction(() => window._fsReady === true && /✅/.test(document.getElementById('syncTxt')?.textContent || '') && window.nomina.length > 0, null, { timeout: 120000 }); await ordenar(page); };
 async function login(page) {
   await page.waitForSelector('#lUser', { state: 'visible', timeout: 60000 });
   await page.fill('#lUser', USER); await page.fill('#lPass', PASS);
@@ -24,9 +28,14 @@ const FR = `const fr = () => new Promise(r => requestAnimationFrame(() => setTim
 async function version(browser, dir) {
   const ctx = await nuevoCtx(browser, dir);
   const out = { errores: [] };
-  // Asignación (acá se hace el login; la sesión queda guardada para el resto)
+  // Login en una pestaña descartable: la sesión queda guardada para el resto.
+  // No se mide en esa pestaña porque, si la página arranca sin sesión, la
+  // lectura previa al login falla y deja la nómina vacía en sessionStorage
+  // (24 h), así que esa pestaña mostraría 0 personas aunque después se loguee.
   let { page, errores } = await abrir(ctx, 'asignacion_zonas.html');
-  await login(page);
+  await login(page); await page.close();
+  // Asignación
+  ({ page, errores } = await abrir(ctx, 'asignacion_zonas.html'));
   let t0 = Date.now(); await listo(page);
   await page.waitForFunction(() => window.distribuciones[getFechaAsig()], null, { timeout: 60000 });
   await page.waitForTimeout(1500);
@@ -103,6 +112,7 @@ async function version(browser, dir) {
   ];
   console.log('\n| Medición (ms) | Antes | Ahora |\n|---|---|---|');
   for (const [n, f] of filas) console.log(`| ${n} | ${f(R.viejo) ?? '—'} | ${f(R.nuevo) ?? '—'} |`);
+  if (process.env.HTML_DIR) { const fs = require('fs'); for (const v of ['viejo', 'nuevo']) for (const k of ['asignacion', 'novedades', 'gestion']) fs.writeFileSync(`${process.env.HTML_DIR}/${k}-${v}.html`, R[v][k].html); fs.writeFileSync(`${process.env.HTML_DIR}/resumen.json`, JSON.stringify({ viejo: R.viejo.asignacion, nuevo: R.nuevo.asignacion }, (k, v) => k === 'html' ? undefined : v)); }
   const eq = (f) => f(R.viejo) === f(R.nuevo) ? 'idéntico' : 'DISTINTO';
   console.log('\nHTML viejo vs nuevo — Asignación:', eq(r => r.asignacion.html), '· Novedades:', eq(r => r.novedades.html), '· Gestión:', eq(r => r.gestion.html), '· KPI total actas:', eq(r => r.estadisticas.kpiTotal));
   for (const v of ['viejo', 'nuevo']) console.log(`${v}: errores ${JSON.stringify(R[v].errores)} · escrituras bloqueadas ${R[v].escriturasBloqueadas}`);
