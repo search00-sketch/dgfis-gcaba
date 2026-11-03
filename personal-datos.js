@@ -96,7 +96,11 @@ async function guardarRegistroChunked(nombreCol, cacheConf, registro, coleccionA
   const { id, _chunk, ...datos } = registro;
   let chunkIdx = _chunk;
   if (chunkIdx === undefined) {
-    const metaSnap = await window._fGetDoc(window._fDoc(window._db, nombreCol+'_meta', 'index')).catch(()=>null);
+    // Sin .catch(): si no se puede leer cuántos chunks hay, NO guardar. Antes
+    // se asumía 0 chunks y el registro nuevo iba siempre al chunk_0 (ya
+    // lleno), que crece sin límite hacia el máximo de 1 MB por documento.
+    // Quien llama ya muestra el error ("❌ Error al guardar…").
+    const metaSnap = await window._fGetDoc(window._fDoc(window._db, nombreCol+'_meta', 'index'));
     const numChunks = (metaSnap && metaSnap.exists()) ? (metaSnap.data().numChunks||0) : 0;
     chunkIdx = Math.min(Math.floor(coleccionActual.length / CHUNK_SIZE), numChunks);
     if (chunkIdx >= numChunks) {
@@ -122,7 +126,9 @@ async function guardarRegistrosBulkChunked(nombreCol, cacheConf, lista, coleccio
   const chunkExistente = {};
   coleccionActual.forEach(r => { if (r._chunk !== undefined) chunkExistente[r.id] = r._chunk; });
 
-  const metaSnap = await window._fGetDoc(window._fDoc(window._db, nombreCol+'_meta', 'index')).catch(()=>null);
+  // Sin .catch(): mismo motivo que en guardarRegistroChunked (con 0 chunks
+  // asumidos, todo un import nuevo iría al chunk_0).
+  const metaSnap = await window._fGetDoc(window._fDoc(window._db, nombreCol+'_meta', 'index'));
   let numChunks = (metaSnap && metaSnap.exists()) ? (metaSnap.data().numChunks||0) : 0;
   let totalActual = coleccionActual.length;
 
