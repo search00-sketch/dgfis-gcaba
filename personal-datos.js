@@ -50,7 +50,11 @@ const CHUNK_SIZE = 500;
 async function leerColeccionChunked(nombreCol, cacheConf) {
   const cached = getCache(cacheConf);
   if (cached) return cached;
-  const metaSnap = await window._fGetDoc(window._fDoc(window._db, nombreCol+'_meta', 'index')).catch(()=>null);
+  // Sin .catch(): si la lectura falla (ej. sin permiso antes del login) el
+  // error sube a cargarTodo(). Antes se tomaba como "0 chunks" y se guardaba
+  // una lista VACÍA en caché por 24 h: la pestaña quedaba mostrando
+  // 0 personas aunque después el usuario se logueara.
+  const metaSnap = await window._fGetDoc(window._fDoc(window._db, nombreCol+'_meta', 'index'));
   const numChunks = (metaSnap && metaSnap.exists()) ? (metaSnap.data().numChunks||0) : 0;
   const chunkSnaps = await Promise.all(
     Array.from({length: numChunks}, (_,i) => window._fGetDoc(window._fDoc(window._db, nombreCol+'_chunks', 'chunk_'+i)))
@@ -148,6 +152,13 @@ async function guardarRegistrosBulkChunked(nombreCol, cacheConf, lista, coleccio
 window._fsReady = false;
 
 async function cargarTodo() {
+  // Sin sesión las reglas de Firestore rechazan las lecturas: no tiene
+  // sentido intentarlas. Al loguearse desde el cartel, personal-auth.js
+  // vuelve a llamar a cargarTodo() (_recargarDatosPagina).
+  if (typeof usuarioActual === 'function' && !usuarioActual()) {
+    setSyncStatus('loading', 'Iniciá sesión para cargar los datos');
+    return;
+  }
   setSyncStatus('loading', 'Cargando…');
   try {
     // Todas las lecturas son independientes entre sí: se disparan en
@@ -175,7 +186,8 @@ async function cargarTodo() {
       window.zonas = zonasCache;
     } else {
       window.zonas = (zSnap && zSnap.exists()) ? zSnap.data().lista : [...ZONAS_DEFAULT];
-      setCache(CACHE.zonas, window.zonas);
+      // zSnap null = la lectura falló: no guardar las de por defecto 24 h.
+      if (zSnap) setCache(CACHE.zonas, window.zonas);
     }
 
     // Tipos de novedad
@@ -209,7 +221,7 @@ window.cargarDistFecha = async function(fecha) {
   const snap = await window._fGetDoc(window._fDoc(window._db,'distribuciones', fecha)).catch(()=>null);
   const data = (snap && snap.exists()) ? (snap.data().asignaciones || {}) : {};
   window.distribuciones[fecha] = data;
-  setCache(CACHE.dist, data, fecha);
+  if (snap) setCache(CACHE.dist, data, fecha); // null = falló la lectura: no cachear {}
 };
 
 // Historial de zonas por persona (ficha "Ver" y su exportación en Gestión
