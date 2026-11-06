@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA — Formularios Venta no autorizada</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script src="config.js"></script>
+<script src="utils.js?v=7"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="estilo-comun.css?v=15">
+<style>
+.kpigrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);border-left:4px solid var(--c-brand-2);padding:10px 12px}
+.kpi.warn{border-left-color:var(--c-warn)}
+.kpi-val{font-size:1.45rem;font-weight:800;color:var(--c-brand);font-variant-numeric:tabular-nums}
+.kpi-lbl{font-size:.72rem;color:var(--c-ink-mut);margin-top:2px}
+
+.filtros-urb{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);padding:12px;margin-bottom:12px}
+.ff{display:flex;flex-direction:column;gap:3px;min-width:130px}
+.ff label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut)}
+.ff select,.ff input{padding:6px 8px;border:var(--border-w) solid var(--c-line-soft);font-size:.84rem;background:#fff;outline:none}
+.ff.grow{flex:1;min-width:200px}
+.ff-check{display:flex;align-items:center;gap:5px;font-size:.8rem;color:var(--c-ink-mut);padding-bottom:6px}
+
+.urb-scroll{overflow-x:auto;background:var(--c-surface);border:var(--border-w-strong) solid var(--c-line)}
+table.urb{width:100%;border-collapse:collapse;font-size:.8rem}
+table.urb thead th{background:var(--c-brand);color:#fff;text-align:left;padding:7px 9px;font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;position:sticky;top:0}
+table.urb td{padding:6px 9px;border-bottom:var(--border-w) solid var(--c-line-soft);vertical-align:top}
+table.urb tbody tr{cursor:pointer}
+table.urb tbody tr:hover td{background:#eef4fb}
+table.urb tr.dup td{color:#9ca3af}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.muted{color:var(--c-ink-mut)}
+.trunc{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.late{color:var(--c-danger);font-weight:700}
+.pager{display:flex;gap:8px;align-items:center;padding:8px 10px;border-top:var(--border-w) solid var(--c-line-soft);font-size:.8rem}
+
+.note{background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);padding:9px 12px;font-size:.8rem;color:var(--c-ink-mut);line-height:1.6;margin-bottom:12px}
+.note b{color:var(--c-ink)}
+.note .w{color:var(--c-warn);font-weight:600}
+
+.bloque{margin-bottom:18px}
+.bloque h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--c-brand);margin-bottom:6px}
+table.res{border-collapse:collapse;font-size:.78rem;width:100%;background:var(--c-surface)}
+table.res th,table.res td{padding:5px 8px;border-bottom:1px solid var(--c-line-soft);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+table.res thead th{background:#3b3f44;color:#fff;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}
+table.res th:first-child,table.res td:first-child{text-align:left;position:sticky;left:0;background:var(--c-surface);font-weight:700}
+table.res thead th:first-child{background:#3b3f44}
+table.res tr.tot td{border-top:2px solid var(--c-line);font-weight:800;background:#eef0f2}
+table.res td.z{color:#c4c7cb}
+table.res thead th.we{color:#fcd34d}
+
+table.cfg{width:100%;border-collapse:collapse;font-size:.82rem;background:var(--c-surface)}
+table.cfg th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut);padding:6px 8px;border-bottom:2px solid var(--c-line)}
+table.cfg td{padding:5px 8px;border-bottom:1px solid var(--c-line-soft);vertical-align:middle}
+
+.uarea{border:2px dashed var(--c-line-soft);padding:28px;text-align:center;background:var(--c-surface);position:relative;cursor:pointer}
+.uarea.drag{border-color:var(--c-brand-2);background:#eff6ff}
+.uarea input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.pwrap{height:8px;background:var(--c-line-soft);margin-top:12px;display:none}
+.pfill{height:100%;background:var(--c-brand-2);width:0%;transition:width .3s}
+.file-row{display:flex;gap:10px;align-items:center;font-size:.8rem;padding:6px 10px;background:var(--c-surface);border:1px solid var(--c-line-soft);margin-top:6px}
+.file-row .n{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-row.err .n{color:var(--c-danger)}
+
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.det-item{background:var(--c-bg);padding:7px 10px}
+.det-k{font-size:.68rem;color:var(--c-ink-mut)}
+.det-v{font-size:.85rem;font-weight:600;overflow-wrap:anywhere;white-space:pre-wrap}
+.det-sec{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--c-brand);margin:4px 0 6px}
+.err-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.err-chips .lbl{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut);margin-right:4px}
+.err-chip{border:1px solid var(--c-line-soft);background:#fff;padding:5px 10px;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--c-ink)}
+.err-chip .c{color:var(--c-ink-mut);font-weight:500;margin-left:3px}
+.err-chip.on{background:#fff7ed;border-color:var(--c-warn);color:#9a3412}
+.pill-err{display:inline-block;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-size:.7rem;font-weight:700;padding:1px 6px;white-space:nowrap}
+.pill-sec{display:inline-block;background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c;font-size:.7rem;font-weight:700;padding:1px 6px;white-space:nowrap}
+.pill-inc{display:inline-block;background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;font-size:.7rem;font-weight:700;padding:1px 6px;white-space:nowrap}
+.det-err{border-left:3px solid var(--c-warn);background:#fff7ed;padding:8px 10px;font-size:.82rem;margin-bottom:10px}
+.fotos a{display:inline-block;margin:0 8px 6px 0;color:var(--c-brand-2);font-weight:600;text-decoration:none}
+@media(max-width:768px){.det-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<!-- CAMBIAR CONTRASEÑA -->
+<div class="overlay" id="modal-cambiar-pass-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">Cambiar contraseña</div>
+    <div id="cp-err" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px"><label class="fl">Contraseña actual</label><input class="form-input" type="password" id="cp-actual" autocomplete="current-password"></div>
+    <div class="form-field full" style="margin-bottom:12px"><label class="fl">Nueva contraseña</label><input class="form-input" type="password" id="cp-nueva" autocomplete="new-password"></div>
+    <div class="form-field full" style="margin-bottom:16px"><label class="fl">Repetir nueva contraseña</label><input class="form-input" type="password" id="cp-nueva2" autocomplete="new-password"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-cambiar-pass-overlay')">Cancelar</button>
+      <button class="btn btn-azul" id="cp-guardar-btn" onclick="guardarCambioPassPropia()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="overlay open" id="loginOverlay" style="z-index:3000">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">📝</div>
+    <div class="modal-title" style="text-align:center">Formularios — Venta no autorizada</div>
+    <p style="font-size:.79rem;color:#888;margin-bottom:18px">DGFIS-GCABA</p>
+    <div class="lerr" id="loginErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:0;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px;text-align:left"><label class="fl">Usuario</label><input class="form-input" type="text" id="lUser" placeholder="usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="form-field full" style="margin-bottom:16px;text-align:left"><label class="fl">Contraseña</label>
+      <div style="position:relative"><input class="form-input" type="password" id="lPass" placeholder="••••••" style="padding-right:36px" onkeydown="if(event.key==='Enter')doLogin()">
+      <button type="button" onclick="togglePass()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:#888">👁️</button></div></div>
+    <button class="btn btn-azul" style="width:100%;padding:11px" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <p style="margin-top:12px;font-size:.74rem"><a href="index.html" style="color:var(--c-brand-2)">← Volver al portal</a></p>
+  </div>
+</div>
+
+<!-- DETALLE DE FORMULARIO -->
+<div class="overlay" id="modal-det">
+  <div class="modal" style="max-width:680px">
+    <button class="modal-close" onclick="cerrarModal('modal-det')">✕</button>
+    <div class="modal-title" id="det-title"></div>
+    <div id="det-body"></div>
+    <div class="fotos" id="det-links"></div>
+    <div class="modal-actions" style="margin-top:12px"><button class="btn btn-gris" onclick="cerrarModal('modal-det')">Cerrar</button></div>
+  </div>
+</div>
+
+<header class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="nav-drop" style="position:relative">
+      <button onclick="toggleNavMenu(event)" title="Navegar entre módulos" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:0;cursor:pointer">☰</button>
+      <div id="navMenu" class="nav-menu"></div>
+    </div>
+    <div>
+      <div class="header-title">📝 Formularios — Venta no autorizada</div>
+      <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
+    <button class="hbtn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<div class="sync-bar">
+  <span><span class="sync-dot sync-loading" id="syncDot"></span><span id="syncTxt">Conectando…</span></span>
+  <button class="sync-refresh" onclick="forzarRecarga()">⟳ Actualizar</button>
+</div>
+
+<div class="layout-row">
+<div class="tabs">
+  <button class="tab active" onclick="window.cambiarTab('buscar',this)">🔎 Buscar</button>
+  <button class="tab" onclick="window.cambiarTab('resumen',this)">📈 Resumen</button>
+  <button class="tab" onclick="window.cambiarTab('control',this)">⚠️ Control de datos</button>
+  <button class="tab" id="tabCarga" style="display:none" onclick="window.cambiarTab('carga',this)">📥 Cargar CSV</button>
+</div>
+
+<div class="content">
+
+<!-- ===================== BUSCAR ===================== -->
+<div class="panel active" id="panel-buscar">
+  <button type="button" class="mob-filter-toggle" id="bFiltrosBtn" onclick="toggleFiltrosPanel('bFiltros')">⚙️ Filtros</button>
+  <div class="filtros-urb mob-filter-panel" id="bFiltros">
+    <div class="mob-filter-head"><span>Filtros</span><button type="button" onclick="toggleFiltrosPanel('bFiltros',true)">✕</button></div>
+    <div class="ff grow"><label>Buscar</label><input type="text" id="bTexto" placeholder="ID, N° de acta, dirección, usuario, comentario…" oninput="aplicarFiltrosDebounced()"></div>
+    <div class="ff"><label>Desde (operativo)</label><input type="date" id="bDesde" onchange="onRangoBuscarChange()"></div>
+    <div class="ff"><label>Hasta</label><input type="date" id="bHasta" onchange="onRangoBuscarChange()"></div>
+    <div class="ff"><label>Usuario</label><select id="bUsuario" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Turno</label><select id="bTurno" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Modalidad</label><select id="bModalidad" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
+    <div class="ff"><label>Zona (polígono / patrulla)</label><select id="bZona" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
+    <div class="ff"><label>Comuna</label><select id="bComuna" onchange="aplicarFiltros()"><option value="">Todas</option></select></div>
+    <div class="ff"><label>Barrio</label><select id="bBarrio" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Procedimiento</label><select id="bProc" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <div class="ff"><label>Resultado</label><select id="bRes" onchange="aplicarFiltros()"><option value="">Todos</option></select></div>
+    <label class="ff-check"><input type="checkbox" id="bHallazgo" onchange="aplicarFiltros()"> Sólo con incidencia o secuestro</label>
+    <label class="ff-check"><input type="checkbox" id="bSinDup" onchange="aplicarFiltros()"> Ocultar posibles duplicados</label>
+    <label class="ff-check"><input type="checkbox" id="bTarde" onchange="aplicarFiltros()"> Sólo cargados más de 24 h después</label>
+    <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosBuscar()">✕ Limpiar</button>
+  </div>
+  <div class="err-chips" id="bErrChips"></div>
+  <div class="toolbar">
+    <button class="btn btn-gris btn-sm" onclick="rangoRapido(7)">Últimos 7 días</button>
+    <button class="btn btn-gris btn-sm" onclick="rangoRapido(30)">Últimos 30 días</button>
+    <button class="btn btn-gris btn-sm" onclick="rangoRapido(90)">Últimos 90 días</button>
+    <button class="btn btn-gris btn-sm" onclick="rangoTodo()">Todo el historial</button>
+    <span style="flex:1"></span>
+    <button class="btn btn-verde" onclick="exportarBusquedaExcel()">⬇ Exportar Excel</button>
+  </div>
+  <div class="kpigrid" id="bKpis"></div>
+  <div class="table-info" id="bInfo"></div>
+  <div class="urb-scroll">
+    <table class="urb">
+      <thead><tr><th>ID</th><th>Operativo (fecha)</th><th>Cargado</th><th>Usuario / turno</th><th>Dirección</th><th>Zona</th><th>Procedimiento / resultado</th><th>Acta</th><th>Comentario</th><th>Control</th></tr></thead>
+      <tbody id="bBody"></tbody>
+    </table>
+    <div class="pager">
+      <button class="btn btn-gris btn-sm" onclick="paginaBuscar(-1)">← Ant</button>
+      <span id="bPag" class="muted">1 / 1</span>
+      <button class="btn btn-gris btn-sm" onclick="paginaBuscar(1)">Sig →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== RESUMEN ===================== -->
+<div class="panel" id="panel-resumen">
+  <div class="note">Resumen del <b>rango elegido en Buscar</b> (<span id="rRango"></span>), <b>sin contar los posibles duplicados</b>. Los días van por la fecha del operativo.</div>
+  <div class="toolbar"><span style="flex:1"></span><button class="btn btn-verde" onclick="exportarResumenExcel()">⬇ Exportar Excel</button></div>
+  <div id="rBody"></div>
+</div>
+
+<!-- ===================== CONTROL DE DATOS ===================== -->
+<div class="panel" id="panel-control">
+  <div class="note">
+    Problemas detectados en los formularios del <b>rango elegido en Buscar</b> (<span id="eRango"></span>). Se calculan al leer, así que si el formulario
+    se corrige en la Grilla y se vuelve a subir la descarga, se reemplaza por su versión nueva (mismo ID, no se duplica) y el aviso desaparece solo.
+    <br><b>Posible carga duplicada</b>: mismo usuario, misma fecha y hora, misma dirección y mismo resultado que otro formulario con ID menor (se marca el sobrante, no el primero).
+  </div>
+  <div class="kpigrid" id="eKpis"></div>
+  <div class="err-chips" id="eErrChips"></div>
+  <div class="urb-scroll"><table class="urb" id="eTabla"><thead></thead><tbody></tbody></table></div>
+  <div class="table-info" style="margin-top:6px">Clic en un usuario para ver sus formularios con avisos en Buscar. Exportá desde Buscar para mandarle la lista a corregir.</div>
+</div>
+
+<!-- ===================== CARGA ===================== -->
+<div class="panel" id="panel-carga">
+  <div class="gestion-zonas">
+    <div class="gz-title">📥 Cargar descargas de la Grilla de Formularios</div>
+    <p style="font-size:.82rem;color:#777;margin-bottom:12px">
+      Uno o varios <b>.csv</b> descargados de la <b>Grilla de Formularios</b> (formulario <b>VENTA NO AUTORIZADA</b>, separado por <b>;</b>).
+      El <b>ID</b> del formulario es la clave: volver a subir el mismo archivo, o uno que se solape, actualiza en vez de duplicar.
+      Se guarda agrupado por mes de la fecha del operativo.
+    </p>
+    <div class="note" id="upPista"></div>
+    <div class="uarea" id="uarea">
+      <input type="file" id="fileInput" accept=".csv,text/csv" multiple onchange="onArchivosElegidos(this.files)">
+      <div style="font-size:2rem;margin-bottom:6px">📄</div>
+      <div style="font-weight:600;color:var(--c-brand)">Arrastrá o hacé clic para elegir los CSV</div>
+    </div>
+    <div id="upFiles"></div>
+    <div id="upResumen" style="margin-top:10px"></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-verde" id="upBtn" onclick="subirAFirestore()" disabled style="opacity:.45">⬆ Subir a Firebase</button>
+      <button class="btn btn-gris" onclick="limpiarCarga()">Limpiar</button>
+    </div>
+    <div class="pwrap" id="upPwrap"><div class="pfill" id="upPfill"></div></div>
+    <div class="toast-msg" id="upToast"></div>
+  </div>
+  <div class="gestion-zonas">
+    <div class="gz-title">🧾 Historial de cargas</div>
+    <div style="overflow-x:auto">
+      <table class="cfg">
+        <thead><tr><th>Cuándo</th><th>Quién</th><th>Archivo(s)</th><th>Filas</th><th>Nuevos</th><th>Modificados</th><th>Sin cambios</th><th>Operativos del</th><th>Creados del</th></tr></thead>
+        <tbody id="cargasBody"></tbody>
+      </table>
+    </div>
+    <div class="table-info" id="mesesInfo" style="margin-top:8px"></div>
+  </div>
+</div>
+
+</div>
+</div><!-- /layout-row -->
+
+<script>window.MODULO_ID='formularios';</script>
+<script src="personal-auth.js?v=9"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
+const app = initializeApp(FIREBASE_CONFIG);
+if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
+  initializeAppCheck(app, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+}
+window._db = getFirestore(app);
+window._fDoc = doc; window._fGetDoc = getDoc; window._fSetDoc = setDoc; window._fDeleteDoc = deleteDoc; window._fRunTransaction = runTransaction;
+window._auth = getAuth(app);
+window._fOnAuthStateChanged = onAuthStateChanged;
+window._fSignIn = signInWithEmailAndPassword; window._fSignOut = signOut;
+window._fEmailAuthProvider = EmailAuthProvider; window._fReauthenticate = reauthenticateWithCredential; window._fUpdatePassword = updatePassword;
+window.cambiarTab = function(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('panel-' + id);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (window._cambiarTabExtra) window._cambiarTabExtra(id);
+};
+if (window.restaurarSesion) window.restaurarSesion().then(() => { if (window.cargarTodo) window.cargarTodo(); });
+</script>
+
+<script>
+// ============================================================
+//  GRILLA DE FORMULARIOS — VENTA NO AUTORIZADA (formulario 37)
+//  Importa las descargas .csv de la Grilla de Formularios (una fila por
+//  formulario cargado en campo, 73 columnas "aplanadas": cada rama del
+//  formulario —Secuestro, Comprobación, No secuestro, Intimación— tiene su
+//  bloque de columnas y casi todas vienen vacías).
+//  Ojo: la Grilla filtra la descarga por FECHA DE CREACIÓN, no por fecha
+//  del operativo, y muchos formularios se cargan días después. Por eso se
+//  guarda por ID (re-subir o solapar descargas no duplica) y se agrupa por
+//  mes de la fecha del operativo.
+//  Almacenamiento (ver firestore.rules):
+//   formularios_meta/index        → {meses:{"AAAA-MM":{chunks,count,v}},
+//                                    totalRegistros, primeraFecha, ultimaFecha,
+//                                    ultimaCreacion, cargas:[…últimas 40]}
+//   formularios_chunks/AAAA-MM_N  → {mes, n, datos:'{"ID":{…}}'}
+//     "datos" va como TEXTO JSON (mismo motivo que en urbetrack_venta.html:
+//     un mapa anidado grande supera el tope de entradas de índice).
+//  Caché por mes en IndexedDB con la versión "v" del índice.
+// ============================================================
+const COL_CHUNKS = 'formularios_chunks';
+const COL_META   = 'formularios_meta';
+const MAX_BYTES_CHUNK = 900000;
+const MAX_CARGAS_LOG = 40;
+const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+let META = null;
+const MESES = {};      // "AAAA-MM" → [registros] (en memoria)
+let REGS = [];         // registros de los meses cargados (plano)
+let PARSEADOS = [];    // archivos elegidos en "Cargar CSV"
+
+// ---------- utilidades ----------
+function toast(msg,ms=2600){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),ms);}
+function cerrarModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='loginOverlay')o.classList.remove('open');}));
+function setSync(tipo,msg){const d=document.getElementById('syncDot');d.className='sync-dot sync-'+tipo;document.getElementById('syncTxt').textContent=msg;}
+const pad=n=>String(n).padStart(2,'0');
+function isoDia(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function hoyISO(){return isoDia(new Date());}
+function sumarDias(ds,n){const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return isoDia(d);}
+function fmtD(ds){if(!ds)return '—';const [y,m,d]=ds.slice(0,10).split('-');return d+'/'+m+'/'+y;}
+function fmtCorta(ds){const [,m,d]=ds.split('-');return d+'/'+m;}
+function fmtDT(s){if(!s)return '—';return fmtD(s)+(s.length>10?' '+s.slice(11,16):'');}
+function mesDe(ds){return ds.slice(0,7);}
+function mesesEntre(desde,hasta){
+  const out=[];let [y,m]=desde.slice(0,7).split('-').map(Number);const [yh,mh]=hasta.slice(0,7).split('-').map(Number);
+  while(y<yh||(y===yh&&m<=mh)){out.push(y+'-'+pad(m));m++;if(m>12){m=1;y++;}}
+  return out;
+}
+function diasEntre(desde,hasta){const out=[];for(let d=desde;d<=hasta;d=sumarDias(d,1))out.push(d);return out;}
+const MES_TXT=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function fmtMes(mes){const [y,m]=mes.split('-');return MES_TXT[+m-1]+' '+y;}
+function norm(s){return String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();}
+function parseDT(s){if(!s)return null;const d=new Date(s.length>10?s.replace(' ','T'):s+'T00:00');return isNaN(d)?null:d;}
+function fmtDur(min){
+  if(min==null)return '—';
+  const a=Math.abs(min),sg=min<0?'-':'';
+  if(a<60)return sg+Math.round(a)+' min';
+  if(a<72*60)return sg+(a/60).toFixed(1).replace('.',',')+' h';
+  return sg+(a/1440).toFixed(1).replace('.',',')+' d';
+}
+function median(v){if(!v.length)return null;const s=v.slice().sort((a,b)=>a-b),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+const fmtN=n=>n==null?'—':n.toFixed(1).replace('.',',');
+const fmtInt=n=>(n||0).toLocaleString('es-AR');
+const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+
+// ============================================================
+//  PARSEO DE LA DESCARGA (funciones puras: se prueban sin Firebase)
+// ============================================================
+// CSV con comillas, ";" o "," como separador y saltos de línea dentro de
+// campos entre comillas (los comentarios pueden traerlos).
+function parseCSV(text){
+  text=text.replace(/^﻿/,'');
+  const primera=text.slice(0,text.indexOf('\n')>=0?text.indexOf('\n'):text.length);
+  const sep=(primera.split(';').length>=primera.split(',').length)?';':',';
+  const rows=[];let row=[],f='',q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){if(text[i+1]==='"'){f+='"';i++;}else q=false;}
+      else f+=c;
+      continue;
+    }
+    if(c==='"'){q=true;continue;}
+    if(c===sep){row.push(f);f='';continue;}
+    if(c==='\r')continue;
+    if(c==='\n'){row.push(f);rows.push(row);row=[];f='';continue;}
+    f+=c;
+  }
+  if(f!==''||row.length){row.push(f);rows.push(row);}
+  return rows.filter(r=>r.length>1||(r[0]||'').trim());
+}
+// La Grilla exporta en UTF-8 (con BOM); si el archivo pasó por Excel puede
+// venir en Windows-1252: se reintenta si UTF-8 deja caracteres inválidos.
+function decodificar(buf){
+  const u=new TextDecoder('utf-8').decode(buf);
+  if(!u.includes('�'))return u;
+  try{return new TextDecoder('windows-1252').decode(buf);}catch(e){return u;}
+}
+// "06-11-26", "06-11-26 11:06", "06/11/2026", "2026-11-06 11:06" → "AAAA-MM-DD[ HH:MM]"
+function fechaGrilla(s,hora){
+  s=String(s||'').trim();if(!s)return '';
+  let y,mo,d,h=null,mi=null,m;
+  if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/))){d=+m[1];mo=+m[2];y=+m[3];if(y<100)y+=2000;if(m[4]!=null){h=+m[4];mi=+m[5];}}
+  else if((m=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/))){y=+m[1];mo=+m[2];d=+m[3];if(m[4]!=null){h=+m[4];mi=+m[5];}}
+  else return '';
+  if(!(mo>=1&&mo<=12&&d>=1&&d<=31))return '';
+  if(h==null&&hora){const mh=String(hora).trim().match(/^(\d{1,2}):(\d{2})/);if(mh){h=+mh[1];mi=+mh[2];}}
+  return y+'-'+pad(mo)+'-'+pad(d)+(h!=null?' '+pad(h)+':'+pad(mi):'');
+}
+// Columnas fijas del formulario (encabezado normalizado → campo).
+const COL_BASE={
+  'id':'id','fecha creacion':'creado','fecha modificacion':'modif','id formulario':'formId','formulario':'form',
+  'id usuario':'uid','usuario':'usuario','turno':'turno','direccion':'dir','comuna':'comuna','barrio':'barrio',
+  'geometria':'geo','fecha':'dia','horario':'hora','operativo':'operativo','venta ilegal':'modalidad','poligono':'poligono',
+  'evento masivo':'evento','evento masivo - otro':'eventoOtro','partido de futbol':'partido','partido de futbol - otro':'partidoOtro',
+  'tipo de procedimiento':'proc',
+};
+// Bloques "Rama - Campo": se guardan como mapa {Campo original: valor} con
+// sólo lo que vino cargado. Así, si la Grilla agrega una columna nueva, se
+// guarda igual sin tocar el código.
+const BLOQUES={'secuestro':'sec','comprobacion':'comp','no secuestro':'ns','intimacion':'inti'};
+function esFormVenta(rec){return rec.formId==='37'||/venta no autorizada/.test(norm(rec.form));}
+function mapearEncabezados(heads){
+  return heads.map(h=>{
+    const raw=String(h||'').replace(/^﻿/,'').trim(),n=norm(raw);
+    if(COL_BASE[n])return {t:'base',k:COL_BASE[n]};
+    const i=raw.indexOf(' - ');
+    if(i>0){const b=BLOQUES[norm(raw.slice(0,i))];if(b)return {t:'bloque',b,k:raw.slice(i+3).trim()};}
+    return raw?{t:'extra',k:raw}:null;
+  });
+}
+function filaARegistro(map,row,archivo){
+  const base={},bloques={},extra={};
+  map.forEach((m,i)=>{
+    if(!m)return;const v=String(row[i]??'').trim();if(!v)return;
+    if(m.t==='base')base[m.k]=v;
+    else if(m.t==='bloque')(bloques[m.b]=bloques[m.b]||{})[m.k]=v;
+    else extra[m.k]=v;
+  });
+  if(!base.id)return null;
+  // El nombre del archivo NO se guarda en cada formulario (son ~70 caracteres
+  // × miles de filas): queda en el historial de cargas del índice.
+  const rec={id:base.id};
+  rec.creado=fechaGrilla(base.creado);
+  const mod=fechaGrilla(base.modif);if(mod&&mod!==rec.creado)rec.modif=mod;
+  rec.fecha=fechaGrilla(base.dia,base.hora)||'';
+  ['formId','form','uid','usuario','turno','dir','comuna','barrio','operativo','modalidad','poligono','evento','eventoOtro','partido','partidoOtro','proc'].forEach(k=>{if(base[k])rec[k]=base[k];});
+  const g=String(base.geo||'').match(/POINT\s*\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)/i);
+  if(g){const lng=parseFloat(g[1]),lat=parseFloat(g[2]);if(!isNaN(lat)&&!isNaN(lng)&&lat&&lng){rec.lat=Math.round(lat*1e6)/1e6;rec.lng=Math.round(lng*1e6)/1e6;}}
+  // "No secuestro": la clasificación y el comentario se sacan a campos
+  // propios; "Clasificación (patrulla)/(polígono)" repiten la de servicio.
+  const ns=bloques.ns||{};
+  Object.keys(ns).forEach(k=>{
+    const n=norm(k);
+    if(n==='clasificacion de servicio'){rec.clasif=ns[k];delete ns[k];}
+    else if(n.startsWith('clasificacion')){if(!rec.clasif)rec._clasifAlt=ns[k];delete ns[k];}
+    else if(n.startsWith('comentarios')){rec.comentario=ns[k];delete ns[k];}
+  });
+  if(!rec.clasif&&rec._clasifAlt)rec.clasif=rec._clasifAlt;delete rec._clasifAlt;
+  if(Object.keys(ns).length)rec.ns=ns;
+  ['sec','comp','inti'].forEach(b=>{if(bloques[b]&&Object.keys(bloques[b]).length)rec[b]=bloques[b];});
+  if(Object.keys(extra).length)rec.extra=extra;
+  return rec;
+}
+// Devuelve {regs, omitidas, otrosForm:{nombre:n}} a partir del texto del CSV.
+function parsearGrilla(text,archivo){
+  const rows=parseCSV(text);
+  let hi=-1;
+  for(let i=0;i<Math.min(rows.length,10);i++){const n=rows[i].map(norm);if(n.includes('id')&&n.includes('usuario')&&n.includes('fecha creacion')){hi=i;break;}}
+  if(hi<0)throw new Error('No encontré la fila de encabezados ("ID" / "Fecha Creación" / "Usuario"). ¿Es una descarga de la Grilla de Formularios?');
+  const map=mapearEncabezados(rows[hi]);
+  if(!map.some(m=>m&&m.k==='dia'))throw new Error('La descarga no trae la columna "Fecha" del operativo.');
+  const regs=[],otrosForm={};let omitidas=0;
+  rows.slice(hi+1).forEach(r=>{
+    const rec=filaARegistro(map,r,archivo);if(!rec)return;
+    if((rec.formId||rec.form)&&!esFormVenta(rec)){const k=rec.form||('ID '+rec.formId);otrosForm[k]=(otrosForm[k]||0)+1;return;}
+    if(!rec.fecha){omitidas++;return;}
+    delete rec.formId;delete rec.form;
+    regs.push(rec);
+  });
+  return {regs,omitidas,otrosForm};
+}
+
+// ---------- campos derivados (se recalculan al leer, no se guardan) ----------
+const esSecuestro=r=>/^secuestro/.test(norm(r.proc));
+const esSinIncidencia=s=>/sin in[cs]idencias?/.test(norm(s));
+// Resultado que cargó el agente en la rama "No secuestro" de su
+// clasificación (ej. Relevamiento → "Vendedor ambulante").
+function resultadoNs(r){const ns=r.ns||{};return ns[r.clasif]||Object.values(ns)[0]||'';}
+function resultado(r){
+  if(esSecuestro(r))return 'Secuestro';
+  return resultadoNs(r)||r.clasif||r.proc||'';
+}
+function valorDe(obj,re){if(!obj)return '';for(const k in obj)if(re.test(norm(k)))return obj[k];return '';}
+// N° de acta normalizado para comparar: "AS :00053341", "as 34648" → "AS53341",
+// "AS34648". Sólo números ("18361") → formato dudoso (¿de qué talonario?).
+function actaNorm(a){
+  const s=String(a||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!s)return '';
+  const m=s.match(/^([A-Z]*)0*(\d+)$/);return m?m[1]+m[2]:s;
+}
+const ACTA_SEC_OK=/^AS\d{3,}$/;
+function zonaDe(r){
+  const mod=norm(r.modalidad);
+  if(mod==='poligono')return r.poligono||'(polígono sin nombre)';
+  if(mod==='patrulla')return 'Patrulla · '+(r.comuna||'sin comuna');
+  if(r.evento)return 'Evento · '+(norm(r.evento)==='otros'&&r.eventoOtro?r.eventoOtro:r.evento);
+  if(r.partido)return 'Partido · '+(norm(r.partido)==='otros'&&r.partidoOtro?r.partidoOtro:r.partido);
+  return r.operativo||'(sin operativo)';
+}
+function lagMin(r){const a=parseDT(r.creado),f=parseDT(r.fecha);return (a&&f&&r.fecha.length>10)?Math.round((a-f)/60000):null;}
+function prepararRegs(regs){
+  regs.forEach(r=>{
+    r._dia=(r.fecha||'').slice(0,10);
+    r._lag=lagMin(r);
+    r._res=resultado(r);
+    r._sec=esSecuestro(r);
+    // "Con incidencia" sólo si hay un resultado cargado y no es "sin
+    // incidencias" (sin resultado, el formulario no dice que haya habido algo).
+    const rn=r._sec?'':resultadoNs(r);
+    r._inc=!!rn&&!esSinIncidencia(rn);
+    // "Nº de acta de secuestro" (no "¿Actas de comprobación?", que es SI/NO).
+    r._acta=valorDe(r.sec,/de acta/);r._actaN=actaNorm(r._acta);
+    r._actaComp=valorDe(r.comp,/de acta/);
+    r._zona=zonaDe(r);
+    r._modalidad=r.modalidad||(r.evento?'Evento masivo':r.partido?'Partido de fútbol':r.operativo||'');
+    r._q=norm([r.id,r.usuario,r.turno,r.dir,r.comuna,r.barrio,r._zona,r.proc,r.clasif,r._res,r._acta,r._actaN,r._actaComp,r.comentario,
+      ...Object.values(r.sec||{}),...Object.values(r.comp||{}),...Object.values(r.extra||{})].join(' '));
+  });
+  return regs;
+}
+
+// ---------- control de datos ----------
+const ERR_DEFS=[
+  {k:'dup',      l:'Posible carga duplicada'},
+  {k:'secsinacta',l:'Secuestro sin N° de acta'},
+  {k:'actafmt',  l:'N° de acta con formato dudoso'},
+  {k:'actarep',  l:'N° de acta repetido en otro formulario'},
+  {k:'sinpol',   l:'Polígono sin nombre'},
+  {k:'sinturno', l:'Sin turno'},
+  {k:'fuera',    l:'Ubicación fuera de CABA'},
+];
+const ERR_LABEL=Object.fromEntries(ERR_DEFS.map(e=>[e.k,e.l]));
+const enCABA=r=>r.lat==null||(r.lat>-34.71&&r.lat<-34.52&&r.lng>-58.54&&r.lng<-58.33);
+const idNum=r=>{const n=parseInt(r.id,10);return isNaN(n)?Infinity:n;};
+function marcarControl(regs){
+  // Duplicado: mismo usuario, misma fecha y hora, misma dirección, mismo
+  // resultado y misma acta/comentario. El de ID menor es "el original".
+  const g={};
+  regs.forEach(r=>{r._dup=null;const k=[r.usuario,r.fecha,norm(r.dir),norm(r.proc),norm(r.clasif),norm(r._res),r._actaN,norm(r.comentario)].join('|');(g[k]=g[k]||[]).push(r);});
+  Object.values(g).forEach(a=>{if(a.length<2)return;a.sort((x,y)=>idNum(x)-idNum(y)||String(x.id).localeCompare(String(y.id)));a.slice(1).forEach(r=>{r._dup=a[0].id;});});
+  // Misma acta en formularios que no son duplicados entre sí.
+  const porActa={};
+  regs.forEach(r=>{r._actaRep=null;if(r._actaN&&!r._dup)(porActa[r._actaN]=porActa[r._actaN]||[]).push(r);});
+  Object.values(porActa).forEach(a=>{if(a.length>1)a.forEach(r=>{r._actaRep=a.filter(x=>x!==r).map(x=>x.id);});});
+  regs.forEach(r=>{
+    const e=[];
+    if(r._dup)e.push('dup');
+    if(r._sec&&!r._acta)e.push('secsinacta');
+    if(r._acta&&!ACTA_SEC_OK.test(r._actaN))e.push('actafmt');
+    if(r._actaRep)e.push('actarep');
+    if(norm(r.modalidad)==='poligono'&&!r.poligono)e.push('sinpol');
+    if(!r.turno)e.push('sinturno');
+    if(!enCABA(r))e.push('fuera');
+    r._err=e;
+  });
+}
+
+// ============================================================
+//  LECTURA
+// ============================================================
+const IDB_NAME='dgf_formularios',IDB_STORE='meses';
+let _idbP=null;
+function idb(){
+  if(!_idbP)_idbP=new Promise((res)=>{
+    try{const rq=indexedDB.open(IDB_NAME,1);
+      rq.onupgradeneeded=()=>rq.result.createObjectStore(IDB_STORE);
+      rq.onsuccess=()=>res(rq.result);rq.onerror=()=>res(null);
+    }catch(e){res(null);}
+  });
+  return _idbP;
+}
+async function cacheGet(mes){
+  const db=await idb();if(!db)return null;
+  return new Promise(res=>{try{const rq=db.transaction(IDB_STORE).objectStore(IDB_STORE).get(mes);rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>res(null);}catch(e){res(null);}});
+}
+async function cacheSet(mes,val){
+  const db=await idb();if(!db)return;
+  return new Promise(res=>{try{const tx=db.transaction(IDB_STORE,'readwrite');val===null?tx.objectStore(IDB_STORE).delete(mes):tx.objectStore(IDB_STORE).put(val,mes);tx.oncomplete=()=>res();tx.onerror=()=>res();}catch(e){res();}});
+}
+async function cacheClearAll(){
+  const db=await idb();if(!db)return;
+  return new Promise(res=>{try{const tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).clear();tx.oncomplete=()=>res();tx.onerror=()=>res();}catch(e){res();}});
+}
+function registrosDeDoc(d){
+  if(!d)return {};
+  if(typeof d.datos==='string'){try{return JSON.parse(d.datos);}catch(e){console.error('Chunk ilegible',e);return {};}}
+  return d.registros||{};
+}
+async function leerMeta(){
+  const snap=await window._fGetDoc(window._fDoc(window._db,COL_META,'index'));
+  META=snap.exists()?snap.data():{meses:{},cargas:[]};
+  META.meses=META.meses||{};META.cargas=META.cargas||[];
+}
+async function asegurarMes(mes){
+  const info=META.meses[mes];
+  if(!info){MESES[mes]=[];return 0;}
+  if(MESES[mes]&&MESES[mes]._v===info.v)return 0;
+  const c=await cacheGet(mes);
+  if(c&&c.v===info.v){MESES[mes]=prepararRegs(c.regs);MESES[mes]._v=info.v;return 0;}
+  const snaps=await Promise.all(Array.from({length:info.chunks||0},(_,i)=>window._fGetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i))));
+  const regs=[];snaps.forEach(s=>{if(s.exists())Object.values(registrosDeDoc(s.data())).forEach(r=>regs.push(r));});
+  await cacheSet(mes,{v:info.v,regs:JSON.parse(JSON.stringify(regs))});
+  MESES[mes]=prepararRegs(regs);MESES[mes]._v=info.v;
+  return snaps.length;
+}
+async function asegurarRango(desde,hasta){
+  const meses=mesesEntre(desde,hasta).filter(m=>META.meses[m]);
+  const pend=meses.filter(m=>!(MESES[m]&&MESES[m]._v===META.meses[m].v));
+  if(pend.length)setSync('loading','Leyendo '+pend.map(fmtMes).join(', ')+'…');
+  const lecturas=(await Promise.all(pend.map(asegurarMes))).reduce((a,b)=>a+b,0);
+  REGS=Object.keys(MESES).sort().flatMap(m=>MESES[m]);
+  marcarControl(REGS);
+  actualizarSync(lecturas);
+}
+function actualizarSync(lecturas){
+  const meses=Object.keys(META.meses).sort();
+  if(!meses.length){setSync('ok','Sin datos todavía — cargá una descarga desde "Cargar CSV"');return;}
+  const enMem=Object.keys(MESES).filter(m=>MESES[m].length).length;
+  setSync('ok','✅ '+fmtInt(META.totalRegistros||0)+' formularios en la base ('+fmtMes(meses[0])+' – '+fmtMes(meses[meses.length-1])+') · '
+    +enMem+' mes'+(enMem===1?'':'es')+' en pantalla'+(lecturas!=null?' · '+lecturas+' lectura'+(lecturas===1?'':'s')+' de datos':''));
+}
+window.cargarTodo=async function(){
+  if(typeof usuarioActual==='function'&&!usuarioActual())return;
+  setSync('loading','Cargando…');
+  try{
+    await leerMeta();
+    const fin=META.ultimaFecha||hoyISO();
+    const desdeMin=d=>META.primeraFecha&&d<META.primeraFecha?META.primeraFecha:d;
+    if(!document.getElementById('bHasta').value){document.getElementById('bHasta').value=fin;document.getElementById('bDesde').value=desdeMin(sumarDias(fin,-29));}
+    await asegurarRango(document.getElementById('bDesde').value,document.getElementById('bHasta').value);
+    poblarFiltros();aplicarFiltros();renderCargas();
+    const activo=document.querySelector('.panel.active');
+    if(activo&&activo.id!=='panel-buscar')window._cambiarTabExtra(activo.id.replace('panel-',''));
+  }catch(e){console.error(e);setSync('err','⚠️ Error: '+e.message);}
+};
+window.forzarRecarga=async function(){
+  await cacheClearAll();
+  Object.keys(MESES).forEach(k=>delete MESES[k]);
+  window.cargarTodo();
+};
+// Al salir se borra el caché local (PC compartida).
+const _doLogoutOriginal=doLogout;
+doLogout=async function(){await cacheClearAll();_doLogoutOriginal();};
+window._onLogin=function(){document.getElementById('tabCarga').style.display=puedeEditar()?'':'none';};
+window._cambiarTabExtra=function(id){
+  if(!META)return;
+  if(id==='resumen')renderResumen();
+  else if(id==='control')renderControl();
+  else if(id==='carga')renderCargas();
+};
+
+// ============================================================
+//  BUSCAR
+// ============================================================
+let FILTRADOS=[],bPage=1;const B_PER=50;
+const ERR_SEL=new Set();
+function poblarSel(id,vals,ph){
+  const s=document.getElementById(id),act=s.value;
+  s.innerHTML='<option value="">'+ph+'</option>'+[...new Set(vals.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'es',{numeric:true})).map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+  if([...s.options].some(o=>o.value===act))s.value=act;
+}
+function poblarFiltros(){
+  poblarSel('bUsuario',REGS.map(r=>r.usuario),'Todos');
+  poblarSel('bTurno',REGS.map(r=>r.turno),'Todos');
+  poblarSel('bModalidad',REGS.map(r=>r._modalidad),'Todas');
+  poblarSel('bZona',REGS.map(r=>r._zona),'Todas');
+  poblarSel('bComuna',REGS.map(r=>r.comuna),'Todas');
+  poblarSel('bBarrio',REGS.map(r=>r.barrio),'Todos');
+  poblarSel('bProc',REGS.map(r=>r.proc),'Todos');
+  poblarSel('bRes',REGS.map(r=>r._res),'Todos');
+}
+async function onRangoBuscarChange(){
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  if(META&&d&&h&&d<=h){await asegurarRango(d,h);poblarFiltros();}
+  aplicarFiltros();
+  const act=document.querySelector('.panel.active');if(act)window._cambiarTabExtra(act.id.replace('panel-',''));
+}
+function rangoRapido(dias){
+  const fin=META&&META.ultimaFecha||hoyISO();const desde=sumarDias(fin,-(dias-1));
+  document.getElementById('bHasta').value=fin;document.getElementById('bDesde').value=META&&META.primeraFecha&&desde<META.primeraFecha?META.primeraFecha:desde;
+  onRangoBuscarChange();
+}
+function rangoTodo(){
+  if(!META||!META.primeraFecha){toast('No hay datos cargados.');return;}
+  const n=Object.values(META.meses).reduce((a,m)=>a+(m.chunks||0),0);
+  if(n>12&&!confirm('Traer todo el historial lee '+n+' documentos de Firebase (una sola vez por sesión). ¿Seguir?'))return;
+  document.getElementById('bDesde').value=META.primeraFecha;document.getElementById('bHasta').value=META.ultimaFecha;
+  onRangoBuscarChange();
+}
+function enRango(r){const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;return !(d&&r._dia<d)&&!(h&&r._dia>h);}
+function pasaErr(r){if(!ERR_SEL.size)return true;for(const k of ERR_SEL)if(r._err.includes(k))return true;return false;}
+function renderChips(elId,lista){
+  const cnt={};ERR_DEFS.forEach(d=>cnt[d.k]=0);lista.forEach(r=>r._err.forEach(k=>cnt[k]++));
+  document.getElementById(elId).innerHTML='<span class="lbl">Control</span>'
+    +ERR_DEFS.map(d=>'<button type="button" class="err-chip'+(ERR_SEL.has(d.k)?' on':'')+'" onclick="toggleErr(\''+d.k+'\')">'+esc(d.l)+'<span class="c">('+fmtInt(cnt[d.k])+')</span></button>').join('')
+    +(ERR_SEL.size?'<button type="button" class="btn btn-gris btn-sm" onclick="ERR_SEL.clear();aplicarFiltros();renderControl()">✕ Quitar</button>':'');
+}
+function toggleErr(k){ERR_SEL.has(k)?ERR_SEL.delete(k):ERR_SEL.add(k);aplicarFiltros();if(document.getElementById('panel-control').classList.contains('active'))renderControl();}
+let _debT=null;function aplicarFiltrosDebounced(){clearTimeout(_debT);_debT=setTimeout(aplicarFiltros,180);}
+function aplicarFiltros(){
+  actualizarBadgeFiltros('bFiltros','bFiltrosBtn');
+  const g=id=>document.getElementById(id).value;
+  const q=norm(g('bTexto'));
+  const f={usuario:g('bUsuario'),turno:g('bTurno'),_modalidad:g('bModalidad'),_zona:g('bZona'),comuna:g('bComuna'),barrio:g('bBarrio'),proc:g('bProc'),_res:g('bRes')};
+  const hall=document.getElementById('bHallazgo').checked,sinDup=document.getElementById('bSinDup').checked,tarde=document.getElementById('bTarde').checked;
+  FILTRADOS=REGS.filter(r=>{
+    if(!enRango(r))return false;
+    for(const k in f)if(f[k]&&r[k]!==f[k])return false;
+    if(hall&&!(r._sec||r._inc))return false;
+    if(sinDup&&r._dup)return false;
+    if(tarde&&!(r._lag!=null&&r._lag>24*60))return false;
+    if(!pasaErr(r))return false;
+    if(q&&!coincideTexto(r._q,q))return false;
+    return true;
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||idNum(b)-idNum(a));
+  bPage=1;renderKpis();renderTablaBuscar();
+  renderChips('bErrChips',REGS.filter(enRango));
+}
+function limpiarFiltrosBuscar(){
+  ['bTexto','bUsuario','bTurno','bModalidad','bZona','bComuna','bBarrio','bProc','bRes'].forEach(id=>document.getElementById(id).value='');
+  ['bHallazgo','bSinDup','bTarde'].forEach(id=>document.getElementById(id).checked=false);
+  ERR_SEL.clear();aplicarFiltros();
+}
+const kpi=(v,l,cls)=>'<div class="kpi'+(cls?' '+cls:'')+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div></div>';
+function renderKpis(){
+  const D=FILTRADOS,U=D.filter(r=>!r._dup),dias=new Set(U.map(r=>r._dia)).size,lags=U.map(r=>r._lag).filter(x=>x!=null&&x>=0);
+  const dup=D.length-U.length,tarde=lags.filter(x=>x>24*60).length;
+  document.getElementById('bKpis').innerHTML=
+    kpi(fmtInt(D.length),'Formularios')+kpi(fmtInt(dup),'Posibles duplicados',dup?'warn':'')
+    +kpi(fmtInt(new Set(U.map(r=>r.usuario)).size),'Usuarios')+kpi(dias?fmtN(U.length/dias):'—','Promedio por día ('+dias+' días)')
+    +kpi(fmtInt(U.filter(r=>r._sec).length),'Secuestros')+kpi(fmtInt(U.filter(r=>r._inc).length),'Con incidencia (sin secuestro)')
+    +kpi(fmtDur(median(lags)),'Demora mediana de carga')+kpi(pct(tarde,lags.length),'Cargados más de 24 h después',tarde?'warn':'');
+}
+function renderTablaBuscar(){
+  const total=FILTRADOS.length,pages=Math.max(1,Math.ceil(total/B_PER));if(bPage>pages)bPage=pages;
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  document.getElementById('bInfo').textContent=fmtInt(total)+' formularios'+(d&&h?' con operativo entre el '+fmtD(d)+' y el '+fmtD(h):'')+' · del más nuevo al más viejo · clic en una fila para ver el detalle';
+  document.getElementById('bPag').textContent=bPage+' / '+pages;
+  const slice=FILTRADOS.slice((bPage-1)*B_PER,bPage*B_PER);
+  document.getElementById('bBody').innerHTML=slice.map((r,i)=>{
+    const res=r._sec?'<span class="pill-sec">Secuestro</span>':(r._inc?'<span class="pill-inc">'+esc(r._res)+'</span>':esc(r._res||'—'));
+    return '<tr class="'+(r._dup?'dup':'')+'" onclick="verDetalle('+((bPage-1)*B_PER+i)+')">'
+      +'<td class="num"><b>'+esc(r.id)+'</b></td>'
+      +'<td class="num">'+fmtDT(r.fecha)+'</td>'
+      +'<td class="num muted">'+fmtDT(r.creado)+(r._lag!=null?'<div class="'+(r._lag>24*60?'late':'')+'" style="font-size:.72rem">+'+fmtDur(r._lag)+'</div>':'')+'</td>'
+      +'<td>'+esc(r.usuario||'—')+(r.turno?'<div class="muted" style="font-size:.72rem">'+esc(r.turno)+'</div>':'')+'</td>'
+      +'<td style="white-space:nowrap">'+esc(r.dir||'—')+'<div class="muted" style="font-size:.72rem">'+esc([r.comuna,r.barrio].filter(Boolean).join(' · '))+'</div></td>'
+      +'<td>'+esc(r._zona)+'</td>'
+      +'<td>'+esc(r.proc||'—')+(r.clasif&&!r._sec?' · '+esc(r.clasif):'')+'<div style="font-size:.74rem">'+res+'</div></td>'
+      +'<td class="num">'+esc(r._acta||r._actaComp||'')+'</td>'
+      +'<td><div class="trunc" title="'+esc(r.comentario||'')+'">'+esc(r.comentario||'')+'</div></td>'
+      +'<td>'+(r._err.length?'<span class="pill-err" title="'+esc(r._err.map(e=>ERR_LABEL[e]).join(' · '))+'">⚠ '+(r._dup?'duplicado':r._err.length)+'</span>':'')+'</td>'
+      +'</tr>';
+  }).join('')||'<tr><td colspan="10" style="padding:20px;text-align:center;color:#999;cursor:default">'+(META&&Object.keys(META.meses).length?'Sin formularios para estos filtros.':'Todavía no hay datos: cargá una descarga de la Grilla desde la pestaña "Cargar CSV".')+'</td></tr>';
+}
+function paginaBuscar(d){const pages=Math.max(1,Math.ceil(FILTRADOS.length/B_PER));bPage=Math.min(pages,Math.max(1,bPage+d));renderTablaBuscar();}
+function verDetalle(idx){
+  const r=FILTRADOS[idx];if(!r)return;
+  document.getElementById('det-title').textContent='Formulario '+r.id+(r._dup?' (posible duplicado de '+r._dup+')':'');
+  const item=(k,v)=>v?'<div class="det-item"><div class="det-k">'+esc(k)+'</div><div class="det-v">'+esc(v)+'</div></div>':'';
+  const grid=(arr)=>{const h=arr.map(([k,v])=>item(k,v)).join('');return h?'<div class="det-grid">'+h+'</div>':'';};
+  const bloque=(tit,obj)=>obj&&Object.keys(obj).length?'<div class="det-sec">'+esc(tit)+'</div>'+grid(Object.entries(obj)):'';
+  let html='';
+  if(r._err.length)html+='<div class="det-err"><b>⚠ Control de datos</b><br>'+r._err.map(k=>esc(ERR_LABEL[k])+(k==='dup'?' (original: '+esc(r._dup)+')':k==='actarep'?' ('+esc(r._actaRep.join(', '))+')':'')).join('<br>')+'</div>';
+  html+=grid([['Fecha del operativo',fmtDT(r.fecha)],['Cargado en la Grilla',fmtDT(r.creado)+(r._lag!=null?' (+'+fmtDur(r._lag)+')':'')],['Modificado',r.modif?fmtDT(r.modif):''],
+    ['Usuario',r.usuario],['Turno',r.turno],['Dirección',r.dir],['Comuna / Barrio',[r.comuna,r.barrio].filter(Boolean).join(' · ')],
+    ['Operativo',r.operativo],['Modalidad',r.modalidad],['Polígono',r.poligono],['Evento masivo',[r.evento,r.eventoOtro].filter(Boolean).join(' · ')],['Partido de fútbol',[r.partido,r.partidoOtro].filter(Boolean).join(' · ')],
+    ['Procedimiento',r.proc],['Clasificación',r.clasif],['Resultado',r._res],['Comentario',r.comentario],['Subido al portal',r.cargadoEn?fmtDT(r.cargadoEn.replace('T',' '))+(r.cargadoPor?' por '+r.cargadoPor:''):'']]);
+  html+=bloque('Secuestro',r.sec)+bloque('Comprobación',r.comp)+bloque('No secuestro',r.ns)+bloque('Intimación',r.inti)+bloque('Otras columnas',r.extra);
+  document.getElementById('det-body').innerHTML=html;
+  document.getElementById('det-links').innerHTML=(r.lat&&r.lng)?'<a href="https://www.google.com/maps?q='+r.lat+','+r.lng+'" target="_blank" rel="noopener">📍 Ver en el mapa</a>':'';
+  document.getElementById('modal-det').classList.add('open');
+}
+const txtBloque=o=>o?Object.entries(o).map(([k,v])=>k+': '+v).join(' | '):'';
+function filaExport(r){
+  return {'ID':r.id,'Fecha operativo':r.fecha||'','Fecha creación':r.creado||'','Demora de carga (h)':r._lag!=null?Math.round(r._lag/6)/10:'',
+    'Usuario':r.usuario||'','Turno':r.turno||'','Dirección':r.dir||'','Comuna':r.comuna||'','Barrio':r.barrio||'',
+    'Operativo':r.operativo||'','Modalidad':r.modalidad||'','Polígono':r.poligono||'','Zona':r._zona,'Evento / partido':[r.evento,r.eventoOtro,r.partido,r.partidoOtro].filter(Boolean).join(' · '),
+    'Procedimiento':r.proc||'','Clasificación':r.clasif||'','Resultado':r._res||'',
+    'Acta de secuestro':r._acta||'','Acta normalizada':r._actaN||'','Acta de comprobación':r._actaComp||'',
+    'Detalle secuestro':txtBloque(r.sec),'Detalle comprobación':txtBloque(r.comp),'Comentario':r.comentario||'',
+    'Latitud':r.lat??'','Longitud':r.lng??'','Control de datos':r._err.map(k=>ERR_LABEL[k]).join('; '),'Duplicado de':r._dup||''};
+}
+function exportarBusquedaExcel(){
+  if(!FILTRADOS.length){toast('No hay formularios para exportar.');return;}
+  const ws=XLSX.utils.json_to_sheet(FILTRADOS.map(filaExport));
+  ws['!cols']=[{wch:9},{wch:16},{wch:16},{wch:9},{wch:22},{wch:14},{wch:24},{wch:10},{wch:16},{wch:13},{wch:10},{wch:18},{wch:22},{wch:16},{wch:13},{wch:16},{wch:20},{wch:14},{wch:12},{wch:12},{wch:40},{wch:30},{wch:40},{wch:11},{wch:11},{wch:30},{wch:10}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Formularios');
+  XLSX.writeFile(wb,'formularios_venta_'+document.getElementById('bDesde').value+'_'+document.getElementById('bHasta').value+'.xlsx');
+  toast('✅ Exportados '+fmtInt(FILTRADOS.length)+' formularios');
+}
+
+// ============================================================
+//  RESUMEN (sin duplicados, rango de Buscar)
+// ============================================================
+function calcularResumen(){
+  const L=REGS.filter(r=>enRango(r)&&!r._dup);
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  const conDatos=L.map(r=>r._dia).sort();
+  const dias=(d&&h&&d<=h)?diasEntre(d,h):(conDatos.length?diasEntre(conDatos[0],conDatos[conDatos.length-1]):[]);
+  const porU={},porZ={};
+  L.forEach(r=>{
+    const u=r.usuario||'(sin usuario)';
+    const o=porU[u]||(porU[u]={u,n:0,sec:0,inc:0,dias:{},lags:[],tarde:0});
+    o.n++;if(r._sec)o.sec++;if(r._inc)o.inc++;o.dias[r._dia]=(o.dias[r._dia]||0)+1;
+    if(r._lag!=null&&r._lag>=0){o.lags.push(r._lag);if(r._lag>24*60)o.tarde++;}
+    const z=porZ[r._zona]||(porZ[r._zona]={z:r._zona,mod:r._modalidad,n:0,sin:0,inc:0,sec:0});
+    z.n++;if(r._sec)z.sec++;else if(r._inc)z.inc++;else z.sin++;
+  });
+  const dupsRango=REGS.filter(r=>enRango(r)&&r._dup);
+  const dupU={};dupsRango.forEach(r=>{const u=r.usuario||'(sin usuario)';dupU[u]=(dupU[u]||0)+1;});
+  const usuarios=Object.values(porU).sort((a,b)=>b.n-a.n);
+  const zonas=Object.values(porZ).sort((a,b)=>String(a.mod).localeCompare(String(b.mod))||b.n-a.n);
+  return {L,dias,usuarios,zonas,dupU};
+}
+function renderResumen(){
+  if(!META)return;
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  document.getElementById('rRango').textContent=d&&h?fmtD(d)+' – '+fmtD(h):'todo lo cargado';
+  const R=calcularResumen();
+  if(!R.L.length){document.getElementById('rBody').innerHTML='<div class="note">Sin formularios en el rango.</div>';return;}
+  const tot={n:0,sec:0,inc:0,dup:0,tarde:0,lags:[]};
+  const filasU=R.usuarios.map(o=>{
+    const nd=Object.keys(o.dias).length;tot.n+=o.n;tot.sec+=o.sec;tot.inc+=o.inc;tot.dup+=(R.dupU[o.u]||0);tot.tarde+=o.tarde;tot.lags.push(...o.lags);
+    return '<tr><td>'+esc(o.u)+'</td><td>'+fmtInt(o.n)+'</td><td>'+nd+'</td><td>'+fmtN(o.n/nd)+'</td><td>'+fmtInt(o.sec)+'</td><td>'+fmtInt(o.inc)+'</td>'
+      +'<td'+(R.dupU[o.u]?'':' class="z"')+'>'+fmtInt(R.dupU[o.u]||0)+'</td><td>'+fmtDur(median(o.lags))+'</td><td>'+pct(o.tarde,o.lags.length)+'</td></tr>';
+  }).join('');
+  const tabU='<div class="bloque"><h3>Por usuario</h3><div class="urb-scroll"><table class="res"><thead><tr><th>Usuario</th><th>Formularios</th><th>Días con carga</th><th>Prom. por día</th><th>Secuestros</th><th>Con incidencia</th><th>Duplicados excluidos</th><th>Demora mediana</th><th>&gt; 24 h</th></tr></thead><tbody>'
+    +filasU+'<tr class="tot"><td>TOTAL</td><td>'+fmtInt(tot.n)+'</td><td>'+new Set(R.L.map(r=>r._dia)).size+'</td><td></td><td>'+fmtInt(tot.sec)+'</td><td>'+fmtInt(tot.inc)+'</td><td>'+fmtInt(tot.dup)+'</td><td>'+fmtDur(median(tot.lags))+'</td><td>'+pct(tot.tarde,tot.lags.length)+'</td></tr></tbody></table></div></div>';
+  const totDia={};
+  const filasD=R.usuarios.map(o=>'<tr><td>'+esc(o.u)+'</td>'+R.dias.map(ds=>{const v=o.dias[ds]||0;totDia[ds]=(totDia[ds]||0)+v;return '<td'+(v?'':' class="z"')+'>'+(v||'·')+'</td>';}).join('')+'<td><b>'+fmtInt(o.n)+'</b></td></tr>').join('');
+  const tabD='<div class="bloque"><h3>Por día del operativo</h3><div class="urb-scroll"><table class="res"><thead><tr><th>Usuario</th>'
+    +R.dias.map(ds=>{const dw=new Date(ds+'T12:00:00').getDay();return '<th class="'+(dw===0||dw===6?'we':'')+'">'+DOW[dw]+' '+fmtCorta(ds)+'</th>';}).join('')+'<th>Total</th></tr></thead><tbody>'
+    +filasD+'<tr class="tot"><td>TOTAL</td>'+R.dias.map(ds=>'<td>'+(totDia[ds]||'·')+'</td>').join('')+'<td>'+fmtInt(tot.n)+'</td></tr></tbody></table></div></div>';
+  const filasZ=R.zonas.map(z=>'<tr><td>'+esc(z.z)+'</td><td style="text-align:left">'+esc(z.mod||'')+'</td><td>'+fmtInt(z.n)+'</td><td>'+fmtInt(z.sin)+'</td><td'+(z.inc?'':' class="z"')+'>'+fmtInt(z.inc)+'</td><td'+(z.sec?'':' class="z"')+'>'+fmtInt(z.sec)+'</td></tr>').join('');
+  const tz=R.zonas.reduce((a,z)=>({n:a.n+z.n,sin:a.sin+z.sin,inc:a.inc+z.inc,sec:a.sec+z.sec}),{n:0,sin:0,inc:0,sec:0});
+  const tabZ='<div class="bloque"><h3>Por zona</h3><div class="urb-scroll"><table class="res"><thead><tr><th>Zona</th><th style="text-align:left">Modalidad</th><th>Formularios</th><th>Sin incidencias</th><th>Con incidencia</th><th>Secuestros</th></tr></thead><tbody>'
+    +filasZ+'<tr class="tot"><td>TOTAL</td><td></td><td>'+fmtInt(tz.n)+'</td><td>'+fmtInt(tz.sin)+'</td><td>'+fmtInt(tz.inc)+'</td><td>'+fmtInt(tz.sec)+'</td></tr></tbody></table></div></div>';
+  document.getElementById('rBody').innerHTML=tabU+tabD+tabZ;
+}
+function exportarResumenExcel(){
+  const R=calcularResumen();if(!R.L.length){toast('Sin formularios en el rango.');return;}
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(R.usuarios.map(o=>{const nd=Object.keys(o.dias).length;return {'Usuario':o.u,'Formularios':o.n,'Días con carga':nd,'Promedio por día':Math.round(o.n/nd*10)/10,'Secuestros':o.sec,'Con incidencia':o.inc,'Duplicados excluidos':R.dupU[o.u]||0,'Demora mediana (h)':o.lags.length?Math.round(median(o.lags)/6)/10:'','% cargados > 24 h':o.lags.length?Math.round(o.tarde/o.lags.length*100):''};})),'Por usuario');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(R.usuarios.map(o=>{const f={'Usuario':o.u};R.dias.forEach(ds=>f[fmtD(ds)]=o.dias[ds]||0);f['Total']=o.n;return f;})),'Por día');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(R.zonas.map(z=>({'Zona':z.z,'Modalidad':z.mod||'','Formularios':z.n,'Sin incidencias':z.sin,'Con incidencia':z.inc,'Secuestros':z.sec}))),'Por zona');
+  XLSX.writeFile(wb,'formularios_resumen_'+document.getElementById('bDesde').value+'_'+document.getElementById('bHasta').value+'.xlsx');
+  toast('✅ Resumen exportado');
+}
+
+// ============================================================
+//  CONTROL DE DATOS
+// ============================================================
+function renderControl(){
+  if(!META)return;
+  const d=document.getElementById('bDesde').value,h=document.getElementById('bHasta').value;
+  document.getElementById('eRango').textContent=d&&h?fmtD(d)+' – '+fmtD(h):'todo lo cargado';
+  const L=REGS.filter(enRango);
+  renderChips('eErrChips',L);
+  const conErr=L.filter(r=>r._err.length).length,dup=L.filter(r=>r._dup).length;
+  document.getElementById('eKpis').innerHTML=kpi(fmtInt(L.length),'Formularios en el rango')+kpi(fmtInt(conErr),'Con algún aviso',conErr?'warn':'')
+    +kpi(pct(conErr,L.length),'% con avisos')+kpi(fmtInt(dup),'Posibles duplicados',dup?'warn':'');
+  const por={};
+  L.forEach(r=>{const u=r.usuario||'(sin usuario)';const o=por[u]||(por[u]={u,n:0,e:0,k:{}});o.n++;if(r._err.length){o.e++;r._err.forEach(x=>o.k[x]=(o.k[x]||0)+1);}});
+  const filas=Object.values(por).sort((a,b)=>b.e-a.e||b.n-a.n);
+  const t=document.getElementById('eTabla');
+  t.querySelector('thead').innerHTML='<tr><th>Usuario</th><th>Formularios</th><th>Con avisos</th><th>%</th>'+ERR_DEFS.map(e=>'<th>'+esc(e.l)+'</th>').join('')+'</tr>';
+  t.querySelector('tbody').innerHTML=filas.map(o=>'<tr onclick="verErroresDe(\''+escJsAttr(o.u)+'\')"><td><b>'+esc(o.u)+'</b></td><td class="num">'+fmtInt(o.n)+'</td>'
+    +'<td class="num">'+(o.e?'<span class="pill-err">'+fmtInt(o.e)+'</span>':'0')+'</td><td class="num">'+pct(o.e,o.n)+'</td>'
+    +ERR_DEFS.map(e=>'<td class="num'+(o.k[e.k]?'':' muted')+'">'+(o.k[e.k]?fmtInt(o.k[e.k]):'·')+'</td>').join('')+'</tr>').join('')
+    ||'<tr><td colspan="'+(ERR_DEFS.length+4)+'" style="padding:16px;color:#999;cursor:default">Sin formularios en el rango.</td></tr>';
+}
+function verErroresDe(u){
+  document.getElementById('bUsuario').value=u;
+  if(!ERR_SEL.size)ERR_DEFS.forEach(d=>ERR_SEL.add(d.k));
+  aplicarFiltros();
+  window.cambiarTab('buscar',document.querySelector('.tabs .tab'));
+}
+
+// ============================================================
+//  CARGA
+// ============================================================
+(function(){
+  const ua=document.getElementById('uarea');
+  ['dragenter','dragover'].forEach(ev=>ua.addEventListener(ev,e=>{e.preventDefault();ua.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>ua.addEventListener(ev,e=>{e.preventDefault();ua.classList.remove('drag');}));
+  ua.addEventListener('drop',e=>{const fs=[...(e.dataTransfer.files||[])].filter(f=>/\.csv$/i.test(f.name));if(fs.length)onArchivosElegidos(fs);});
+})();
+async function onArchivosElegidos(files){
+  files=[...files];if(!files.length)return;
+  for(const f of files){
+    PARSEADOS=PARSEADOS.filter(p=>p.archivo!==f.name);
+    try{
+      const {regs,omitidas,otrosForm}=parsearGrilla(decodificar(await f.arrayBuffer()),f.name);
+      PARSEADOS.push({archivo:f.name,regs,omitidas,otrosForm});
+    }catch(e){PARSEADOS.push({archivo:f.name,regs:[],error:e.message});}
+  }
+  document.getElementById('fileInput').value='';
+  renderPreviewCarga();
+}
+function registrosAUnir(){
+  // Si el mismo ID viene en dos archivos, gana la versión modificada más tarde.
+  const porId={};
+  PARSEADOS.forEach(p=>p.regs.forEach(r=>{const v=porId[r.id];if(!v||(r.modif||r.creado||'')>=(v.modif||v.creado||''))porId[r.id]=r;}));
+  return Object.values(porId);
+}
+function rangoTxt(fs){fs=fs.filter(Boolean).sort();return fs.length?fmtD(fs[0])+' – '+fmtD(fs[fs.length-1]):'—';}
+function renderPreviewCarga(){
+  document.getElementById('upFiles').innerHTML=PARSEADOS.map((p,i)=>{
+    const otros=p.otrosForm?Object.entries(p.otrosForm):[];
+    return '<div class="file-row'+(p.error?' err':'')+'"><span class="n">'+esc(p.archivo)+(p.error?' ⚠ '+esc(p.error):'')+'</span>'
+      +(p.error?'':'<span class="muted num">'+fmtInt(p.regs.length)+' formularios · creados '+rangoTxt(p.regs.map(r=>r.creado.slice(0,10)))
+        +(p.omitidas?' · '+p.omitidas+' sin fecha':'')+(otros.length?' · '+otros.reduce((a,[,n])=>a+n,0)+' de otro formulario (se ignoran)':'')+'</span>')
+      +'<button class="btn btn-sm btn-gris" onclick="quitarArchivo('+i+')">✕</button></div>';
+  }).join('');
+  const regs=registrosAUnir(),btn=document.getElementById('upBtn');
+  btn.disabled=!regs.length;btn.style.opacity=regs.length?'1':'.45';
+  if(!regs.length){document.getElementById('upResumen').innerHTML='';return;}
+  const prep=prepararRegs(regs.map(r=>({...r})));marcarControl(prep);
+  const meses={};regs.forEach(r=>{const m=mesDe(r.fecha);meses[m]=(meses[m]||0)+1;});
+  const usuarios=new Set(regs.map(r=>r.usuario).filter(Boolean));
+  const dup=prep.filter(r=>r._dup).length,tardios=prep.filter(r=>r._lag!=null&&r.creado.slice(0,10)>r._dia).length;
+  document.getElementById('upResumen').innerHTML='<div class="note">Listo para subir <b>'+fmtInt(regs.length)+'</b> formularios únicos de <b>'+usuarios.size+'</b> usuarios: operativos del <b>'+rangoTxt(regs.map(r=>r._dia||r.fecha.slice(0,10)))+'</b>, cargados en la Grilla del <b>'+rangoTxt(regs.map(r=>r.creado.slice(0,10)))+'</b>.'
+    +'<br>Por mes del operativo: '+Object.keys(meses).sort().map(m=>'<b>'+fmtMes(m)+'</b> ('+fmtInt(meses[m])+')').join(', ')+'.'
+    +(tardios?'<br>'+fmtInt(tardios)+' se cargaron en la Grilla un día posterior al del operativo (normal: la descarga filtra por fecha de creación).':'')
+    +(dup?'<br><span class="w">'+fmtInt(dup)+' parecen cargas duplicadas (mismo usuario, hora, dirección y resultado): se guardan igual y se marcan en "Control de datos".</span>':'')
+    +'<br>Se van a leer y reescribir sólo los documentos de esos meses.</div>';
+}
+function quitarArchivo(i){PARSEADOS.splice(i,1);renderPreviewCarga();}
+function limpiarCarga(){PARSEADOS=[];renderPreviewCarga();document.getElementById('upToast').style.display='none';}
+const _enc=new TextEncoder();
+function bytesDe(id,rec){return _enc.encode(JSON.stringify(rec)).length+_enc.encode(id).length+40;}
+function partirEnChunks(mapa){
+  const chunks=[];let act={},tam=0;
+  Object.keys(mapa).sort().forEach(id=>{
+    const b=bytesDe(id,mapa[id]);
+    if(tam+b>MAX_BYTES_CHUNK&&Object.keys(act).length){chunks.push(act);act={};tam=0;}
+    act[id]=mapa[id];tam+=b;
+  });
+  if(Object.keys(act).length)chunks.push(act);
+  return chunks;
+}
+function claveId(id){return String(id).replace(/[.\/\[\]*`~]/g,'_').replace(/^__/,'_');}
+// Contenido comparable (sin los datos de quién/cuándo se subió).
+function canon(o){if(Array.isArray(o))return o.map(canon);if(o&&typeof o==='object'){const r={};Object.keys(o).sort().forEach(k=>{r[k]=canon(o[k]);});return r;}return o;}
+function firma(r){const {cargadoPor,cargadoEn,primeraCarga,...resto}=r;return JSON.stringify(canon(resto));}
+async function subirAFirestore(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para cargar datos.');return;}
+  const regs=registrosAUnir();if(!regs.length)return;
+  const btn=document.getElementById('upBtn'),t=document.getElementById('upToast'),pw=document.getElementById('upPwrap'),pf=document.getElementById('upPfill');
+  btn.disabled=true;btn.textContent='Subiendo…';t.className='toast-msg';t.style.display='block';pw.style.display='block';pf.style.width='3%';
+  const u=usuarioActual(),ahora=new Date().toISOString();
+  try{
+    await leerMeta();
+    const baseVacia=!Object.keys(META.meses).length;
+    const porMes={};regs.forEach(r=>{(porMes[mesDe(r.fecha)]=porMes[mesDe(r.fecha)]||[]).push(r);});
+    const meses=Object.keys(porMes).sort();
+    let nuevas=0,modificadas=0,iguales=0,escrituras=0;const infoMeses={};
+    for(let k=0;k<meses.length;k++){
+      const mes=meses[k];
+      t.textContent='☁️ '+fmtMes(mes)+': leyendo lo que ya hay…';
+      const prev=META.meses[mes]||{chunks:0};
+      const snaps=await Promise.all(Array.from({length:prev.chunks||0},(_,i)=>window._fGetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i))));
+      const mapa={};snaps.forEach(s=>{if(s.exists())Object.assign(mapa,registrosDeDoc(s.data()));});
+      let cambiosMes=0;
+      porMes[mes].forEach(r=>{
+        const key=claveId(r.id),viejo=mapa[key];
+        if(viejo&&firma(viejo)===firma(r)){iguales++;return;}
+        const nuevo={...r,cargadoPor:u?u.nombre:'',cargadoEn:ahora,primeraCarga:viejo?(viejo.primeraCarga||viejo.cargadoEn||''):ahora};
+        if(viejo)modificadas++;else nuevas++;
+        mapa[key]=nuevo;cambiosMes++;
+      });
+      pf.style.width=Math.round(5+(k+1)/meses.length*85)+'%';
+      if(!cambiosMes)continue;   // mes sin nada nuevo: no se reescribe
+      const chunks=partirEnChunks(mapa);
+      t.textContent='💾 '+fmtMes(mes)+': guardando '+fmtInt(Object.keys(mapa).length)+' formularios en '+chunks.length+' documento'+(chunks.length===1?'':'s')+'…';
+      await Promise.all(chunks.map((reg,i)=>window._fSetDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i),{mes,n:Object.keys(reg).length,datos:JSON.stringify(reg),actualizadoEn:ahora})));
+      for(let i=chunks.length;i<(prev.chunks||0);i++)await window._fDeleteDoc(window._fDoc(window._db,COL_CHUNKS,mes+'_'+i));
+      escrituras+=chunks.length;
+      infoMeses[mes]={chunks:chunks.length,count:Object.keys(mapa).length,v:ahora+'#'+Math.random().toString(36).slice(2,7)};
+    }
+    const fechas=regs.map(r=>r.fecha.slice(0,10)).sort(),creados=regs.map(r=>r.creado).filter(Boolean).sort();
+    const carga={en:ahora,por:u?u.nombre:'',archivos:PARSEADOS.filter(p=>!p.error).map(p=>p.archivo),filas:regs.length,nuevas,modificadas,iguales,
+      desde:fechas[0],hasta:fechas[fechas.length-1],creadoDesde:(creados[0]||'').slice(0,10),creadoHasta:(creados[creados.length-1]||'').slice(0,10)};
+    const metaRef=window._fDoc(window._db,COL_META,'index');
+    await window._fRunTransaction(window._db,async tx=>{
+      const s=await tx.get(metaRef);const m=s.exists()?s.data():{};
+      const mm={...(m.meses||{}),...infoMeses};
+      tx.set(metaRef,{meses:mm,totalRegistros:Object.values(mm).reduce((a,x)=>a+(x.count||0),0),
+        primeraFecha:[m.primeraFecha,fechas[0]].filter(Boolean).sort()[0],
+        ultimaFecha:[m.ultimaFecha,fechas[fechas.length-1]].filter(Boolean).sort().pop(),
+        ultimaCreacion:[m.ultimaCreacion,creados[creados.length-1]].filter(Boolean).sort().pop()||'',
+        actualizadoEn:ahora,cargas:[carga,...(m.cargas||[])].slice(0,MAX_CARGAS_LOG)});
+    });
+    pf.style.width='100%';t.className='toast-msg ok';
+    const pl=(n,s,p)=>fmtInt(n)+' '+(n===1?s:p);
+    t.textContent='✅ '+pl(regs.length,'formulario procesado','formularios procesados')+': '+pl(nuevas,'nuevo','nuevos')+', '+pl(modificadas,'modificado','modificados')+', '
+      +pl(iguales,'ya estaba igual','ya estaban igual')+'. '+pl(escrituras,'documento escrito','documentos escritos')+'.';
+    PARSEADOS=[];renderPreviewCarga();
+    for(const m of Object.keys(infoMeses)){delete MESES[m];await cacheSet(m,null);}
+    await leerMeta();
+    const bd=document.getElementById('bDesde'),bh=document.getElementById('bHasta');
+    if(baseVacia||!bd.value||fechas[0]<bd.value)bd.value=fechas[0];
+    if(baseVacia||!bh.value||fechas[fechas.length-1]>bh.value)bh.value=fechas[fechas.length-1];
+    await asegurarRango(bd.value,bh.value);poblarFiltros();aplicarFiltros();renderCargas();
+  }catch(e){
+    console.error(e);t.className='toast-msg err';t.textContent='❌ Error: '+e.message+' — lo que ya se guardó queda guardado; podés volver a subir el mismo archivo sin duplicar.';
+  }finally{
+    btn.disabled=!registrosAUnir().length;btn.style.opacity=btn.disabled?'.45':'1';btn.textContent='⬆ Subir a Firebase';
+    setTimeout(()=>{pw.style.display='none';},1500);
+  }
+}
+function renderCargas(){
+  if(!META)return;
+  document.getElementById('upPista').innerHTML=META.ultimaCreacion
+    ?'Lo último cargado en la Grilla que ya está en la base es del <b>'+esc(fmtDT(META.ultimaCreacion))+'</b>. Para la próxima descarga, filtrá la Grilla <b>desde el '+esc(fmtD(META.ultimaCreacion))+'</b> (fecha de creación): solaparse no duplica, y así no se pierden formularios cargados tarde.'
+    :'La Grilla filtra la descarga por <b>fecha de creación</b> del formulario. Conviene descargar períodos que se solapen un poco: no duplica.';
+  document.getElementById('cargasBody').innerHTML=(META.cargas||[]).map(c=>'<tr><td class="num">'+esc(fmtDT((c.en||'').replace('T',' ')))+'</td><td>'+esc(c.por||'—')+'</td><td style="font-size:.76rem">'+(c.archivos||[]).map(esc).join('<br>')+'</td>'
+    +'<td class="num">'+fmtInt(c.filas)+'</td><td class="num">'+fmtInt(c.nuevas)+'</td><td class="num">'+fmtInt(c.modificadas)+'</td><td class="num">'+fmtInt(c.iguales)+'</td>'
+    +'<td class="num">'+fmtD(c.desde)+' – '+fmtD(c.hasta)+'</td><td class="num">'+(c.creadoDesde?fmtD(c.creadoDesde)+' – '+fmtD(c.creadoHasta):'—')+'</td></tr>').join('')
+    ||'<tr><td colspan="9" style="padding:12px;color:#999">Todavía no se cargó ningún archivo.</td></tr>';
+  const meses=Object.keys(META.meses).sort().reverse();
+  document.getElementById('mesesInfo').innerHTML=meses.length?'<b>En la base:</b> '+meses.map(m=>fmtMes(m)+' ('+fmtInt(META.meses[m].count)+' · '+META.meses[m].chunks+' doc)').join(' · '):'';
+}
+</script>
+<script src="personal-nav.js?v=5"></script>
+</body>
+</html>

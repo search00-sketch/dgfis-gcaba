@@ -8,7 +8,7 @@
 <script src="config.js"></script>
 <script src="utils.js?v=7"></script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-nav.js?v=4"></script>
+<script src="personal-nav.js?v=5"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -265,6 +265,11 @@ const MODULES = [
     tag: 'Activo', roles: ['admin','urbetrack'], url: 'urbetrack_venta.html',
   },
   {
+    id: 'formularios', icon: '📝', title: 'Formularios — Venta no autorizada',
+    desc: 'Carga de las descargas de la Grilla de Formularios, buscador, resumen por usuario y zona, y control de duplicados y actas.',
+    tag: 'Activo', roles: ['admin','formularios'], url: 'formularios_venta.html',
+  },
+  {
     // Sin módulo propio: lo ve quien tenga Estadísticas o Urbetrack (cada
     // sección del informe muestra sólo lo que sus permisos le dejan leer).
     id: 'informe', icon: '📅', title: 'Informe Venta Ilegal',
@@ -343,7 +348,7 @@ function renderModules() {
 // -- TABLA DE USUARIOS (admin) -----------------------------------
 // El id de cada fila/documento ahora es el uid de Firebase Auth, no el
 // nombre de usuario — el nombre de usuario vive en el campo "username".
-const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal','relevamientos','urbetrack'];
+const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal','relevamientos','urbetrack','formularios'];
 async function loadUserTable() {
   const tbody = document.getElementById('userTableBody');
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Cargando…</td></tr>';
@@ -501,6 +506,18 @@ window.exportarBackupCompleto = async function() {
       const d = s.data();
       recs.push(...Object.values(typeof d.datos === 'string' ? JSON.parse(d.datos) : (d.registros || {})));
     });
+    return recs;
+  });
+  await intentar('formularios', async () => {
+    // Grilla de Formularios (Venta no autorizada): formularios_chunks/AAAA-MM_N,
+    // "datos" = mapa de formularios como texto JSON (ver formularios_venta.html)
+    const metaSnap = await getDoc(doc(db, 'formularios_meta', 'index'));
+    const meta = metaSnap.exists() ? metaSnap.data() : { meses: {} };
+    const docs = Object.entries(meta.meses || {}).flatMap(([mes, info]) =>
+      Array.from({length: info.chunks || 0}, (_, i) => mes + '_' + i));
+    const snaps = await Promise.all(docs.map(id => getDoc(doc(db, 'formularios_chunks', id))));
+    const recs = [];
+    snaps.forEach(s => { if (s.exists()) recs.push(...Object.values(JSON.parse(s.data().datos || '{}'))); });
     return recs;
   });
   await intentar('urbetrack_config', async () => {
