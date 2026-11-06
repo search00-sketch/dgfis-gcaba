@@ -78,6 +78,13 @@ service cloud.firestore {
     match /urbetrack_meta/{doc}   { allow read: if tieneModulo('urbetrack'); allow write: if puedeEditar('urbetrack'); }
     match /urbetrack_config/{doc} { allow read: if tieneModulo('urbetrack'); allow write: if puedeEditar('urbetrack'); }
 
+    // ---- Grilla de Formularios — Venta no autorizada ----------------------
+    // Formularios agrupados por mes del operativo (formularios_chunks/
+    // AAAA-MM_N) e índice con los meses y el log de cargas
+    // (formularios_meta/index). Ver formularios_venta.html.
+    match /formularios_chunks/{doc} { allow read: if tieneModulo('formularios'); allow write: if puedeEditar('formularios'); }
+    match /formularios_meta/{doc}   { allow read: if tieneModulo('formularios'); allow write: if puedeEditar('formularios'); }
+
     // ---- Nómina (Gestión de Personal edita; Novedades/Asignación leen) --
     match /nomina_chunks/{doc} { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('personal'); }
     match /nomina_meta/{doc}   { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('personal'); }

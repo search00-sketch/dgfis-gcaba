@@ -12,6 +12,7 @@ dgf/
 ├── asignacion_zonas.html         ← Asignación de zonas (módulo)
 ├── relevamientos_operativos.html ← Relevamientos operativos (módulo)
 ├── urbetrack_venta.html          ← Urbetrack — Venta sin permiso: carga de exports, buscador, control de cargas/SLA, días home (módulo)
+├── formularios_venta.html        ← Grilla de Formularios — Venta no autorizada: carga de las descargas .csv, buscador, resumen, control de duplicados/actas (módulo)
 ├── informe_venta_ilegal.html     ← Informe mensual Venta Ilegal (actas + Urbetrack), réplica del Excel "INFORME VENTA ILEGAL"
 ├── personal-auth.js              ← Login compartido (Firebase Authentication)
 ├── personal-nav.js, personal-dominio.js, personal-datos.js, utils.js
