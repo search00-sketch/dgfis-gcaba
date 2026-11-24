@@ -8,7 +8,7 @@
 <script src="config.js"></script>
 <script src="utils.js?v=7"></script>
 <script src="personal-auth.js?v=9"></script>
-<script src="personal-nav.js?v=5"></script>
+<script src="personal-nav.js?v=6"></script>
 <link rel="stylesheet" href="estilo-comun.css?v=15">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -277,6 +277,11 @@ const MODULES = [
     tag: 'Activo', roles: ['admin','estadisticas','urbetrack'], url: 'informe_venta_ilegal.html',
   },
   {
+    id: 'evaluaciones', icon: '⭐', title: 'Evaluaciones de desempeño',
+    desc: 'Indicadores por agente (cantidad, puntaje promedio, última evaluación, desempeño), resumen, agentes sin evaluación y control de datos, desde el Excel de SharePoint.',
+    tag: 'Activo', roles: ['admin','evaluaciones'], url: 'evaluaciones_desempeno.html',
+  },
+  {
     id: 'expedientes', icon: '📋', title: 'Gestión de Expedientes',
     desc: 'Alta, baja y seguimiento de expedientes.',
     tag: 'Próximamente', roles: [], url: null,
@@ -348,7 +353,7 @@ function renderModules() {
 // -- TABLA DE USUARIOS (admin) -----------------------------------
 // El id de cada fila/documento ahora es el uid de Firebase Auth, no el
 // nombre de usuario — el nombre de usuario vive en el campo "username".
-const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal','relevamientos','urbetrack','formularios'];
+const MODULOS_DISPONIBLES = ['permisos','estadisticas','novedades','asignacion','personal','relevamientos','urbetrack','formularios','evaluaciones'];
 async function loadUserTable() {
   const tbody = document.getElementById('userTableBody');
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--c-ink-mut)">Cargando…</td></tr>';
@@ -519,6 +524,16 @@ window.exportarBackupCompleto = async function() {
     const recs = [];
     snaps.forEach(s => { if (s.exists()) recs.push(...Object.values(JSON.parse(s.data().datos || '{}'))); });
     return recs;
+  });
+  await intentar('evaluaciones', async () => {
+    // Evaluaciones de desempeño: evaluaciones_chunks/eval_N y /base,
+    // "datos" = array como texto JSON (ver evaluaciones_desempeno.html)
+    const metaSnap = await getDoc(doc(db, 'evaluaciones_meta', 'index'));
+    const meta = metaSnap.exists() ? metaSnap.data() : { chunks: 0 };
+    const ids = [...Array.from({length: meta.chunks || 0}, (_, i) => 'eval_' + i), 'base'];
+    const snaps = await Promise.all(ids.map(id => getDoc(doc(db, 'evaluaciones_chunks', id))));
+    const arr = s => s.exists() ? JSON.parse(s.data().datos || '[]') : [];
+    return { evaluaciones: snaps.slice(0, -1).flatMap(arr), base: arr(snaps[snaps.length - 1]) };
   });
   await intentar('urbetrack_config', async () => {
     const [meta, crono] = await Promise.all([
