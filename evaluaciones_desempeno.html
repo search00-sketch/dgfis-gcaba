@@ -259,6 +259,7 @@ table.cfg td{padding:5px 8px;border-bottom:1px solid var(--c-line-soft);vertical
 
 <!-- ===================== CARGA ===================== -->
 <div class="panel" id="panel-carga">
+  <div class="note" id="autoInfo"></div>
   <div class="gestion-zonas">
     <div class="gz-title">📥 Cargar el Excel "EVALUACIÓN DE DESEMPEÑO"</div>
     <p style="font-size:.82rem;color:#777;margin-bottom:12px">
@@ -353,6 +354,14 @@ if (window.restaurarSesion) window.restaurarSesion().then(() => { if (window.car
 //   evaluaciones_chunks/eval_N → {n, datos:'[{…},…]'}   (texto JSON)
 //   evaluaciones_chunks/base   → {n, datos:'[{…},…]'}
 //  Cada carga reemplaza todo (el Excel es acumulativo).
+//  Carga AUTOMÁTICA: un flujo de Power Automate ejecuta el Office Script
+//  integraciones/evaluaciones/sincronizar-evaluaciones.ts dentro del Excel y
+//  escribe los mismos documentos con un solo documents:commit (ver el
+//  README de esa carpeta). Deja meta.actualizadoPor = 'Power Automate',
+//  meta.ultimaAuto = {en, evaluaciones, base, desde, hasta, version} y una
+//  "v" que es hash del contenido (no cambia si el Excel no cambió). La
+//  carga manual de esta página conserva ultimaAuto; la automática conserva
+//  "cargas" (el historial de cargas manuales).
 //  Caché local en IndexedDB con la versión "v" del índice.
 // ============================================================
 const COL_CHUNKS = 'evaluaciones_chunks';
@@ -387,6 +396,8 @@ function isoDia(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getD
 function hoyISO(){return isoDia(new Date());}
 function fmtD(ds){if(!ds)return '—';const [y,m,d]=ds.slice(0,10).split('-');return d+'/'+m+'/'+y;}
 function fmtDT(s){if(!s)return '—';return fmtD(s)+(s.length>10?' '+s.slice(11,16):'');}
+// Marca de tiempo ISO (UTC, "…Z") → "AAAA-MM-DD HH:MM" en hora local.
+function isoLocal(s){if(!s)return '';const d=new Date(s);return isNaN(d)?String(s).replace('T',' '):isoDia(d)+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
 const MES_TXT=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const MES_LARGO=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 function fmtMes(mes){const [y,m]=mes.split('-');return MES_TXT[+m-1]+' '+y;}
@@ -587,8 +598,9 @@ async function asegurarDatos(){
 }
 function actualizarSync(lecturas){
   if(!META.v){setSync('ok','Sin datos todavía — cargá el Excel desde "Cargar Excel"');return;}
+  const auto=META.actualizadoPor==='Power Automate';
   setSync('ok','✅ '+fmtInt(EVALS.length)+' evaluaciones ('+fmtD(META.primeraFecha)+' – '+fmtD(META.ultimaFecha)+') · '+fmtInt(BASE.length)+' agentes en BASE'
-    +' · cargado '+fmtDT((META.actualizadoEn||'').replace('T',' '))+(lecturas?' · '+lecturas+' lectura'+(lecturas===1?'':'s'):''));
+    +' · '+(auto?'sincronizado automáticamente':'cargado')+' '+fmtDT(isoLocal(META.actualizadoEn))+(lecturas?' · '+lecturas+' lectura'+(lecturas===1?'':'s'):''));
 }
 window.cargarTodo=async function(){
   if(typeof usuarioActual==='function'&&!usuarioActual())return;
@@ -1008,6 +1020,7 @@ async function subirAFirestore(){
       const s=await tx.get(metaRef);const m=s.exists()?s.data():{};
       tx.set(metaRef,{chunks:chunks.length,count:P.evals.length,baseCount:P.base.length,v:ahora+'#'+Math.random().toString(36).slice(2,7),
         primeraFecha:fechas[0],ultimaFecha:fechas[fechas.length-1],archivo:P.archivo,actualizadoEn:ahora,actualizadoPor:u?u.nombre:'',
+        ...(m.ultimaAuto?{ultimaAuto:m.ultimaAuto}:{}),   // dato de la sincronización automática (Power Automate)
         cargas:[carga,...(m.cargas||[])].slice(0,MAX_CARGAS_LOG)});
     });
     pf.style.width='100%';t.className='toast-msg ok';
@@ -1024,7 +1037,12 @@ async function subirAFirestore(){
 }
 function renderCargas(){
   if(!META)return;
-  document.getElementById('cargasBody').innerHTML=(META.cargas||[]).map(c=>'<tr><td class="num">'+esc(fmtDT((c.en||'').replace('T',' ')))+'</td><td>'+esc(c.por||'—')+'</td><td style="font-size:.76rem">'+esc(c.archivo||'')+'</td>'
+  const a=META.ultimaAuto;
+  document.getElementById('autoInfo').innerHTML=a
+    ?'<b>Última sincronización automática</b> (Power Automate): '+esc(fmtDT(isoLocal(a.en)))+' — '+fmtInt(a.evaluaciones)+' evaluaciones del '+fmtD(a.desde)+' al '+fmtD(a.hasta)+' y '+fmtInt(a.base)+' agentes en BASE.'
+      +(META.actualizadoPor!=='Power Automate'?'<br><span class="w">Después hubo una carga manual ('+esc(fmtDT(isoLocal(META.actualizadoEn)))+'); la próxima sincronización la va a reemplazar con lo que tenga el Excel de SharePoint.</span>':'')
+    :'Todavía no corrió la sincronización automática con Power Automate. Mientras tanto se puede cargar el Excel a mano acá abajo (ver <code>integraciones/evaluaciones/README.md</code> en el repo).';
+  document.getElementById('cargasBody').innerHTML=(META.cargas||[]).map(c=>'<tr><td class="num">'+esc(fmtDT(isoLocal(c.en)))+'</td><td>'+esc(c.por||'—')+'</td><td style="font-size:.76rem">'+esc(c.archivo||'')+'</td>'
     +'<td class="num">'+fmtInt(c.evaluaciones)+'</td><td class="num">'+fmtInt(c.base)+'</td><td class="num">'+fmtD(c.desde)+' – '+fmtD(c.hasta)+'</td><td class="num">'+fmtInt(c.antes)+'</td></tr>').join('')
     ||'<tr><td colspan="7" style="padding:12px;color:#999">Todavía no se cargó ningún Excel.</td></tr>';
 }

@@ -163,6 +163,14 @@ eso, las reglas nuevas rechazan la escritura con "Missing or insufficient
 permissions" — antes de esta migración, cualquiera podía escribir sin
 loguearse.
 
+Integraciones documentadas en este repo:
+
+- [`integraciones/evaluaciones/`](integraciones/evaluaciones/README.md) —
+  carga automática de **Evaluaciones de desempeño**: Office Script dentro del
+  Excel de SharePoint + flujo de Power Automate que escribe en Firestore
+  (`documents:commit`) con un usuario de servicio. La carpeta no se publica en
+  Hosting.
+
 ---
 
 ## Agregar nuevos módulos
