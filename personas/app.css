@@ -1,0 +1,35 @@
+/* Estilos propios del módulo Personas (se suman a ../estilo-comun.css). */
+.tab[hidden], [hidden] { display: none !important; }
+.mono { font-family: ui-monospace, Consolas, monospace; font-size: .86em; }
+.nota { font-size: .78rem; color: #6b7280; }
+.vacio { text-align: center; color: #888; padding: 22px !important; }
+.info-linea { font-size: .8rem; color: #6b7280; margin: 6px 0; }
+.err-linea { background: #fee2e2; color: #b91c1c; padding: 8px 10px; margin: 8px 0; font-size: .82rem; }
+.aviso { background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px 12px; margin: 8px 0; font-size: .82rem; }
+.aviso-ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.aviso-mal { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.fila-click { cursor: pointer; }
+.fila-click:hover td { background: #eef4fb; }
+.chip { display: inline-block; background: #e8eef5; color: #1a3a5c; font-size: .72rem; padding: 1px 7px; margin: 1px 3px 1px 0; }
+.pager { text-align: center; margin: 12px 0; }
+.seg { display: inline-flex; gap: 0; }
+.seg .btn { margin: 0; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 10px 0; }
+.kpi { background: #fff; border: 1px solid #d9e0e8; border-left: 4px solid #2563a8; padding: 8px 12px; }
+.kpi-n { font-size: 1.4rem; font-weight: 800; color: #1a3a5c; font-variant-numeric: tabular-nums; }
+.kpi-l { font-size: .74rem; color: #6b7280; }
+.barra { height: 5px; background: #e5e7eb; margin-top: 3px; width: 90px; }
+.barra i { display: block; height: 100%; background: #2563a8; }
+.rtbl.mini { font-size: .8rem; }
+.rtbl td { vertical-align: top; }
+
+/* ficha */
+.ficha-modal { max-width: 760px; max-height: 92vh; overflow-y: auto; }
+.ficha-sub { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.sec { font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: #1a3a5c; margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #d9e0e8; }
+.cats { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; }
+.chk { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; cursor: pointer; }
+details.mas { margin-top: 14px; font-size: .82rem; }
+details.mas summary { cursor: pointer; color: #2563a8; }
+.modal-actions { flex-wrap: wrap; }
+@media (max-width: 700px) { .ficha-modal { max-width: 100%; } }

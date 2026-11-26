@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA — Personas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%91%A5%3C/text%3E%3C/svg%3E">
+<!-- Se reutilizan tal cual el login y los estilos del portal (no se modifican). -->
+<script src="../config.js"></script>
+<link rel="stylesheet" href="../estilo-comun.css?v=15">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<!-- CAMBIAR CONTRASEÑA (lo usa personal-auth.js) -->
+<div class="overlay" id="modal-cambiar-pass-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">Cambiar contraseña</div>
+    <div id="cp-err" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px"><label class="fl">Contraseña actual</label><input class="form-input" type="password" id="cp-actual" autocomplete="current-password"></div>
+    <div class="form-field full" style="margin-bottom:12px"><label class="fl">Nueva contraseña</label><input class="form-input" type="password" id="cp-nueva" autocomplete="new-password"></div>
+    <div class="form-field full" style="margin-bottom:16px"><label class="fl">Repetir nueva contraseña</label><input class="form-input" type="password" id="cp-nueva2" autocomplete="new-password"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-cambiar-pass-overlay')">Cancelar</button>
+      <button class="btn btn-azul" id="cp-guardar-btn" onclick="guardarCambioPassPropia()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="overlay open" id="loginOverlay" style="z-index:3000">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">👥</div>
+    <div class="modal-title" style="text-align:center">Personas</div>
+    <p style="font-size:.79rem;color:#888;margin-bottom:18px">DGFIS-GCABA</p>
+    <div class="lerr" id="loginErr" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px;text-align:left"><label class="fl">Usuario</label><input class="form-input" type="text" id="lUser" placeholder="usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="form-field full" style="margin-bottom:16px;text-align:left"><label class="fl">Contraseña</label>
+      <div style="position:relative"><input class="form-input" type="password" id="lPass" placeholder="••••••" style="padding-right:36px" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <button type="button" onclick="togglePass()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:#888">👁️</button></div></div>
+    <button class="btn btn-azul" style="width:100%;padding:11px" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <p style="margin-top:12px;font-size:.74rem"><a href="../index.html">← Volver al portal</a></p>
+  </div>
+</div>
+
+<!-- Modales: el contenido lo arma cada pestaña al abrirlos -->
+<div class="overlay" id="modal-ficha"></div>
+<div class="overlay" id="modal-talonario"></div>
+<div class="overlay" id="modal-vehiculo"></div>
+
+<header class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div>
+      <div class="header-title">👥 Personas</div>
+      <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="../index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
+    <button class="hbtn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<div class="sync-bar">
+  <span><span class="sync-dot sync-loading" id="syncDot"></span><span id="syncTxt">Conectando…</span></span>
+  <button class="sync-refresh" id="btnRefresh">⟳ Actualizar</button>
+</div>
+
+<div class="layout-row">
+  <div class="tabs">
+    <button class="tab active" data-tab="personas">👥 Personas</button>
+    <button class="tab" data-tab="talonarios">📖 Talonarios</button>
+    <button class="tab" data-tab="vehiculos">🚗 Vehículos</button>
+    <button class="tab" data-tab="importar" id="tab-importar" hidden>📥 Importar nómina</button>
+  </div>
+  <div class="content">
+    <div class="panel active" id="panel-personas"></div>
+    <div class="panel" id="panel-talonarios"></div>
+    <div class="panel" id="panel-vehiculos"></div>
+    <div class="panel" id="panel-importar"></div>
+  </div>
+</div>
+
+<script>window.MODULO_ID = 'personas';</script>
+<script src="../personal-auth.js?v=9"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

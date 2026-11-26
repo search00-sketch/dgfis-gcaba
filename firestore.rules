@@ -104,5 +104,18 @@ service cloud.firestore {
         allow write: if puedeEditar('asignacion') || puedeEditar('novedades');
       }
     }
+
+    // ---- Personas (módulo nuevo, en paralelo a la nómina actual) ----------
+    // Una ficha por DNI en personas_chunks, vehículos y talonarios en
+    // personas_config. Ver personas/README.md. No toca ninguna colección
+    // anterior (la nómina, las actas y el resto siguen igual).
+    match /personas_chunks/{doc} { allow read: if tieneModulo('personas'); allow write: if puedeEditar('personas'); }
+    match /personas_meta/{doc}   { allow read: if tieneModulo('personas'); allow write: if puedeEditar('personas'); }
+    match /personas_config/{doc} { allow read: if tieneModulo('personas'); allow write: if puedeEditar('personas'); }
+    match /personas_tal_chunks/{doc} { allow read: if tieneModulo('personas'); allow write: if puedeEditar('personas'); }
+    match /personas_tal_meta/{doc}   { allow read: if tieneModulo('personas'); allow write: if puedeEditar('personas'); }
+    // CBU, IMEI, contacto de emergencia: sólo administradores (a diferencia de
+    // la nómina actual, donde los lee cualquiera con Personal/Novedades/Asignación).
+    match /personas_sensibles/{dni} { allow read, write: if esAdmin(); }
   }
 }
