@@ -44,7 +44,10 @@ async function cargarDatos() {
     await mostrar(location.hash.slice(1) || activa || 'personas');
   } catch (e) {
     console.error(e);
-    estado('err', '⚠️ ' + (e.code === 'permission-denied' ? 'Sin permiso: pedí que te habiliten el módulo "personas".' : e.message));
+    const sinPermiso = e.code === 'permission-denied';
+    estado('err', '⚠️ ' + (!sinPermiso ? e.message : S.admin
+      ? 'Firestore rechazó la lectura: las reglas nuevas (personas_*) todavía no están desplegadas. Los administradores no necesitan el módulo habilitado.'
+      : 'Sin permiso: pedí que te habiliten el módulo "personas".'));
   }
 }
 window.cargarDatos = cargarDatos; // personal-auth.js lo vuelve a llamar después de un login
