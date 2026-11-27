@@ -45,6 +45,8 @@
 .cal-dia.feriado .cal-num::after{content:" 🔴";font-size:9px}
 .cal-num{font-size:12px;font-weight:700;color:#555;align-self:flex-start}
 .cal-cant{font-size:22px;font-weight:800;color:var(--azul);text-align:right;line-height:1}
+.cal-cant small{display:block;font-size:11px;font-weight:600;color:#7f2a20}
+.cal-dia.sobre{border:2px solid var(--rojo)}
 .cal-cant.cero{color:#ccc;font-weight:600}
 .cal-detalle{margin-top:14px}
 .cal-det-card{background:#fff;border:1px solid var(--bor);padding:10px 14px}
@@ -197,6 +199,10 @@
     </div>
     <button class="btn btn-gris" onclick="calIrAHoy()">Hoy</button>
     <select class="ctrl" id="cal-turno" onchange="renderCalendario()"><option value="">Todos los turnos</option></select>
+    <label style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--bor);padding:4px 10px;font-size:11px;font-weight:700;color:#666" title="Un día se marca cuando la cantidad de ausentes supera este porcentaje del personal">
+      Máx. por día
+      <input type="number" id="cal-limite" value="30" min="1" max="100" step="1" style="width:52px;border:none;font-size:13px;font-weight:600;color:var(--azul);outline:none" onchange="renderCalendario()">%
+    </label>
     <div id="cal-info" style="font-size:.75rem;color:#888;align-self:center"></div>
   </div>
   <div class="cal-tipos">
@@ -780,10 +786,25 @@ function renderCalendario(){
     }
   });
 
-  let max=0,suma=0,diasConDatos=0;
-  for(let d=1;d<=diasMes;d++){const c=porDia[d].size;if(c>max)max=c;suma+=c;if(c)diasConDatos++;}
+  // Máximo permitido por día, como % del personal (no de baja ese día, del turno elegido)
+  let limite=parseFloat(document.getElementById("cal-limite")?.value);
+  if(!(limite>0))limite=30;
+  limite=Math.min(limite,100);
+  const sinBaja=(per,iso)=>!(per.estado==="Baja"&&(!per.fechaBaja||iso>=per.fechaBaja));
+  const plantel=(window.nomina||[]).filter(per=>!filtTurno||per.turno===filtTurno);
+  const info=[]; // info[d]={c,total,pct}
+  let max=0,sobre=0;
+  for(let d=1;d<=diasMes;d++){
+    const iso=ym+"-"+_pad2(d);
+    const total=plantel.reduce((a,per)=>a+(sinBaja(per,iso)?1:0),0);
+    const c=porDia[d].size;
+    const pct=total?c*100/total:0;
+    info[d]={c,total,pct};
+    if(c>max)max=c;
+    if(c&&pct>limite)sobre++;
+  }
   document.getElementById("cal-info").textContent=
-    " — máximo "+max+" personas en un día · promedio "+(suma/diasMes).toFixed(1)+" por día";
+    " — "+sobre+(sobre===1?" día supera":" días superan")+" el "+limite+"% · pico de "+max+" persona"+(max===1?"":"s")+" en un día";
 
   document.getElementById("cal-head").innerHTML=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map(d=>"<div>"+d+"</div>").join("");
   const offset=(new Date(y,m-1,1).getDay()+6)%7; // semana arranca en lunes
@@ -791,12 +812,14 @@ function renderCalendario(){
   let html="<div class=\"cal-dia vacio\"></div>".repeat(offset);
   for(let d=1;d<=diasMes;d++){
     const iso=ym+"-"+_pad2(d);
-    const c=porDia[d].size;
+    const {c,total,pct}=info[d];
+    const pasado=c>0&&pct>limite;
     const dow=new Date(y,m-1,d).getDay();
-    const alpha=max?(c/max):0;
-    const bg=c?"background:rgba(192,57,43,"+(0.08+0.32*alpha).toFixed(2)+")":"";
-    html+="<div class=\"cal-dia"+(iso===hoyISO?" hoy":"")+((dow===0||dow===6)?" finde":"")+(esFeriado(iso)?" feriado":"")+(iso===window._calDiaSel?" sel":"")+"\" style=\""+bg+"\" onclick=\"calSelDia('"+iso+"')\">"
-      +"<span class=\"cal-num\">"+d+"</span><span class=\"cal-cant"+(c?"":" cero")+"\">"+c+"</span></div>";
+    // La intensidad se mide contra el máximo permitido: al llegar al límite el color es pleno
+    const alpha=Math.min(1,pct/limite);
+    const bg=c?"background:rgba(192,57,43,"+(0.06+0.34*alpha).toFixed(2)+")":"";
+    html+="<div class=\"cal-dia"+(iso===hoyISO?" hoy":"")+((dow===0||dow===6)?" finde":"")+(esFeriado(iso)?" feriado":"")+(pasado?" sobre":"")+(iso===window._calDiaSel?" sel":"")+"\" style=\""+bg+"\" title=\""+c+" de "+total+" ("+pct.toFixed(1)+"%)"+(pasado?" — supera el "+limite+"%":"")+"\" onclick=\"calSelDia('"+iso+"')\">"
+      +"<span class=\"cal-num\">"+d+(pasado?" ⚠":"")+"</span><span class=\"cal-cant"+(c?"":" cero")+"\">"+c+(c?"<small>"+Math.round(pct)+"%</small>":"")+"</span></div>";
   }
   document.getElementById("cal-dias").innerHTML=html;
 
