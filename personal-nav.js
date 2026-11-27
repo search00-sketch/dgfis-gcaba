@@ -13,6 +13,7 @@ const NAV_MODULES=[
   {id:"urbetrack",icon:"📡",title:"Urbetrack — Venta sin permiso",url:"urbetrack_venta.html"},
   {id:"formularios",icon:"📝",title:"Formularios — Venta no autorizada",url:"formularios_venta.html"},
   {id:"informe",icon:"📅",title:"Informe Venta Ilegal",url:"informe_venta_ilegal.html"},
+  {id:"evaluaciones",icon:"⭐",title:"Evaluaciones de desempeño",url:"evaluaciones_desempeno.html"},
 ];
 function toggleNavMenu(e){
   if(e)e.stopPropagation();

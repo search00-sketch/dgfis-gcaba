@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGFIS-GCABA — Evaluaciones de desempeño</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D'http://www.w3.org/2000/svg' viewBox%3D'0 0 100 100'%3E%3Ctext y%3D'.9em' font-size%3D'90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<script src="config.js"></script>
+<script src="utils.js?v=7"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="estilo-comun.css?v=15">
+<style>
+.kpigrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);border-left:4px solid var(--c-brand-2);padding:10px 12px}
+.kpi.warn{border-left-color:var(--c-warn)}
+.kpi.clic{cursor:pointer}
+.kpi-val{font-size:1.45rem;font-weight:800;color:var(--c-brand);font-variant-numeric:tabular-nums}
+.kpi-lbl{font-size:.72rem;color:var(--c-ink-mut);margin-top:2px}
+
+.filtros-urb{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);padding:12px;margin-bottom:12px}
+.ff{display:flex;flex-direction:column;gap:3px;min-width:130px}
+.ff label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut)}
+.ff select,.ff input{padding:6px 8px;border:var(--border-w) solid var(--c-line-soft);font-size:.84rem;background:#fff;outline:none}
+.ff.grow{flex:1;min-width:220px}
+
+.periodo{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:#f4f7fb;border:var(--border-w) solid var(--c-line-soft);padding:10px 12px;margin-bottom:12px}
+.periodo .lbl{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--c-brand);align-self:center;margin-right:4px}
+
+.urb-scroll{overflow-x:auto;background:var(--c-surface);border:var(--border-w-strong) solid var(--c-line)}
+table.urb{width:100%;border-collapse:collapse;font-size:.8rem}
+table.urb thead th{background:var(--c-brand);color:#fff;text-align:left;padding:7px 9px;font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;position:sticky;top:0}
+table.urb thead th.sort{cursor:pointer}
+table.urb thead th.sort:hover{background:var(--c-brand-2)}
+table.urb td{padding:6px 9px;border-bottom:var(--border-w) solid var(--c-line-soft);vertical-align:top}
+table.urb tbody tr.clic{cursor:pointer}
+table.urb tbody tr.clic:hover td{background:#eef4fb}
+table.urb tr.fuera td{color:#9ca3af}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.muted{color:var(--c-ink-mut)}
+.obs{max-width:420px;white-space:pre-wrap;overflow-wrap:anywhere}
+.lnk{color:var(--c-brand-2);font-weight:600;cursor:pointer;text-decoration:none}
+.lnk:hover{text-decoration:underline}
+.pager{display:flex;gap:8px;align-items:center;padding:8px 10px;border-top:var(--border-w) solid var(--c-line-soft);font-size:.8rem}
+
+.note{background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);padding:9px 12px;font-size:.8rem;color:var(--c-ink-mut);line-height:1.6;margin-bottom:12px}
+.note b{color:var(--c-ink)}
+.note .w{color:var(--c-warn);font-weight:600}
+
+.bloque{margin-bottom:18px}
+.bloque h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--c-brand);margin-bottom:6px}
+
+/* Categorías de desempeño */
+.cat{display:inline-block;font-size:.7rem;font-weight:800;padding:2px 7px;white-space:nowrap;border:1px solid;letter-spacing:.02em}
+.cat-DESTACADO{background:#ecfdf5;border-color:#6ee7b7;color:#047857}
+.cat-BUENO{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}
+.cat-REGULAR{background:#fffbeb;border-color:#fcd34d;color:#b45309}
+.cat-INSUFICIENTE{background:#fef2f2;border-color:#fca5a5;color:#b91c1c}
+.cat-OTRA{background:#f3f4f6;border-color:#d1d5db;color:#4b5563}
+.seq{display:flex;gap:4px;flex-wrap:wrap}
+.pill-err{display:inline-block;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-size:.7rem;font-weight:700;padding:1px 6px;white-space:nowrap;margin:0 3px 3px 0}
+
+.distbar{display:flex;height:12px;border:1px solid var(--c-line-soft);min-width:120px}
+.distbar span{display:block;height:100%}
+.d-DESTACADO{background:#10b981}.d-BUENO{background:#3b82f6}.d-REGULAR{background:#f59e0b}.d-INSUFICIENTE{background:#ef4444}.d-OTRA{background:#9ca3af}
+
+/* Ficha del agente (réplica de la hoja INDICADORES) */
+.ficha{background:var(--c-surface);border:var(--border-w-strong) solid var(--c-line);padding:14px 16px;margin-bottom:14px}
+.ficha-nom{font-size:1.15rem;font-weight:800;color:var(--c-brand)}
+.ficha-sub{font-size:.8rem;color:var(--c-ink-mut);margin:2px 0 12px}
+.leyenda{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.leyenda div{background:var(--c-surface);border:var(--border-w) solid var(--c-line-soft);padding:8px 10px;font-size:.76rem;line-height:1.5;color:var(--c-ink-mut)}
+.leyenda b{display:block;margin-bottom:4px}
+
+.err-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.err-chips .lbl{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut);margin-right:4px}
+.err-chip{border:1px solid var(--c-line-soft);background:#fff;padding:5px 10px;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--c-ink)}
+.err-chip .c{color:var(--c-ink-mut);font-weight:500;margin-left:3px}
+.err-chip.on{background:#fff7ed;border-color:var(--c-warn);color:#9a3412}
+
+table.cfg{width:100%;border-collapse:collapse;font-size:.82rem;background:var(--c-surface)}
+table.cfg th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--c-ink-mut);padding:6px 8px;border-bottom:2px solid var(--c-line)}
+table.cfg td{padding:5px 8px;border-bottom:1px solid var(--c-line-soft);vertical-align:middle}
+
+.uarea{border:2px dashed var(--c-line-soft);padding:28px;text-align:center;background:var(--c-surface);position:relative;cursor:pointer}
+.uarea.drag{border-color:var(--c-brand-2);background:#eff6ff}
+.uarea input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.pwrap{height:8px;background:var(--c-line-soft);margin-top:12px;display:none}
+.pfill{height:100%;background:var(--c-brand-2);width:0%;transition:width .3s}
+
+.det-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.det-item{background:var(--c-bg);padding:7px 10px}
+.det-item.full{grid-column:1/-1}
+.det-k{font-size:.68rem;color:var(--c-ink-mut)}
+.det-v{font-size:.85rem;font-weight:600;overflow-wrap:anywhere;white-space:pre-wrap}
+.det-err{border-left:3px solid var(--c-warn);background:#fff7ed;padding:8px 10px;font-size:.82rem;margin-bottom:10px}
+@media(max-width:768px){.det-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<!-- CAMBIAR CONTRASEÑA -->
+<div class="overlay" id="modal-cambiar-pass-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">Cambiar contraseña</div>
+    <div id="cp-err" style="display:none;background:#fee2e2;color:#b91c1c;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px"><label class="fl">Contraseña actual</label><input class="form-input" type="password" id="cp-actual" autocomplete="current-password"></div>
+    <div class="form-field full" style="margin-bottom:12px"><label class="fl">Nueva contraseña</label><input class="form-input" type="password" id="cp-nueva" autocomplete="new-password"></div>
+    <div class="form-field full" style="margin-bottom:16px"><label class="fl">Repetir nueva contraseña</label><input class="form-input" type="password" id="cp-nueva2" autocomplete="new-password"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerrarModal('modal-cambiar-pass-overlay')">Cancelar</button>
+      <button class="btn btn-azul" id="cp-guardar-btn" onclick="guardarCambioPassPropia()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div class="overlay open" id="loginOverlay" style="z-index:3000">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">⭐</div>
+    <div class="modal-title" style="text-align:center">Evaluaciones de desempeño</div>
+    <p style="font-size:.79rem;color:#888;margin-bottom:18px">DGFIS-GCABA</p>
+    <div class="lerr" id="loginErr" style="display:none;background:#fee2e2;color:#b91c1c;border-radius:0;padding:8px;margin-bottom:10px;font-size:.82rem"></div>
+    <div class="form-field full" style="margin-bottom:12px;text-align:left"><label class="fl">Usuario</label><input class="form-input" type="text" id="lUser" placeholder="usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="form-field full" style="margin-bottom:16px;text-align:left"><label class="fl">Contraseña</label>
+      <div style="position:relative"><input class="form-input" type="password" id="lPass" placeholder="••••••" style="padding-right:36px" onkeydown="if(event.key==='Enter')doLogin()">
+      <button type="button" onclick="togglePass()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:#888">👁️</button></div></div>
+    <button class="btn btn-azul" style="width:100%;padding:11px" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <p style="margin-top:12px;font-size:.74rem"><a href="index.html" style="color:var(--c-brand-2)">← Volver al portal</a></p>
+  </div>
+</div>
+
+<!-- DETALLE DE UNA EVALUACIÓN -->
+<div class="overlay" id="modal-det">
+  <div class="modal" style="max-width:640px">
+    <button class="modal-close" onclick="cerrarModal('modal-det')">✕</button>
+    <div class="modal-title" id="det-title"></div>
+    <div id="det-body"></div>
+    <div class="modal-actions" style="margin-top:12px"><button class="btn btn-gris" onclick="cerrarModal('modal-det')">Cerrar</button></div>
+  </div>
+</div>
+
+<header class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="nav-drop" style="position:relative">
+      <button onclick="toggleNavMenu(event)" title="Navegar entre módulos" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:0;cursor:pointer">☰</button>
+      <div id="navMenu" class="nav-menu"></div>
+    </div>
+    <div>
+      <div class="header-title">⭐ Evaluaciones de desempeño</div>
+      <div class="header-sub">DGFIS-GCABA &nbsp;|&nbsp; <a href="index.html" class="hbtn" style="font-size:.7rem;padding:3px 8px">← Portal</a></div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="userBadge" style="display:none;background:rgba(255,255,255,.15);border-radius:0;padding:4px 12px;font-size:12px"></span>
+    <button class="hbtn" onclick="abrirModalCambiarPass()" title="Cambiar contraseña">🔑</button>
+    <button class="hbtn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<div class="sync-bar">
+  <span><span class="sync-dot sync-loading" id="syncDot"></span><span id="syncTxt">Conectando…</span></span>
+  <button class="sync-refresh" onclick="forzarRecarga()">⟳ Actualizar</button>
+</div>
+
+<div class="layout-row">
+<div class="tabs">
+  <button class="tab active" onclick="window.cambiarTab('agente',this)">👤 Por agente</button>
+  <button class="tab" onclick="window.cambiarTab('resumen',this)">📋 Resumen</button>
+  <button class="tab" onclick="window.cambiarTab('sineval',this)">🚫 Sin evaluación</button>
+  <button class="tab" onclick="window.cambiarTab('control',this)">⚠️ Control de datos</button>
+  <button class="tab" id="tabCarga" style="display:none" onclick="window.cambiarTab('carga',this)">📥 Cargar Excel</button>
+</div>
+
+<div class="content">
+
+<!-- Período compartido por todas las pestañas (celdas INICIO / FIN de la hoja INDICADORES) -->
+<div class="periodo" id="periodoBar">
+  <span class="lbl">Período</span>
+  <div class="ff"><label>Mes</label><select id="pMes" onchange="onMesElegido()"></select></div>
+  <div class="ff"><label>Inicio</label><input type="date" id="pDesde" onchange="onPeriodoChange()"></div>
+  <div class="ff"><label>Fin</label><input type="date" id="pHasta" onchange="onPeriodoChange()"></div>
+  <span class="muted" style="font-size:.76rem;align-self:center" id="pInfo"></span>
+</div>
+
+<!-- ===================== POR AGENTE ===================== -->
+<div class="panel active" id="panel-agente">
+  <div class="filtros-urb">
+    <div class="ff grow"><label>Agente (inspector, coordinador o administrativo)</label>
+      <input type="text" id="aNombre" list="dlAgentes" placeholder="Escribí el apellido…" onchange="onAgenteElegido()" onkeydown="if(event.key==='Enter')onAgenteElegido()">
+      <datalist id="dlAgentes"></datalist></div>
+    <button class="btn btn-gris btn-sm" onclick="agenteRelativo(-1)">← Anterior</button>
+    <button class="btn btn-gris btn-sm" onclick="agenteRelativo(1)">Siguiente →</button>
+  </div>
+  <div id="aBody"></div>
+  <div class="bloque">
+    <h3>Categorías de desempeño</h3>
+    <div class="leyenda" id="aLeyenda"></div>
+  </div>
+</div>
+
+<!-- ===================== RESUMEN ===================== -->
+<div class="panel" id="panel-resumen">
+  <div class="kpigrid" id="rKpis"></div>
+  <div class="filtros-urb">
+    <div class="ff grow"><label>Buscar agente</label><input type="text" id="rTexto" placeholder="Apellido, nombre o CUIT…" oninput="renderResumenDebounced()"></div>
+    <div class="ff"><label>Mostrar</label><select id="rMostrar" onchange="renderResumen()"><option value="">Todos los agentes</option><option value="con">Con evaluación en el período</option><option value="sin">Sin evaluación en el período</option></select></div>
+    <div class="ff"><label>Puesto</label><select id="rPuesto" onchange="renderResumen()"></select></div>
+    <div class="ff"><label>Modalidad</label><select id="rModalidad" onchange="renderResumen()"></select></div>
+    <div class="ff"><label>Turno</label><select id="rTurno" onchange="renderResumen()"></select></div>
+    <div class="ff"><label>Evaluador</label><select id="rEvaluador" onchange="renderResumen()"></select></div>
+    <div class="ff"><label>Desempeño (alguna evaluación)</label><select id="rCat" onchange="renderResumen()"></select></div>
+    <button class="btn btn-gris btn-sm" onclick="limpiarFiltrosResumen()">✕ Limpiar</button>
+  </div>
+  <div class="toolbar"><span class="table-info" id="rInfo" style="flex:1"></span><button class="btn btn-verde" onclick="exportarResumenExcel()">⬇ Exportar Excel</button></div>
+  <div class="urb-scroll" style="margin-bottom:18px">
+    <table class="urb" id="rTabla"><thead></thead><tbody></tbody></table>
+  </div>
+  <div class="bloque">
+    <h3>Por evaluador (calibración entre coordinadores)</h3>
+    <div class="note">Cuántas evaluaciones cargó cada evaluador en el período, su puntaje promedio y cómo reparte las categorías. Sirve para ver si un coordinador puntúa sistemáticamente más alto o más bajo que el resto.</div>
+    <div class="urb-scroll"><table class="urb" id="rEvalTabla"><thead></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- ===================== SIN EVALUACIÓN ===================== -->
+<div class="panel" id="panel-sineval">
+  <div class="note">Agentes de la <b>BASE</b> (nómina de la hoja BASE del Excel) que <b>no tienen ninguna evaluación</b> con fecha dentro del período elegido — es la "LISTA DE INSPECTORES SIN EVALUACION" de la hoja INDICADORES.</div>
+  <div class="filtros-urb">
+    <div class="ff grow"><label>Buscar</label><input type="text" id="sTexto" placeholder="Apellido, nombre o CUIT…" oninput="renderSinEvalDebounced()"></div>
+    <div class="ff"><label>Área</label><select id="sArea" onchange="renderSinEval()"></select></div>
+    <div class="ff"><label>Puesto</label><select id="sPuesto" onchange="renderSinEval()"></select></div>
+    <div class="ff"><label>Modalidad</label><select id="sModalidad" onchange="renderSinEval()"></select></div>
+  </div>
+  <div class="toolbar"><span class="table-info" id="sInfo" style="flex:1"></span><button class="btn btn-verde" onclick="exportarSinEvalExcel()">⬇ Exportar Excel</button></div>
+  <div class="urb-scroll"><table class="urb" id="sTabla"><thead></thead><tbody></tbody></table></div>
+</div>
+
+<!-- ===================== CONTROL DE DATOS ===================== -->
+<div class="panel" id="panel-control">
+  <div class="note">
+    Problemas en las evaluaciones del <b>período elegido</b>. Se calculan al leer: si se corrige en el Excel y se vuelve a subir, el aviso desaparece solo.
+    <br><b>Puntaje fuera de escala</b>: según los <i>Parámetros de Evaluación de Desempeño</i> — 1 a 3 Insuficiente, 4 a 5 Regular, 6 a 8 Bueno, 9 a 10 Destacado.
+    <br><b>No está en BASE</b>: el nombre elegido en el formulario no coincide con ningún agente de la hoja BASE, así que el Excel no le trae CUIT, área, puesto ni modalidad y no lo descuenta de la lista "sin evaluación".
+  </div>
+  <div class="kpigrid" id="cKpis"></div>
+  <div class="err-chips" id="cChips"></div>
+  <div class="toolbar"><span class="table-info" id="cInfo" style="flex:1"></span><button class="btn btn-verde" onclick="exportarControlExcel()">⬇ Exportar Excel</button></div>
+  <div class="urb-scroll" style="margin-bottom:18px"><table class="urb" id="cTabla"><thead></thead><tbody></tbody></table></div>
+  <div class="bloque">
+    <h3>Nombres evaluados que no están en BASE</h3>
+    <div class="urb-scroll"><table class="urb" id="cNoBase"><thead></thead><tbody></tbody></table></div>
+  </div>
+  <div class="bloque">
+    <h3>BASE con datos incompletos</h3>
+    <div class="urb-scroll"><table class="urb" id="cBaseInc"><thead></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- ===================== CARGA ===================== -->
+<div class="panel" id="panel-carga">
+  <div class="note" id="autoInfo"></div>
+  <div class="gestion-zonas">
+    <div class="gz-title">📥 Cargar el Excel "EVALUACIÓN DE DESEMPEÑO"</div>
+    <p style="font-size:.82rem;color:#777;margin-bottom:12px">
+      Descargá el Excel completo desde SharePoint (<b>Archivo → Crear una copia → Descargar una copia</b>) y subilo acá.
+      Se leen las hojas <b>CARGAS NUEVAS</b> (las respuestas del formulario de evaluación) y <b>BASE</b> (la nómina de agentes).
+      La hoja <b>CARGAS VIEJAS</b> (formato anterior) se ignora.
+      <br>Cada carga <b>reemplaza</b> lo que hay en la base: el Excel ya trae todas las evaluaciones acumuladas, así que si una fila se borró o corrigió allá, también se corrige acá.
+    </p>
+    <div class="uarea" id="uarea">
+      <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xls" onchange="onArchivoElegido(this.files)">
+      <div style="font-size:2rem;margin-bottom:6px">📊</div>
+      <div style="font-weight:600;color:var(--c-brand)">Arrastrá o hacé clic para elegir el Excel</div>
+    </div>
+    <div id="upResumen" style="margin-top:10px"></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-verde" id="upBtn" onclick="subirAFirestore()" disabled style="opacity:.45">⬆ Reemplazar la base con este Excel</button>
+      <button class="btn btn-gris" onclick="limpiarCarga()">Limpiar</button>
+    </div>
+    <div class="pwrap" id="upPwrap"><div class="pfill" id="upPfill"></div></div>
+    <div class="toast-msg" id="upToast"></div>
+  </div>
+  <div class="gestion-zonas">
+    <div class="gz-title">🧾 Historial de cargas</div>
+    <div style="overflow-x:auto">
+      <table class="cfg">
+        <thead><tr><th>Cuándo</th><th>Quién</th><th>Archivo</th><th>Evaluaciones</th><th>Agentes en BASE</th><th>Evaluaciones del</th><th>Antes había</th></tr></thead>
+        <tbody id="cargasBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div>
+</div><!-- /layout-row -->
+
+<script>window.MODULO_ID='evaluaciones';</script>
+<script src="personal-auth.js?v=9"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+if (typeof FIREBASE_CONFIG === 'undefined') { alert('Error: falta config.js'); throw new Error(); }
+const app = initializeApp(FIREBASE_CONFIG);
+if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
+  initializeAppCheck(app, { provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+}
+window._db = getFirestore(app);
+window._fDoc = doc; window._fGetDoc = getDoc; window._fSetDoc = setDoc; window._fDeleteDoc = deleteDoc; window._fRunTransaction = runTransaction;
+window._auth = getAuth(app);
+window._fOnAuthStateChanged = onAuthStateChanged;
+window._fSignIn = signInWithEmailAndPassword; window._fSignOut = signOut;
+window._fEmailAuthProvider = EmailAuthProvider; window._fReauthenticate = reauthenticateWithCredential; window._fUpdatePassword = updatePassword;
+window.cambiarTab = function(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('panel-' + id);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (window._cambiarTabExtra) window._cambiarTabExtra(id);
+};
+if (window.restaurarSesion) window.restaurarSesion().then(() => { if (window.cargarTodo) window.cargarTodo(); });
+</script>
+
+<script>
+// ============================================================
+//  EVALUACIONES DE DESEMPEÑO (Gerencia de Venta Sin Permiso)
+//  Fuente: el Excel "EVALUACIÓN DE DESEMPEÑO" del sitio de SharePoint
+//  grupo_evaluaciondedesempeo. Se importan dos hojas:
+//   · CARGAS NUEVAS → una fila por respuesta del formulario de Forms
+//     (Id, Hora de inicio, evaluador, INSPECTOR, TURNO, PUNTAJE,
+//     DESEMPEÑO, OBSERVACIONES).
+//   · BASE → nómina de agentes (APELLIDO Y NOMBRE, CUIT, AREA, PUESTO,
+//     MODALIDAD).
+//  Los indicadores replican la hoja "INDICADORES Cargas Nuevas":
+//   cantidad de evaluaciones, puntaje promedio, última evaluación,
+//   secuencia de desempeños y lista de agentes sin evaluación entre
+//   INICIO y FIN. Diferencias deliberadas con el Excel:
+//   - El PUNTAJE viene guardado como TEXTO en el Excel, así que allá
+//     AVERAGEIF da 0; acá se convierte a número.
+//   - El Excel busca al agente con SEARCH (coincidencia parcial: "DIAZ,
+//     LORENA" también trae a "DIAZ, LORENA X"); acá es por nombre exacto
+//     (sin acentos/mayúsculas/espacios dobles).
+//   - Todos los indicadores usan el mismo período (en el Excel sólo la
+//     lista "sin evaluación" lo respeta).
+//  CUIT/área/puesto/modalidad se cruzan contra BASE al leer (igual que
+//  los XLOOKUP del Excel), no se guardan en cada evaluación.
+//  Almacenamiento (ver firestore.rules):
+//   evaluaciones_meta/index    → {chunks, count, baseCount, v, primeraFecha,
+//                                 ultimaFecha, archivo, cargas:[…últimas 40]}
+//   evaluaciones_chunks/eval_N → {n, datos:'[{…},…]'}   (texto JSON)
+//   evaluaciones_chunks/base   → {n, datos:'[{…},…]'}
+//  Cada carga reemplaza todo (el Excel es acumulativo).
+//  Carga AUTOMÁTICA: un flujo de Power Automate ejecuta el Office Script
+//  integraciones/evaluaciones/sincronizar-evaluaciones.ts dentro del Excel y
+//  escribe los mismos documentos con un solo documents:commit (ver el
+//  README de esa carpeta). Deja meta.actualizadoPor = 'Power Automate',
+//  meta.ultimaAuto = {en, evaluaciones, base, desde, hasta, version} y una
+//  "v" que es hash del contenido (no cambia si el Excel no cambió). La
+//  carga manual de esta página conserva ultimaAuto; la automática conserva
+//  "cargas" (el historial de cargas manuales).
+//  Caché local en IndexedDB con la versión "v" del índice.
+// ============================================================
+const COL_CHUNKS = 'evaluaciones_chunks';
+const COL_META   = 'evaluaciones_meta';
+const MAX_BYTES_CHUNK = 900000;
+const MAX_CARGAS_LOG = 40;
+const CATS = ['DESTACADO','BUENO','REGULAR','INSUFICIENTE'];
+// Escala de los "Parámetros de Evaluación de Desempeño" (DGFIS, julio).
+const ESCALA = {INSUFICIENTE:[1,3],REGULAR:[4,5],BUENO:[6,8],DESTACADO:[9,10]};
+const DEF_CAT = {
+  DESTACADO:'El/la agente cumple y supera de manera consistente los objetivos y responsabilidades asignadas a su puesto. Demuestra compromiso, autonomía y un alto nivel de calidad en sus tareas, aportando valor al funcionamiento general del área.',
+  BUENO:'El/la agente cumple satisfactoriamente con las funciones y responsabilidades propias de su puesto, conforme a lo esperado. Mantiene un desempeño regular y acorde a los lineamientos establecidos, sin requerir seguimiento permanente.',
+  REGULAR:'El/la agente presenta un cumplimiento parcial de las tareas asignadas. Se identifican oportunidades de mejora en determinados aspectos del desempeño, requiriendo acompañamiento, capacitación o seguimiento para optimizar su desempeño.',
+  INSUFICIENTE:'El/la agente no alcanza los niveles mínimos esperados para el puesto. Se observan dificultades recurrentes en el cumplimiento de tareas y responsabilidades, siendo necesario un seguimiento específico y la implementación de acciones correctivas.',
+};
+
+let META = null;
+let EVALS = [];      // evaluaciones (con campos calculados _dia, _mes, _key, _err…)
+let BASE = [];       // nómina de la hoja BASE
+let BASE_POR_KEY = new Map();
+let AGENTES = [];    // [{key,nombre,base|null,evals:[…]}] — BASE ∪ evaluados
+let AG_POR_KEY = new Map();
+let PARSEADO = null; // Excel elegido en "Cargar Excel"
+let AGENTE_SEL = null;
+
+// ---------- utilidades ----------
+function toast(msg,ms=2600){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),ms);}
+function cerrarModal(id){document.getElementById(id).classList.remove('open');}
+const pad=n=>String(n).padStart(2,'0');
+function setSync(tipo,msg){const d=document.getElementById('syncDot');d.className='sync-dot sync-'+tipo;document.getElementById('syncTxt').textContent=msg;}
+function isoDia(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function hoyISO(){return isoDia(new Date());}
+function fmtD(ds){if(!ds)return '—';const [y,m,d]=ds.slice(0,10).split('-');return d+'/'+m+'/'+y;}
+function fmtDT(s){if(!s)return '—';return fmtD(s)+(s.length>10?' '+s.slice(11,16):'');}
+// Marca de tiempo ISO (UTC, "…Z") → "AAAA-MM-DD HH:MM" en hora local.
+function isoLocal(s){if(!s)return '';const d=new Date(s);return isNaN(d)?String(s).replace('T',' '):isoDia(d)+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+const MES_TXT=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const MES_LARGO=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fmtMes(mes){const [y,m]=mes.split('-');return MES_TXT[+m-1]+' '+y;}
+function ultimoDiaMes(mes){const [y,m]=mes.split('-').map(Number);return mes+'-'+pad(new Date(y,m,0).getDate());}
+const fmtInt=n=>(n||0).toLocaleString('es-AR');
+const fmtN=(n,d=1)=>n==null||isNaN(n)?'—':n.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtPct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+function norm(s){return String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();}
+// Clave de un nombre de agente: sin acentos ni mayúsculas, comas y espacios normalizados.
+function claveNombre(s){return norm(s).replace(/\s*,[\s,]*/g,', ').replace(/,\s*$/,'').trim();}
+function catNorm(s){const n=norm(s).toUpperCase();return CATS.find(c=>n===c)||(n?CATS.find(c=>n.includes(c))||n:'');}
+function catHtml(c){return c?'<span class="cat cat-'+(CATS.includes(c)?c:'OTRA')+'">'+esc(c)+'</span>':'<span class="muted">—</span>';}
+function seqHtml(evs){return evs.length?'<div class="seq">'+evs.map(e=>catHtml(e.desempeno)).join('')+'</div>':'<span class="muted">SIN EVALUACIÓN</span>';}
+function promedio(evs){const v=evs.map(e=>e.puntaje).filter(x=>typeof x==='number');return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}
+function moda(arr){const m={};arr.forEach(x=>{if(x)m[x]=(m[x]||0)+1;});return Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||'';}
+function distHtml(evs){
+  if(!evs.length)return '';
+  const c={};evs.forEach(e=>{const k=CATS.includes(e.desempeno)?e.desempeno:'OTRA';c[k]=(c[k]||0)+1;});
+  return '<div class="distbar" title="'+esc([...CATS,'OTRA'].filter(k=>c[k]).map(k=>k+': '+c[k]).join(' · '))+'">'
+    +[...CATS,'OTRA'].filter(k=>c[k]).map(k=>'<span class="d-'+k+'" style="width:'+(c[k]/evs.length*100)+'%"></span>').join('')+'</div>';
+}
+function poblarSel(id,vals,ph){
+  const s=document.getElementById(id),prev=s.value;
+  s.innerHTML='<option value="">'+ph+'</option>'+vals.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+  if(vals.includes(prev))s.value=prev;
+}
+function debounce(fn,ms){let t;return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+
+// Fecha/hora de Excel (número de serie) → "AAAA-MM-DD HH:MM" (hora local de la planilla).
+function fechaExcel(v){
+  if(v==null||v==='')return '';
+  if(typeof v==='number'&&isFinite(v)){const d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,16).replace('T',' ');}
+  if(v instanceof Date&&!isNaN(v))return isoDia(v)+' '+pad(v.getHours())+':'+pad(v.getMinutes());
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if(m)return m[3]+'-'+pad(m[2])+'-'+pad(m[1])+(m[4]!=null?' '+pad(m[4])+':'+m[5]:'');
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2}))?/);
+  if(m)return m[1]+'-'+m[2]+'-'+m[3]+(m[4]!=null?' '+m[4]+':'+m[5]:'');
+  return '';
+}
+
+// ============================================================
+//  PREPARACIÓN (cruce con BASE y controles)
+// ============================================================
+function prepararTodo(evalsRaw,baseRaw){
+  BASE=baseRaw.map(b=>({...b,_key:claveNombre(b.nombre)}));
+  BASE_POR_KEY=new Map();BASE.forEach(b=>{if(b._key&&!BASE_POR_KEY.has(b._key))BASE_POR_KEY.set(b._key,b);});
+  EVALS=evalsRaw.map(r=>{
+    const e={...r};
+    e._dia=(e.ini||'').slice(0,10);e._mes=e._dia.slice(0,7);
+    const k=claveNombre(e.agente);e._base=BASE_POR_KEY.get(k)||null;e._key=e._base?e._base._key:k;
+    return e;
+  }).filter(e=>e._key).sort((a,b)=>(a.ini||'').localeCompare(b.ini||'')||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
+  // Agentes = BASE ∪ nombres evaluados que no están en BASE
+  AG_POR_KEY=new Map();
+  BASE.forEach(b=>{if(b._key&&!AG_POR_KEY.has(b._key))AG_POR_KEY.set(b._key,{key:b._key,nombre:b.nombre,base:b,evals:[]});});
+  EVALS.forEach(e=>{
+    let a=AG_POR_KEY.get(e._key);
+    if(!a){a={key:e._key,nombre:e.agente.trim(),base:null,evals:[]};AG_POR_KEY.set(e._key,a);}
+    a.evals.push(e);
+  });
+  AGENTES=[...AG_POR_KEY.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  _sugCache.clear();
+  marcarControl();
+}
+const ERR_DEFS=[
+  {k:'nobase',l:'No está en BASE'},
+  {k:'escala',l:'Puntaje fuera de escala'},
+  {k:'sinpunt',l:'Sin puntaje / inválido'},
+  {k:'sincat',l:'Sin desempeño / desconocido'},
+  {k:'dup',l:'Posible duplicado'},
+  {k:'multi',l:'Más de una en el mes'},
+];
+const ERR_LABEL=Object.fromEntries(ERR_DEFS.map(e=>[e.k,e.l]));
+function marcarControl(){
+  const dia={},mes={};
+  EVALS.forEach(e=>{
+    const kd=norm(e.evaluador)+'|'+e._key+'|'+e._dia;(dia[kd]=dia[kd]||[]).push(e);
+    const km=e._key+'|'+e._mes;(mes[km]=mes[km]||[]).push(e);
+  });
+  EVALS.forEach(e=>{
+    const err=[];
+    if(!e._base)err.push('nobase');
+    if(typeof e.puntaje!=='number')err.push('sinpunt');
+    if(!CATS.includes(e.desempeno))err.push('sincat');
+    if(typeof e.puntaje==='number'&&ESCALA[e.desempeno]){const [lo,hi]=ESCALA[e.desempeno];if(e.puntaje<lo||e.puntaje>hi)err.push('escala');}
+    const gd=dia[norm(e.evaluador)+'|'+e._key+'|'+e._dia];if(gd.length>1&&gd[0]!==e)err.push('dup');
+    if(mes[e._key+'|'+e._mes].length>1)err.push('multi');
+    e._err=err;
+  });
+}
+// Agente de BASE más parecido a un nombre que no coincide: tiene que compartir
+// al menos una palabra del apellido (lo de antes de la coma) y se prefiere el
+// que comparte más palabras con el nombre buscado y tiene menos de sobra.
+const _sugCache=new Map();
+function sugerirBase(nombre){
+  if(_sugCache.has(nombre))return _sugCache.get(nombre);
+  const tok=s=>claveNombre(s).split(/[^a-zñ]+/).filter(t=>t.length>1);
+  const ape=s=>new Set(tok(claveNombre(s).split(',')[0]));
+  const nom=s=>new Set(tok(claveNombre(s).split(',').slice(1).join(' ')));
+  const t=new Set(tok(nombre)),ta=ape(nombre),tn=nom(nombre);
+  let mejor=null,ms=0;
+  if(t.size)BASE.forEach(b=>{
+    const ba=ape(b.nombre),bn=new Set([...tok(b.nombre)]);
+    if(![...ta].some(x=>ba.has(x)))return;                 // comparte apellido
+    if(tn.size&&![...tn].some(x=>bn.has(x)))return;        // y algún nombre de pila
+
+    const u=new Set(tok(b.nombre));let i=0;t.forEach(x=>{if(u.has(x))i++;});
+    const s=i/t.size+i/u.size;if(s>ms){ms=s;mejor=b;}
+  });
+  const r=ms>=1?mejor:null;_sugCache.set(nombre,r);return r;
+}
+
+// ============================================================
+//  PERÍODO (INICIO / FIN)
+// ============================================================
+function periodo(){return {d:document.getElementById('pDesde').value,h:document.getElementById('pHasta').value};}
+function enPeriodo(e){const {d,h}=periodo();return !(d&&e._dia<d)&&!(h&&e._dia>h);}
+function mesesConDatos(){return [...new Set(EVALS.map(e=>e._mes).filter(Boolean))].sort();}
+function poblarMeses(){
+  const ms=mesesConDatos().reverse(),s=document.getElementById('pMes'),prev=s.value;
+  s.innerHTML='<option value="">Personalizado</option><option value="*">Todo el historial</option>'
+    +ms.map(m=>{const [y,mm]=m.split('-');return '<option value="'+m+'">'+MES_LARGO[+mm-1]+' '+y+'</option>';}).join('');
+  s.value=prev&&[...s.options].some(o=>o.value===prev)?prev:'';
+}
+function periodoPorDefecto(){
+  // Por defecto el mes anterior al actual (como INICIO/FIN de la planilla); si no tiene datos, el último mes con datos.
+  const ms=mesesConDatos();if(!ms.length)return;
+  const h=new Date();const ant=new Date(h.getFullYear(),h.getMonth()-1,1);const mAnt=ant.getFullYear()+'-'+pad(ant.getMonth()+1);
+  setMes(ms.includes(mAnt)?mAnt:ms[ms.length-1]);
+}
+function setMes(m){
+  const s=document.getElementById('pMes');s.value=m;
+  if(m==='*'){const ds=EVALS.map(e=>e._dia).filter(Boolean).sort();document.getElementById('pDesde').value=ds[0]||'';document.getElementById('pHasta').value=ds[ds.length-1]||'';}
+  else if(m){document.getElementById('pDesde').value=m+'-01';document.getElementById('pHasta').value=ultimoDiaMes(m);}
+}
+function onMesElegido(){const m=document.getElementById('pMes').value;if(m)setMes(m);renderActivo();}
+function onPeriodoChange(){
+  const {d,h}=periodo(),s=document.getElementById('pMes');
+  const m=d&&d.slice(0,7);
+  s.value=(m&&d===m+'-01'&&h===ultimoDiaMes(m)&&[...s.options].some(o=>o.value===m))?m:'';
+  renderActivo();
+}
+function renderPeriodoInfo(){
+  const n=EVALS.filter(enPeriodo).length;
+  document.getElementById('pInfo').textContent=fmtInt(n)+' evaluaciones en el período';
+}
+
+// ============================================================
+//  LECTURA
+// ============================================================
+const IDB_NAME='dgf_evaluaciones',IDB_STORE='datos';
+let _idbP=null;
+function idb(){
+  if(!_idbP)_idbP=new Promise((res)=>{
+    try{const rq=indexedDB.open(IDB_NAME,1);
+      rq.onupgradeneeded=()=>rq.result.createObjectStore(IDB_STORE);
+      rq.onsuccess=()=>res(rq.result);rq.onerror=()=>res(null);
+    }catch(e){res(null);}
+  });
+  return _idbP;
+}
+async function cacheGet(k){
+  const db=await idb();if(!db)return null;
+  return new Promise(res=>{try{const rq=db.transaction(IDB_STORE).objectStore(IDB_STORE).get(k);rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>res(null);}catch(e){res(null);}});
+}
+async function cacheSet(k,val){
+  const db=await idb();if(!db)return;
+  return new Promise(res=>{try{const tx=db.transaction(IDB_STORE,'readwrite');val===null?tx.objectStore(IDB_STORE).delete(k):tx.objectStore(IDB_STORE).put(val,k);tx.oncomplete=()=>res();tx.onerror=()=>res();}catch(e){res();}});
+}
+async function cacheClearAll(){
+  const db=await idb();if(!db)return;
+  return new Promise(res=>{try{const tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).clear();tx.oncomplete=()=>res();tx.onerror=()=>res();}catch(e){res();}});
+}
+function arrDeDoc(s){
+  if(!s||!s.exists())return [];
+  const d=s.data();
+  try{return typeof d.datos==='string'?JSON.parse(d.datos):(d.datos||[]);}catch(e){console.error('Documento ilegible',e);return [];}
+}
+async function leerMeta(){
+  const snap=await window._fGetDoc(window._fDoc(window._db,COL_META,'index'));
+  META=snap.exists()?snap.data():{chunks:0,count:0,cargas:[]};
+  META.cargas=META.cargas||[];
+}
+let _versionEnMem=null;
+async function asegurarDatos(){
+  if(!META.v){prepararTodo([],[]);_versionEnMem=null;return 0;}
+  if(_versionEnMem===META.v)return 0;
+  const c=await cacheGet('todo');
+  if(c&&c.v===META.v){prepararTodo(c.evals,c.base);_versionEnMem=META.v;return 0;}
+  setSync('loading','Leyendo evaluaciones…');
+  const ids=[...Array.from({length:META.chunks||0},(_,i)=>'eval_'+i),'base'];
+  const snaps=await Promise.all(ids.map(id=>window._fGetDoc(window._fDoc(window._db,COL_CHUNKS,id))));
+  const evals=snaps.slice(0,-1).flatMap(arrDeDoc),base=arrDeDoc(snaps[snaps.length-1]);
+  await cacheSet('todo',{v:META.v,evals,base});
+  prepararTodo(evals,base);_versionEnMem=META.v;
+  return snaps.length;
+}
+function actualizarSync(lecturas){
+  if(!META.v){setSync('ok','Sin datos todavía — cargá el Excel desde "Cargar Excel"');return;}
+  const auto=META.actualizadoPor==='Power Automate';
+  setSync('ok','✅ '+fmtInt(EVALS.length)+' evaluaciones ('+fmtD(META.primeraFecha)+' – '+fmtD(META.ultimaFecha)+') · '+fmtInt(BASE.length)+' agentes en BASE'
+    +' · '+(auto?'sincronizado automáticamente':'cargado')+' '+fmtDT(isoLocal(META.actualizadoEn))+(lecturas?' · '+lecturas+' lectura'+(lecturas===1?'':'s'):''));
+}
+window.cargarTodo=async function(){
+  if(typeof usuarioActual==='function'&&!usuarioActual())return;
+  setSync('loading','Cargando…');
+  try{
+    await leerMeta();
+    const lecturas=await asegurarDatos();
+    poblarMeses();
+    if(!document.getElementById('pDesde').value)periodoPorDefecto();
+    poblarFiltros();
+    document.getElementById('dlAgentes').innerHTML=AGENTES.map(a=>'<option value="'+esc(a.nombre)+'">').join('');
+    if(!AGENTE_SEL||!AG_POR_KEY.has(AGENTE_SEL)){const a=AGENTES.find(x=>x.evals.length);AGENTE_SEL=a?a.key:null;}
+    actualizarSync(lecturas);
+    renderActivo();renderCargas();
+  }catch(e){console.error(e);setSync('err','⚠️ Error: '+e.message);}
+};
+window.forzarRecarga=async function(){await cacheClearAll();_versionEnMem=null;window.cargarTodo();};
+const _doLogoutOriginal=doLogout;
+doLogout=async function(){await cacheClearAll();_doLogoutOriginal();};
+window._onLogin=function(){document.getElementById('tabCarga').style.display=puedeEditar()?'':'none';};
+function tabActiva(){const p=document.querySelector('.panel.active');return p?p.id.replace('panel-',''):'agente';}
+window._cambiarTabExtra=function(id){
+  document.getElementById('periodoBar').style.display=id==='carga'?'none':'';
+  if(!META)return;
+  renderActivo();
+};
+function renderActivo(){
+  if(!META)return;
+  renderPeriodoInfo();
+  const id=tabActiva();
+  if(id==='agente')renderAgente();
+  else if(id==='resumen')renderResumen();
+  else if(id==='sineval')renderSinEval();
+  else if(id==='control')renderControl();
+  else if(id==='carga')renderCargas();
+}
+function poblarFiltros(){
+  const uniq=arr=>[...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+  poblarSel('rPuesto',uniq(BASE.map(b=>b.puesto)),'Todos');
+  poblarSel('rModalidad',uniq(BASE.map(b=>b.modalidad)),'Todas');
+  poblarSel('rTurno',uniq(EVALS.map(e=>e.turno)),'Todos');
+  poblarSel('rEvaluador',uniq(EVALS.map(e=>e.evaluador)),'Todos');
+  poblarSel('rCat',[...CATS],'Cualquiera');
+  poblarSel('sArea',uniq(BASE.map(b=>b.area)),'Todas');
+  poblarSel('sPuesto',uniq(BASE.map(b=>b.puesto)),'Todos');
+  poblarSel('sModalidad',uniq(BASE.map(b=>b.modalidad)),'Todas');
+}
+function irAAgente(key){
+  AGENTE_SEL=key;
+  window.cambiarTab('agente',document.querySelector('.tab'));
+}
+function verDetalle(id){
+  const e=EVALS.find(x=>String(x.id)===String(id));if(!e)return;
+  const b=e._base;
+  const it=(k,v,full)=>'<div class="det-item'+(full?' full':'')+'"><div class="det-k">'+k+'</div><div class="det-v">'+v+'</div></div>';
+  document.getElementById('det-title').textContent='Evaluación #'+e.id+' — '+(b?b.nombre:e.agente);
+  document.getElementById('det-body').innerHTML=
+    (e._err.length?'<div class="det-err">'+e._err.map(k=>'<b>'+esc(ERR_LABEL[k])+'</b>').join(' · ')
+      +(e._err.includes('escala')?'<br>Para '+esc(e.desempeno)+' la escala es '+ESCALA[e.desempeno].join(' a ')+'; tiene '+e.puntaje+'.':'')
+      +(e._err.includes('nobase')&&sugerirBase(e.agente)?'<br>¿Será <b>'+esc(sugerirBase(e.agente).nombre)+'</b>?':'')+'</div>':'')
+    +'<div class="det-grid">'
+    +it('Fecha',esc(fmtDT(e.ini)))+it('Evaluador',esc(e.evaluador||'—')+(e.mail?'<br><span class="muted" style="font-weight:400">'+esc(e.mail)+'</span>':''))
+    +it('Agente',esc(e.agente))+it('Turno',esc(e.turno||'—'))
+    +it('Puntaje',typeof e.puntaje==='number'?String(e.puntaje):'<span class="muted">'+esc(e.puntajeTxt||'—')+'</span>')+it('Desempeño',catHtml(e.desempeno))
+    +(b?it('CUIT',esc(b.cuit||'—'))+it('Área / puesto / modalidad',esc([b.area,b.puesto,b.modalidad].filter(Boolean).join(' · ')||'—')):'')
+    +(e.sector?it('Sector',esc(e.sector)):'')
+    +it('Observaciones',esc(e.obs||'—'),true)
+    +'</div>';
+  document.getElementById('modal-det').classList.add('open');
+}
+
+// ============================================================
+//  POR AGENTE (hoja INDICADORES)
+// ============================================================
+function onAgenteElegido(){
+  const v=claveNombre(document.getElementById('aNombre').value);if(!v)return;
+  let a=AG_POR_KEY.get(v);
+  if(!a){const c=AGENTES.filter(x=>x.key.includes(v));if(c.length===1)a=c[0];}
+  if(a){AGENTE_SEL=a.key;renderAgente();}
+  else toast('No encontré a "'+document.getElementById('aNombre').value+'". Elegilo de la lista.');
+}
+function agenteRelativo(d){
+  if(!AGENTES.length)return;
+  const i=AGENTES.findIndex(a=>a.key===AGENTE_SEL);
+  AGENTE_SEL=AGENTES[(i+d+AGENTES.length)%AGENTES.length].key;renderAgente();
+}
+function renderAgente(){
+  document.getElementById('aLeyenda').innerHTML=CATS.map(c=>'<div>'+catHtml('DESEMPEÑO '+c).replace('cat-OTRA','cat-'+c)+'<span class="muted" style="font-size:.7rem;margin-left:6px">puntaje '+ESCALA[c].join(' a ')+'</span><br>'+esc(DEF_CAT[c])+'</div>').join('');
+  const body=document.getElementById('aBody');
+  if(!AGENTES.length){body.innerHTML='<div class="note">Todavía no hay evaluaciones cargadas.</div>';return;}
+  const a=AG_POR_KEY.get(AGENTE_SEL)||AGENTES[0];AGENTE_SEL=a.key;
+  const inp=document.getElementById('aNombre');if(document.activeElement!==inp)inp.value=a.nombre;
+  const evP=a.evals.filter(enPeriodo),ult=evP[evP.length-1],{d,h}=periodo();
+  const b=a.base,prom=promedio(evP),promH=promedio(a.evals);
+  const kpi=(v,l,cls)=>'<div class="kpi'+(cls?' '+cls:'')+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div></div>';
+  body.innerHTML='<div class="ficha">'
+    +'<div class="ficha-nom">'+esc(a.nombre)+'</div>'
+    +'<div class="ficha-sub">'+(b?esc([b.puesto,b.area,b.modalidad].filter(x=>x&&x!=='0').join(' · ')||'Sin datos en BASE')+(b.cuit?' · CUIT '+esc(b.cuit):''):'<span class="w" style="color:var(--c-warn);font-weight:700">⚠ No está en la hoja BASE</span>'+(sugerirBase(a.nombre)?' — ¿será <a class="lnk" onclick="irAAgente(\''+escJsAttr(sugerirBase(a.nombre)._key)+'\')">'+esc(sugerirBase(a.nombre).nombre)+'</a>?':''))
+      +' · Período '+fmtD(d)+' – '+fmtD(h)+'</div>'
+    +'<div class="kpigrid" style="margin-bottom:10px">'
+      +kpi(fmtInt(evP.length),'Cantidad de evaluaciones',evP.length?'':'warn')
+      +kpi(prom==null?'—':fmtN(prom,2),'Puntaje promedio')
+      +kpi(ult?fmtD(ult._dia):'—','Última evaluación')
+      +kpi(fmtInt(a.evals.length)+(promH!=null?' <span style="font-size:.8rem;font-weight:600;color:var(--c-ink-mut)">· prom. '+fmtN(promH,2)+'</span>':''),'Historial completo')
+    +'</div>'
+    +'<div class="det-k" style="margin-bottom:4px">DESEMPEÑO (en orden, del período)</div>'+seqHtml(evP)
+    +'</div>'
+    +'<div class="toolbar"><span class="table-info" style="flex:1">Todas las evaluaciones del agente; en gris las que quedan fuera del período.</span><button class="btn btn-verde btn-sm" onclick="exportarAgenteExcel()">⬇ Exportar Excel</button></div>'
+    +'<div class="urb-scroll"><table class="urb"><thead><tr><th>Fecha</th><th>Evaluador</th><th>Turno</th><th>Puntaje</th><th>Desempeño</th><th>Observaciones</th><th>Avisos</th></tr></thead><tbody>'
+    +(a.evals.length?a.evals.slice().reverse().map(e=>'<tr class="clic'+(enPeriodo(e)?'':' fuera')+'" onclick="verDetalle(\''+escJsAttr(String(e.id))+'\')">'
+      +'<td class="num">'+esc(fmtDT(e.ini))+'</td><td>'+esc(e.evaluador||'—')+'</td><td>'+esc(e.turno||'—')+'</td>'
+      +'<td class="num">'+(typeof e.puntaje==='number'?e.puntaje:'<span class="muted">'+esc(e.puntajeTxt||'—')+'</span>')+'</td><td>'+catHtml(e.desempeno)+'</td>'
+      +'<td class="obs">'+esc(e.obs||'')+'</td><td>'+e._err.filter(k=>k!=='nobase').map(k=>'<span class="pill-err">'+esc(ERR_LABEL[k])+'</span>').join('')+'</td></tr>').join('')
+      :'<tr><td colspan="7" style="padding:12px;color:#999">SIN EVALUACIÓN</td></tr>')
+    +'</tbody></table></div>';
+}
+function exportarAgenteExcel(){
+  const a=AG_POR_KEY.get(AGENTE_SEL);if(!a||!a.evals.length){toast('El agente no tiene evaluaciones.');return;}
+  const ws=XLSX.utils.json_to_sheet(a.evals.map(e=>({'Fecha':fmtDT(e.ini),'En el período':enPeriodo(e)?'Sí':'No','Evaluador':e.evaluador,'Turno':e.turno,'Puntaje':typeof e.puntaje==='number'?e.puntaje:e.puntajeTxt,'Desempeño':e.desempeno,'Observaciones':e.obs,'Avisos':e._err.map(k=>ERR_LABEL[k]).join(', ')})));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Evaluaciones');
+  XLSX.writeFile(wb,'evaluaciones_'+claveNombre(a.nombre).replace(/[^a-z0-9]+/g,'_')+'.xlsx');
+}
+
+// ============================================================
+//  RESUMEN
+// ============================================================
+let R_SORT={k:'nombre',dir:1};
+const renderResumenDebounced=debounce(()=>renderResumen(),180);
+function filasResumen(){
+  const t=norm(document.getElementById('rTexto').value),mostrar=document.getElementById('rMostrar').value;
+  const fp=document.getElementById('rPuesto').value,fm=document.getElementById('rModalidad').value,ft=document.getElementById('rTurno').value,
+        fe=document.getElementById('rEvaluador').value,fc=document.getElementById('rCat').value;
+  return AGENTES.map(a=>{
+    const ev=a.evals.filter(enPeriodo),ult=ev[ev.length-1];
+    return {a,ev,nombre:a.nombre,cuit:a.base?a.base.cuit:'',puesto:a.base?a.base.puesto:'',modalidad:a.base?a.base.modalidad:'',area:a.base?a.base.area:'',
+      turno:moda(ev.map(e=>e.turno)),n:ev.length,prom:promedio(ev),ult:ult?ult.ini:'',ultCat:ult?ult.desempeno:''};
+  }).filter(r=>{
+    if(!r.a.base&&!r.n)return false; // evaluado fuera de BASE sin evaluaciones en el período
+    if(mostrar==='con'&&!r.n)return false;
+    if(mostrar==='sin'&&r.n)return false;
+    if(fp&&r.puesto!==fp)return false;
+    if(fm&&r.modalidad!==fm)return false;
+    if(ft&&!r.ev.some(e=>e.turno===ft))return false;
+    if(fe&&!r.ev.some(e=>e.evaluador===fe))return false;
+    if(fc&&!r.ev.some(e=>e.desempeno===fc))return false;
+    if(t&&!norm(r.nombre+' '+r.cuit).includes(t))return false;
+    return true;
+  });
+}
+function ordenar(rows,s){
+  return rows.sort((x,y)=>{
+    const a=x[s.k],b=y[s.k];
+    const va=a==null||a===''?null:a,vb=b==null||b===''?null:b;
+    if(va===null&&vb===null)return x.nombre.localeCompare(y.nombre,'es');
+    if(va===null)return 1;if(vb===null)return -1;
+    const c=typeof va==='number'?va-vb:String(va).localeCompare(String(vb),'es');
+    return (c||x.nombre.localeCompare(y.nombre,'es'))*s.dir;
+  });
+}
+function thSort(lbl,k,s,fn){return '<th class="sort" onclick="'+fn+'(\''+k+'\')">'+lbl+(s.k===k?(s.dir>0?' ▲':' ▼'):'')+'</th>';}
+function sortResumen(k){R_SORT=R_SORT.k===k?{k,dir:-R_SORT.dir}:{k,dir:k==='nombre'||k==='puesto'||k==='modalidad'||k==='turno'?1:-1};renderResumen();}
+function renderResumen(){
+  const evP=EVALS.filter(enPeriodo),evalKeys=new Set(evP.map(e=>e._key));
+  const sinEv=BASE.filter(b=>!evalKeys.has(b._key)).length,prom=promedio(evP);
+  const cnt={};evP.forEach(e=>{cnt[e.desempeno]=(cnt[e.desempeno]||0)+1;});
+  const kpi=(v,l,cls,on)=>'<div class="kpi'+(cls?' '+cls:'')+(on?' clic" onclick="'+on:'')+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div></div>';
+  document.getElementById('rKpis').innerHTML=kpi(fmtInt(evP.length),'Evaluaciones')
+    +kpi(fmtInt(evalKeys.size),'Agentes evaluados')
+    +kpi(fmtInt(sinEv),'Agentes de BASE sin evaluación',sinEv?'warn':'',"window.cambiarTab('sineval',document.querySelectorAll('.tab')[2])")
+    +kpi(prom==null?'—':fmtN(prom,2),'Puntaje promedio')
+    +CATS.map(c=>kpi(fmtInt(cnt[c]||0)+' <span style="font-size:.8rem;color:var(--c-ink-mut)">'+fmtPct(cnt[c]||0,evP.length)+'</span>',catHtml(c))).join('');
+  const rows=ordenar(filasResumen(),R_SORT);
+  document.getElementById('rInfo').textContent=fmtInt(rows.length)+' agentes · clic en una fila para ver su ficha';
+  const s=R_SORT,f='sortResumen';
+  document.querySelector('#rTabla thead').innerHTML='<tr>'+thSort('Agente','nombre',s,f)+thSort('Puesto','puesto',s,f)+thSort('Modalidad','modalidad',s,f)+thSort('Turno','turno',s,f)
+    +thSort('Evaluaciones','n',s,f)+thSort('Puntaje prom.','prom',s,f)+thSort('Última','ult',s,f)+thSort('Último desempeño','ultCat',s,f)+'<th>Desempeño (en orden)</th></tr>';
+  document.querySelector('#rTabla tbody').innerHTML=rows.map(r=>'<tr class="clic" onclick="irAAgente(\''+escJsAttr(r.a.key)+'\')">'
+    +'<td><b>'+esc(r.nombre)+'</b>'+(r.a.base?'':' <span class="pill-err">No está en BASE</span>')+'</td>'
+    +'<td>'+esc(r.puesto||'—')+'</td><td>'+esc(r.modalidad||'—')+'</td><td>'+esc(r.turno||'—')+'</td>'
+    +'<td class="num">'+r.n+'</td><td class="num">'+(r.prom==null?'—':fmtN(r.prom,2))+'</td><td class="num">'+(r.ult?fmtD(r.ult):'—')+'</td>'
+    +'<td>'+catHtml(r.ultCat)+'</td><td>'+seqHtml(r.ev)+'</td></tr>').join('')
+    ||'<tr><td colspan="9" style="padding:12px;color:#999">Ningún agente coincide con los filtros.</td></tr>';
+  // Por evaluador
+  const porEv={};evP.forEach(e=>{const k=e.evaluador||'(sin nombre)';(porEv[k]=porEv[k]||[]).push(e);});
+  const ev=Object.entries(porEv).sort((a,b)=>b[1].length-a[1].length);
+  document.querySelector('#rEvalTabla thead').innerHTML='<tr><th>Evaluador</th><th>Evaluaciones</th><th>Agentes</th><th>Puntaje prom.</th>'+CATS.map(c=>'<th>'+c+'</th>').join('')+'<th>Reparto</th><th>Fuera de escala</th></tr>';
+  document.querySelector('#rEvalTabla tbody').innerHTML=ev.map(([k,l])=>{
+    const c={};l.forEach(e=>{c[e.desempeno]=(c[e.desempeno]||0)+1;});const fe=l.filter(e=>e._err.includes('escala')).length;
+    return '<tr><td><b>'+esc(k)+'</b></td><td class="num">'+l.length+'</td><td class="num">'+new Set(l.map(e=>e._key)).size+'</td><td class="num">'+fmtN(promedio(l),2)+'</td>'
+      +CATS.map(x=>'<td class="num">'+(c[x]?c[x]+' <span class="muted">('+fmtPct(c[x],l.length)+')</span>':'<span class="muted">—</span>')+'</td>').join('')
+      +'<td>'+distHtml(l)+'</td><td class="num">'+(fe?'<span class="pill-err">'+fe+'</span>':'<span class="muted">—</span>')+'</td></tr>';
+  }).join('')||'<tr><td colspan="10" style="padding:12px;color:#999">Sin evaluaciones en el período.</td></tr>';
+}
+function limpiarFiltrosResumen(){['rTexto','rMostrar','rPuesto','rModalidad','rTurno','rEvaluador','rCat'].forEach(id=>document.getElementById(id).value='');renderResumen();}
+function exportarResumenExcel(){
+  const rows=ordenar(filasResumen(),R_SORT);if(!rows.length){toast('No hay filas para exportar.');return;}
+  const {d,h}=periodo(),evP=EVALS.filter(enPeriodo);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.map(r=>({'Agente':r.nombre,'CUIT':r.cuit,'Área':r.area,'Puesto':r.puesto,'Modalidad':r.modalidad,'Turno':r.turno,
+    'Cantidad de evaluaciones':r.n,'Puntaje promedio':r.prom==null?'':Math.round(r.prom*100)/100,'Última evaluación':r.ult?fmtD(r.ult):'SIN EVALUACION',
+    'Desempeño':r.n?r.ev.map(e=>e.desempeno).join(' • '):'SIN EVALUACION','En BASE':r.a.base?'Sí':'No'}))),'Por agente');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(evP.map(e=>({'Id':e.id,'Fecha':fmtDT(e.ini),'Evaluador':e.evaluador,'Agente':e._base?e._base.nombre:e.agente,'Turno':e.turno,
+    'Puntaje':typeof e.puntaje==='number'?e.puntaje:e.puntajeTxt,'Desempeño':e.desempeno,'Observaciones':e.obs,'Puesto':e._base?e._base.puesto:'','Modalidad':e._base?e._base.modalidad:''}))),'Evaluaciones');
+  XLSX.writeFile(wb,'evaluaciones_resumen_'+d+'_'+h+'.xlsx');
+}
+
+// ============================================================
+//  SIN EVALUACIÓN
+// ============================================================
+let S_SORT={k:'nombre',dir:1};
+const renderSinEvalDebounced=debounce(()=>renderSinEval(),180);
+function filasSinEval(){
+  const evalKeys=new Set(EVALS.filter(enPeriodo).map(e=>e._key));
+  const t=norm(document.getElementById('sTexto').value),fa=document.getElementById('sArea').value,fp=document.getElementById('sPuesto').value,fm=document.getElementById('sModalidad').value;
+  return BASE.filter(b=>!evalKeys.has(b._key)).map(b=>{const a=AG_POR_KEY.get(b._key);const ult=a&&a.evals.length?a.evals[a.evals.length-1]:null;
+    return {b,nombre:b.nombre,cuit:b.cuit,area:b.area,puesto:b.puesto,modalidad:b.modalidad,ult:ult?ult.ini:'',ultCat:ult?ult.desempeno:'',total:a?a.evals.length:0};})
+    .filter(r=>(!fa||r.area===fa)&&(!fp||r.puesto===fp)&&(!fm||r.modalidad===fm)&&(!t||norm(r.nombre+' '+r.cuit).includes(t)));
+}
+function sortSinEval(k){S_SORT=S_SORT.k===k?{k,dir:-S_SORT.dir}:{k,dir:k==='ult'||k==='total'?-1:1};renderSinEval();}
+function renderSinEval(){
+  const rows=ordenar(filasSinEval(),S_SORT),s=S_SORT,f='sortSinEval';
+  document.getElementById('sInfo').textContent=fmtInt(rows.length)+' agentes sin evaluación en el período (de '+fmtInt(BASE.length)+' en BASE)';
+  document.querySelector('#sTabla thead').innerHTML='<tr><th>#</th>'+thSort('Agente','nombre',s,f)+thSort('CUIT','cuit',s,f)+thSort('Área','area',s,f)+thSort('Puesto','puesto',s,f)+thSort('Modalidad','modalidad',s,f)
+    +thSort('Última evaluación (cualquier fecha)','ult',s,f)+thSort('Evaluaciones en total','total',s,f)+'</tr>';
+  document.querySelector('#sTabla tbody').innerHTML=rows.map((r,i)=>'<tr class="clic" onclick="irAAgente(\''+escJsAttr(r.b._key)+'\')"><td class="num muted">'+(i+1)+'</td><td><b>'+esc(r.nombre)+'</b></td>'
+    +'<td class="num">'+esc(r.cuit||'—')+'</td><td>'+esc(r.area||'—')+'</td><td>'+esc(r.puesto||'—')+'</td><td>'+esc(r.modalidad||'—')+'</td>'
+    +'<td class="num">'+(r.ult?fmtD(r.ult)+' '+catHtml(r.ultCat):'<span class="muted">Nunca</span>')+'</td><td class="num">'+r.total+'</td></tr>').join('')
+    ||'<tr><td colspan="8" style="padding:12px;color:#999">'+(BASE.length?'Todos los agentes de BASE tienen al menos una evaluación en el período. 🎉':'Todavía no hay BASE cargada.')+'</td></tr>';
+}
+function exportarSinEvalExcel(){
+  const rows=ordenar(filasSinEval(),S_SORT);if(!rows.length){toast('No hay filas para exportar.');return;}
+  const {d,h}=periodo();
+  const ws=XLSX.utils.json_to_sheet(rows.map(r=>({'Agente':r.nombre,'CUIT':r.cuit,'Área':r.area,'Puesto':r.puesto,'Modalidad':r.modalidad,'Última evaluación (cualquier fecha)':r.ult?fmtD(r.ult):'Nunca','Último desempeño':r.ultCat,'Evaluaciones en total':r.total})));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sin evaluación');
+  XLSX.writeFile(wb,'evaluaciones_sin_evaluacion_'+d+'_'+h+'.xlsx');
+}
+
+// ============================================================
+//  CONTROL DE DATOS
+// ============================================================
+const ERR_SEL=new Set();
+function toggleErr(k){ERR_SEL.has(k)?ERR_SEL.delete(k):ERR_SEL.add(k);renderControl();}
+function filasControl(){
+  const evP=EVALS.filter(enPeriodo);
+  return evP.filter(e=>e._err.length&&(ERR_SEL.size?e._err.some(k=>ERR_SEL.has(k)):e._err.some(k=>k!=='multi')));
+}
+function renderControl(){
+  const evP=EVALS.filter(enPeriodo),cnt={};
+  evP.forEach(e=>e._err.forEach(k=>{cnt[k]=(cnt[k]||0)+1;}));
+  const kpi=(v,l,cls)=>'<div class="kpi'+(cls?' '+cls:'')+'"><div class="kpi-val">'+v+'</div><div class="kpi-lbl">'+l+'</div></div>';
+  const conAviso=evP.filter(e=>e._err.some(k=>k!=='multi')).length;
+  document.getElementById('cKpis').innerHTML=kpi(fmtInt(evP.length),'Evaluaciones en el período')+kpi(fmtInt(conAviso),'Con algún aviso',conAviso?'warn':'')
+    +ERR_DEFS.filter(d=>d.k!=='multi').map(d=>kpi(fmtInt(cnt[d.k]||0),d.l,cnt[d.k]?'warn':'')).join('');
+  document.getElementById('cChips').innerHTML='<span class="lbl">Filtrar por aviso</span>'
+    +ERR_DEFS.map(d=>'<button type="button" class="err-chip'+(ERR_SEL.has(d.k)?' on':'')+'" onclick="toggleErr(\''+d.k+'\')">'+esc(d.l)+'<span class="c">('+fmtInt(cnt[d.k]||0)+')</span></button>').join('');
+  const rows=filasControl();
+  document.getElementById('cInfo').textContent=fmtInt(rows.length)+' evaluaciones'+(ERR_SEL.size?' con los avisos elegidos':' con avisos (sin contar "más de una en el mes", que es informativo)');
+  document.querySelector('#cTabla thead').innerHTML='<tr><th>Id</th><th>Fecha</th><th>Evaluador</th><th>Agente</th><th>Puntaje</th><th>Desempeño</th><th>Avisos</th></tr>';
+  document.querySelector('#cTabla tbody').innerHTML=rows.slice().reverse().map(e=>'<tr class="clic" onclick="verDetalle(\''+escJsAttr(String(e.id))+'\')"><td class="num">'+esc(String(e.id))+'</td><td class="num">'+esc(fmtDT(e.ini))+'</td>'
+    +'<td>'+esc(e.evaluador||'—')+'</td><td><b>'+esc(e._base?e._base.nombre:e.agente)+'</b></td>'
+    +'<td class="num">'+(typeof e.puntaje==='number'?e.puntaje:'<span class="muted">'+esc(e.puntajeTxt||'—')+'</span>')+'</td><td>'+catHtml(e.desempeno)+'</td>'
+    +'<td>'+e._err.map(k=>'<span class="pill-err">'+esc(ERR_LABEL[k])+(k==='escala'?' ('+ESCALA[e.desempeno].join('–')+')':'')+'</span>').join('')+'</td></tr>').join('')
+    ||'<tr><td colspan="7" style="padding:12px;color:#999">Sin avisos en el período. ✅</td></tr>';
+  // Nombres no encontrados en BASE (todo el historial)
+  const nb=AGENTES.filter(a=>!a.base);
+  document.querySelector('#cNoBase thead').innerHTML='<tr><th>Nombre en la evaluación</th><th>Evaluaciones (total)</th><th>Evaluadores</th><th>Última</th><th>¿Será…? (más parecido en BASE)</th></tr>';
+  document.querySelector('#cNoBase tbody').innerHTML=nb.map(a=>{const s=sugerirBase(a.nombre);const u=a.evals[a.evals.length-1];
+    return '<tr><td><a class="lnk" onclick="irAAgente(\''+escJsAttr(a.key)+'\')">'+esc(a.nombre)+'</a></td><td class="num">'+a.evals.length+'</td><td>'+esc([...new Set(a.evals.map(e=>e.evaluador))].join(', '))+'</td>'
+      +'<td class="num">'+esc(u?fmtD(u._dia):'—')+'</td><td>'+(s?'<a class="lnk" onclick="irAAgente(\''+escJsAttr(s._key)+'\')">'+esc(s.nombre)+'</a>':'<span class="muted">—</span>')+'</td></tr>';}).join('')
+    ||'<tr><td colspan="5" style="padding:12px;color:#999">Todos los nombres evaluados están en BASE. ✅</td></tr>';
+  const inc=BASE.filter(b=>['area','puesto','modalidad'].some(k=>!b[k]||b[k]==='0'));
+  document.querySelector('#cBaseInc thead').innerHTML='<tr><th>Agente</th><th>CUIT</th><th>Área</th><th>Puesto</th><th>Modalidad</th></tr>';
+  const v=x=>!x||x==='0'?'<span class="pill-err">vacío</span>':esc(x);
+  document.querySelector('#cBaseInc tbody').innerHTML=inc.map(b=>'<tr><td><b>'+esc(b.nombre)+'</b></td><td class="num">'+(b.cuit?esc(b.cuit):'<span class="pill-err">vacío</span>')+'</td><td>'+v(b.area)+'</td><td>'+v(b.puesto)+'</td><td>'+v(b.modalidad)+'</td></tr>').join('')
+    ||'<tr><td colspan="5" style="padding:12px;color:#999">BASE completa. ✅</td></tr>';
+}
+function exportarControlExcel(){
+  const rows=filasControl(),nb=AGENTES.filter(a=>!a.base);
+  if(!rows.length&&!nb.length){toast('Sin avisos para exportar.');return;}
+  const {d,h}=periodo(),wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.map(e=>({'Id':e.id,'Fecha':fmtDT(e.ini),'Evaluador':e.evaluador,'Agente':e.agente,'Puntaje':typeof e.puntaje==='number'?e.puntaje:e.puntajeTxt,'Desempeño':e.desempeno,'Avisos':e._err.map(k=>ERR_LABEL[k]).join(', ')}))),'Evaluaciones con avisos');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(nb.map(a=>{const s=sugerirBase(a.nombre);return {'Nombre en la evaluación':a.nombre,'Evaluaciones':a.evals.length,'Evaluadores':[...new Set(a.evals.map(e=>e.evaluador))].join(', '),'Más parecido en BASE':s?s.nombre:''};})),'No están en BASE');
+  XLSX.writeFile(wb,'evaluaciones_control_'+d+'_'+h+'.xlsx');
+}
+
+// ============================================================
+//  CARGA DEL EXCEL
+// ============================================================
+(function(){
+  const ua=document.getElementById('uarea');
+  ['dragenter','dragover'].forEach(ev=>ua.addEventListener(ev,e=>{e.preventDefault();ua.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>ua.addEventListener(ev,e=>{e.preventDefault();ua.classList.remove('drag');}));
+  ua.addEventListener('drop',e=>{const fs=[...(e.dataTransfer.files||[])].filter(f=>/\.xls[xm]?$/i.test(f.name));if(fs.length)onArchivoElegido(fs);});
+})();
+// Busca la fila de encabezados (dentro de las primeras 10) y arma columna→índice.
+function mapearHoja(aoa,defs){
+  for(let i=0;i<Math.min(10,aoa.length);i++){
+    const heads=(aoa[i]||[]).map(h=>norm(h));const map={};
+    for(const [k,re] of Object.entries(defs)){const j=heads.findIndex(h=>re.test(h));if(j>=0)map[k]=j;}
+    if(Object.keys(defs).filter(k=>defs[k].req).every(k=>k in map))return {map,fila:i};
+  }
+  return null;
+}
+function req(re){re.req=true;return re;}
+const DEF_EVAL={id:req(/^id$/),ini:req(/^hora de inicio$/),fin:/^hora de finalizacion$/,mail:/^correo electronico$/,evaluador:/^nombre$/,
+  agente:req(/^inspector$/),sector:/^sector$/,turno:/^turno$/,puntaje:req(/^puntaje$/),desempeno:req(/^desempeno$/),obs:/^observaciones$/};
+const DEF_BASE={nombre:req(/^apellido y nombre$/),cuit:/^cuit$/,area:/^area$/,puesto:/^puesto$/,modalidad:/^modalidad$/};
+function hojaPorNombre(wb,nombres){return wb.SheetNames.find(n=>nombres.includes(norm(n)));}
+function parsearExcel(buf,archivo){
+  const wb=XLSX.read(buf,{type:'array'});
+  const aoaDe=n=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''});
+  // CARGAS NUEVAS (o la primera hoja que tenga los encabezados del formulario nuevo)
+  let hE=hojaPorNombre(wb,['cargas nuevas']),mE=hE&&mapearHoja(aoaDe(hE),DEF_EVAL);
+  if(!mE){for(const n of wb.SheetNames){const m=mapearHoja(aoaDe(n),DEF_EVAL);if(m){hE=n;mE=m;break;}}}
+  if(!mE)throw new Error('No encontré la hoja "CARGAS NUEVAS" con las columnas Id, Hora de inicio, INSPECTOR, PUNTAJE y DESEMPEÑO.');
+  let hB=hojaPorNombre(wb,['base']),mB=hB&&mapearHoja(aoaDe(hB),DEF_BASE);
+  if(!mB){for(const n of wb.SheetNames){const m=mapearHoja(aoaDe(n),DEF_BASE);if(m){hB=n;mB=m;break;}}}
+  if(!mB)throw new Error('No encontré la hoja "BASE" con la columna "APELLIDO Y NOMBRE".');
+  const txt=v=>String(v??'').replace(/\s+/g,' ').trim();
+  const evals=[],avisos={sinFecha:0,sinAgente:0,puntTexto:0};
+  aoaDe(hE).slice(mE.fila+1).forEach(row=>{
+    const g=k=>k in mE.map?row[mE.map[k]]:'';
+    const agente=txt(g('agente')),id=txt(g('id'));
+    if(!agente&&!id)return;
+    if(!agente){avisos.sinAgente++;return;}
+    const ini=fechaExcel(g('ini'));if(!ini){avisos.sinFecha++;return;}
+    const pRaw=g('puntaje');if(typeof pRaw==='string'&&pRaw.trim())avisos.puntTexto++;
+    const pNum=pRaw===''?NaN:Number(String(pRaw).replace(',','.').trim());
+    const r={id:id||ini,ini,fin:fechaExcel(g('fin')),mail:txt(g('mail')),evaluador:txt(g('evaluador')),agente,sector:txt(g('sector')),turno:txt(g('turno')).toUpperCase(),
+      puntaje:isFinite(pNum)?pNum:null,desempeno:catNorm(g('desempeno')),obs:String(g('obs')??'').trim()};
+    if(r.puntaje===null&&txt(pRaw))r.puntajeTxt=txt(pRaw);
+    evals.push(r);
+  });
+  const base=[];const vistos=new Set();let baseDup=0;
+  aoaDe(hB).slice(mB.fila+1).forEach(row=>{
+    const g=k=>k in mB.map?txt(row[mB.map[k]]):'';
+    const nombre=g('nombre');if(!nombre)return;
+    const k=claveNombre(nombre);if(vistos.has(k)){baseDup++;return;}vistos.add(k);
+    base.push({nombre,cuit:g('cuit').replace(/\D/g,''),area:g('area').toUpperCase(),puesto:g('puesto').toUpperCase(),modalidad:g('modalidad').toUpperCase()});
+  });
+  const ids=new Set();let idsDup=0;evals.forEach(e=>{if(ids.has(e.id))idsDup++;ids.add(e.id);});
+  return {archivo,hojaEval:hE,hojaBase:hB,evals,base,avisos:{...avisos,baseDup,idsDup},hojas:wb.SheetNames};
+}
+async function onArchivoElegido(files){
+  const f=[...files][0];if(!f)return;
+  document.getElementById('fileInput').value='';
+  const out=document.getElementById('upResumen');
+  if(typeof XLSX==='undefined'){out.innerHTML='<div class="note"><span class="w">No cargó la librería de Excel. Revisá la conexión y recargá la página.</span></div>';return;}
+  out.innerHTML='<div class="note">Leyendo '+esc(f.name)+'…</div>';
+  try{PARSEADO=parsearExcel(new Uint8Array(await f.arrayBuffer()),f.name);}
+  catch(e){PARSEADO=null;out.innerHTML='<div class="note"><span class="w">⚠ '+esc(f.name)+': '+esc(e.message)+'</span></div>';actualizarBtnCarga();return;}
+  renderPreviewCarga();
+}
+function actualizarBtnCarga(){const b=document.getElementById('upBtn'),ok=!!(PARSEADO&&PARSEADO.evals.length);b.disabled=!ok;b.style.opacity=ok?'1':'.45';}
+function renderPreviewCarga(){
+  actualizarBtnCarga();
+  const out=document.getElementById('upResumen');
+  if(!PARSEADO){out.innerHTML='';return;}
+  const P=PARSEADO,fechas=P.evals.map(e=>e.ini).sort(),desde=(fechas[0]||'').slice(0,10),hasta=(fechas[fechas.length-1]||'').slice(0,10);
+  const bk=new Set(P.base.map(b=>claveNombre(b.nombre)));
+  const fuera=new Set(P.evals.filter(e=>!bk.has(claveNombre(e.agente))).map(e=>claveNombre(e.agente)));
+  const meses={};P.evals.forEach(e=>{const m=e.ini.slice(0,7);meses[m]=(meses[m]||0)+1;});
+  const sinP=P.evals.filter(e=>e.puntaje===null).length,sinC=P.evals.filter(e=>!CATS.includes(e.desempeno)).length;
+  const ant=META&&META.v?META:null;
+  const masViejo=ant&&ant.ultimaFecha&&hasta<ant.ultimaFecha,menos=ant&&P.evals.length<(ant.count||0);
+  out.innerHTML='<div class="note"><b>'+esc(P.archivo)+'</b> — hojas leídas: <b>'+esc(P.hojaEval)+'</b> y <b>'+esc(P.hojaBase)+'</b>.'
+    +'<br>Evaluaciones: <b>'+fmtInt(P.evals.length)+'</b> de <b>'+fmtInt(new Set(P.evals.map(e=>claveNombre(e.agente))).size)+'</b> agentes, del <b>'+fmtD(desde)+'</b> al <b>'+fmtD(hasta)+'</b>.'
+    +' Por mes: '+Object.keys(meses).sort().map(m=>'<b>'+fmtMes(m)+'</b> ('+fmtInt(meses[m])+')').join(', ')+'.'
+    +'<br>BASE: <b>'+fmtInt(P.base.length)+'</b> agentes'+(P.avisos.baseDup?' ('+P.avisos.baseDup+' nombres repetidos, se tomó el primero)':'')+'.'
+    +(P.avisos.puntTexto?'<br>'+fmtInt(P.avisos.puntTexto)+' puntajes venían guardados como <b>texto</b> en el Excel (por eso allá el promedio da 0): acá se convierten a número.':'')
+    +(sinP?'<br><span class="w">'+fmtInt(sinP)+' evaluaciones sin puntaje numérico.</span>':'')
+    +(sinC?'<br><span class="w">'+fmtInt(sinC)+' evaluaciones sin categoría de desempeño reconocida.</span>':'')
+    +(fuera.size?'<br><span class="w">'+fuera.size+' nombres evaluados no están en BASE ('+fmtInt(P.evals.filter(e=>fuera.has(claveNombre(e.agente))).length)+' evaluaciones): se cargan igual y se listan en "Control de datos".</span>':'')
+    +(P.avisos.sinFecha?'<br><span class="w">'+P.avisos.sinFecha+' filas sin fecha de inicio: se ignoran.</span>':'')
+    +(P.avisos.idsDup?'<br><span class="w">'+P.avisos.idsDup+' Id repetidos en la hoja.</span>':'')
+    +(ant?'<br>Hoy en la base: '+fmtInt(ant.count)+' evaluaciones (hasta el '+fmtD(ant.ultimaFecha)+') y '+fmtInt(ant.baseCount)+' agentes en BASE.':'')
+    +(masViejo?'<br><span class="w">⚠ Este Excel termina el '+fmtD(hasta)+', antes que lo que ya está cargado ('+fmtD(ant.ultimaFecha)+'). ¿Es una copia vieja?</span>':'')
+    +(menos&&!masViejo?'<br><span class="w">⚠ Trae menos evaluaciones que las que hay hoy en la base ('+fmtInt(ant.count)+'): se borraron filas en el Excel o es una copia vieja.</span>':'')
+    +'</div>';
+}
+function limpiarCarga(){PARSEADO=null;renderPreviewCarga();document.getElementById('upToast').style.display='none';}
+const _enc=new TextEncoder();
+function partirEnChunks(arr){
+  const chunks=[];let act=[],tam=0;
+  arr.forEach(r=>{const b=_enc.encode(JSON.stringify(r)).length+1;if(tam+b>MAX_BYTES_CHUNK&&act.length){chunks.push(act);act=[];tam=0;}act.push(r);tam+=b;});
+  if(act.length)chunks.push(act);
+  return chunks;
+}
+async function subirAFirestore(){
+  if(!puedeEditar()){toast('🔒 Sólo lectura: no tenés permiso para cargar datos.');return;}
+  if(!PARSEADO||!PARSEADO.evals.length)return;
+  const P=PARSEADO;
+  if(META&&META.v){
+    const hasta=P.evals.map(e=>e.ini).sort().pop().slice(0,10);
+    if((META.ultimaFecha&&hasta<META.ultimaFecha)||P.evals.length<(META.count||0)){
+      if(!confirm('Este Excel parece más viejo o trae menos evaluaciones que lo que ya está cargado.\n\n¿Reemplazar igual la base?'))return;
+    }
+  }
+  const btn=document.getElementById('upBtn'),t=document.getElementById('upToast'),pw=document.getElementById('upPwrap'),pf=document.getElementById('upPfill');
+  btn.disabled=true;btn.textContent='Subiendo…';t.className='toast-msg';t.style.display='block';pw.style.display='block';pf.style.width='5%';
+  const u=usuarioActual(),ahora=new Date().toISOString();
+  try{
+    await leerMeta();
+    const prevChunks=META.chunks||0,antes=META.count||0;
+    const chunks=partirEnChunks(P.evals);
+    t.textContent='💾 Guardando '+fmtInt(P.evals.length)+' evaluaciones en '+chunks.length+' documento'+(chunks.length===1?'':'s')+' y '+fmtInt(P.base.length)+' agentes de BASE…';
+    await Promise.all([
+      ...chunks.map((arr,i)=>window._fSetDoc(window._fDoc(window._db,COL_CHUNKS,'eval_'+i),{n:arr.length,datos:JSON.stringify(arr),actualizadoEn:ahora})),
+      window._fSetDoc(window._fDoc(window._db,COL_CHUNKS,'base'),{n:P.base.length,datos:JSON.stringify(P.base),actualizadoEn:ahora}),
+    ]);
+    pf.style.width='75%';
+    for(let i=chunks.length;i<prevChunks;i++)await window._fDeleteDoc(window._fDoc(window._db,COL_CHUNKS,'eval_'+i));
+    const fechas=P.evals.map(e=>e.ini.slice(0,10)).sort();
+    const carga={en:ahora,por:u?u.nombre:'',archivo:P.archivo,evaluaciones:P.evals.length,base:P.base.length,desde:fechas[0],hasta:fechas[fechas.length-1],antes};
+    const metaRef=window._fDoc(window._db,COL_META,'index');
+    await window._fRunTransaction(window._db,async tx=>{
+      const s=await tx.get(metaRef);const m=s.exists()?s.data():{};
+      tx.set(metaRef,{chunks:chunks.length,count:P.evals.length,baseCount:P.base.length,v:ahora+'#'+Math.random().toString(36).slice(2,7),
+        primeraFecha:fechas[0],ultimaFecha:fechas[fechas.length-1],archivo:P.archivo,actualizadoEn:ahora,actualizadoPor:u?u.nombre:'',
+        ...(m.ultimaAuto?{ultimaAuto:m.ultimaAuto}:{}),   // dato de la sincronización automática (Power Automate)
+        cargas:[carga,...(m.cargas||[])].slice(0,MAX_CARGAS_LOG)});
+    });
+    pf.style.width='100%';t.className='toast-msg ok';
+    t.textContent='✅ Base reemplazada: '+fmtInt(P.evals.length)+' evaluaciones (antes '+fmtInt(antes)+') y '+fmtInt(P.base.length)+' agentes en BASE.';
+    PARSEADO=null;renderPreviewCarga();
+    await cacheClearAll();_versionEnMem=null;
+    await window.cargarTodo();
+  }catch(e){
+    console.error(e);t.className='toast-msg err';t.textContent='❌ Error: '+e.message+' — volvé a subir el mismo Excel para completar la carga.';
+  }finally{
+    actualizarBtnCarga();btn.textContent='⬆ Reemplazar la base con este Excel';
+    setTimeout(()=>{pw.style.display='none';},1500);
+  }
+}
+function renderCargas(){
+  if(!META)return;
+  const a=META.ultimaAuto;
+  document.getElementById('autoInfo').innerHTML=a
+    ?'<b>Última sincronización automática</b> (Power Automate): '+esc(fmtDT(isoLocal(a.en)))+' — '+fmtInt(a.evaluaciones)+' evaluaciones del '+fmtD(a.desde)+' al '+fmtD(a.hasta)+' y '+fmtInt(a.base)+' agentes en BASE.'
+      +(META.actualizadoPor!=='Power Automate'?'<br><span class="w">Después hubo una carga manual ('+esc(fmtDT(isoLocal(META.actualizadoEn)))+'); la próxima sincronización la va a reemplazar con lo que tenga el Excel de SharePoint.</span>':'')
+    :'Todavía no corrió la sincronización automática con Power Automate. Mientras tanto se puede cargar el Excel a mano acá abajo (ver <code>integraciones/evaluaciones/README.md</code> en el repo).';
+  document.getElementById('cargasBody').innerHTML=(META.cargas||[]).map(c=>'<tr><td class="num">'+esc(fmtDT(isoLocal(c.en)))+'</td><td>'+esc(c.por||'—')+'</td><td style="font-size:.76rem">'+esc(c.archivo||'')+'</td>'
+    +'<td class="num">'+fmtInt(c.evaluaciones)+'</td><td class="num">'+fmtInt(c.base)+'</td><td class="num">'+fmtD(c.desde)+' – '+fmtD(c.hasta)+'</td><td class="num">'+fmtInt(c.antes)+'</td></tr>').join('')
+    ||'<tr><td colspan="7" style="padding:12px;color:#999">Todavía no se cargó ningún Excel.</td></tr>';
+}
+</script>
+<script src="personal-nav.js?v=6"></script>
+</body>
+</html>

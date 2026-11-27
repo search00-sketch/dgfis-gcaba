@@ -85,6 +85,13 @@ service cloud.firestore {
     match /formularios_chunks/{doc} { allow read: if tieneModulo('formularios'); allow write: if puedeEditar('formularios'); }
     match /formularios_meta/{doc}   { allow read: if tieneModulo('formularios'); allow write: if puedeEditar('formularios'); }
 
+    // ---- Evaluaciones de desempeño -----------------------------------------
+    // Hojas CARGAS NUEVAS (evaluaciones_chunks/eval_N) y BASE
+    // (evaluaciones_chunks/base) del Excel de SharePoint, e índice con el log
+    // de cargas (evaluaciones_meta/index). Ver evaluaciones_desempeno.html.
+    match /evaluaciones_chunks/{doc} { allow read: if tieneModulo('evaluaciones'); allow write: if puedeEditar('evaluaciones'); }
+    match /evaluaciones_meta/{doc}   { allow read: if tieneModulo('evaluaciones'); allow write: if puedeEditar('evaluaciones'); }
+
     // ---- Nómina (Gestión de Personal edita; Novedades/Asignación leen) --
     match /nomina_chunks/{doc} { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('personal'); }
     match /nomina_meta/{doc}   { allow read: if tieneAlgunModuloPersonal(); allow write: if puedeEditar('personal'); }

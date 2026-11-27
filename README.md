@@ -13,6 +13,7 @@ dgf/
 ├── relevamientos_operativos.html ← Relevamientos operativos (módulo)
 ├── urbetrack_venta.html          ← Urbetrack — Venta sin permiso: carga de exports, buscador, control de cargas/SLA, días home (módulo)
 ├── formularios_venta.html        ← Grilla de Formularios — Venta no autorizada: carga de las descargas .csv, buscador, resumen, control de duplicados/actas (módulo)
+├── evaluaciones_desempeno.html   ← Evaluaciones de desempeño: carga del Excel de SharePoint (hojas CARGAS NUEVAS + BASE), indicadores por agente, resumen, sin evaluación, control de datos (módulo)
 ├── informe_venta_ilegal.html     ← Informe mensual Venta Ilegal (actas + Urbetrack), réplica del Excel "INFORME VENTA ILEGAL"
 ├── personal-auth.js              ← Login compartido (Firebase Authentication)
 ├── personal-nav.js, personal-dominio.js, personal-datos.js, utils.js
@@ -161,6 +162,14 @@ mandar el `idToken` que devuelve el login como header
 eso, las reglas nuevas rechazan la escritura con "Missing or insufficient
 permissions" — antes de esta migración, cualquiera podía escribir sin
 loguearse.
+
+Integraciones documentadas en este repo:
+
+- [`integraciones/evaluaciones/`](integraciones/evaluaciones/README.md) —
+  carga automática de **Evaluaciones de desempeño**: Office Script dentro del
+  Excel de SharePoint + flujo de Power Automate que escribe en Firestore
+  (`documents:commit`) con un usuario de servicio. La carpeta no se publica en
+  Hosting.
 
 ---
 
