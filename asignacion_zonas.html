@@ -28,6 +28,31 @@
 /* Estilos adicionales para asignación */
 .rol-chofer{font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;margin-left:4px;font-weight:700}
 .rol-coord{font-size:10px;background:#e0e7ff;color:#3730a3;padding:1px 5px;margin-left:4px;font-weight:700}
+/* Calendario de ausencias */
+.cal-tipos{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+.cal-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;font-size:12px;font-weight:600;border:1.5px solid var(--bor);background:#fff;cursor:pointer;user-select:none}
+.cal-chip input{margin:0;cursor:pointer}
+.cal-chip.on{border-color:var(--azul);background:#eef3fa;color:var(--azul)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal-head{margin-bottom:4px}
+.cal-head div{background:var(--azul);color:#fff;font-size:12px;font-weight:700;text-align:center;padding:6px 0}
+.cal-dia{min-height:78px;border:1px solid var(--bor);background:#fff;padding:5px 7px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between}
+.cal-dia.vacio{background:transparent;border-color:transparent;cursor:default}
+.cal-dia:not(.vacio):hover{outline:2px solid var(--azul2)}
+.cal-dia.sel{outline:2px solid var(--azul)}
+.cal-dia.hoy .cal-num{background:var(--azul);color:#fff;padding:0 6px}
+.cal-dia.finde{background:#fafafa}
+.cal-dia.feriado .cal-num::after{content:" 🔴";font-size:9px}
+.cal-num{font-size:12px;font-weight:700;color:#555;align-self:flex-start}
+.cal-cant{font-size:22px;font-weight:800;color:var(--azul);text-align:right;line-height:1}
+.cal-cant small{display:block;font-size:11px;font-weight:600;color:#7f2a20}
+.cal-dia.sobre{border:2px solid var(--rojo)}
+.cal-cant.cero{color:#ccc;font-weight:600}
+.cal-detalle{margin-top:14px}
+.cal-det-card{background:#fff;border:1px solid var(--bor);padding:10px 14px}
+.cal-det-tit{font-weight:700;color:var(--azul);margin-bottom:6px}
+.cal-det-row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:5px 0;border-top:1px solid #f0f0f0;font-size:13px}
+@media(max-width:700px){.cal-dia{min-height:56px;padding:3px 4px}.cal-cant{font-size:16px}}
 .no-asignable{opacity:.45;pointer-events:none}
 .no-asignable .zona-select{background:#f5f5f5;cursor:not-allowed}
 </style>
@@ -113,6 +138,7 @@
 <div class="tabs">
   <button class="tab active" onclick="window.cambiarTab('asignacion',this)">📍 Asignación</button>
   <button class="tab" onclick="window.cambiarTab('resumen',this)">📊 Resumen por zona</button>
+  <button class="tab" onclick="window.cambiarTab('calendario',this)">🗓 Calendario de ausencias</button>
   <button class="tab" onclick="window.cambiarTab('configuracion',this)">⚙ Configuración</button>
 </div>
 
@@ -161,6 +187,33 @@
     <div id="resumen-fechas-disponibles" style="font-size:.75rem;color:#888;align-self:center"></div>
   </div>
   <div class="zonas-grid" id="zonas-grid"></div>
+</div>
+
+<!-- PANEL CALENDARIO DE AUSENCIAS -->
+<div class="panel" id="panel-calendario">
+  <div class="toolbar">
+    <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--bor);padding:4px 10px">
+      <button class="btn btn-gris btn-sm" style="padding:2px 8px" onclick="calMoverMes(-1)" title="Mes anterior">◀</button>
+      <span id="cal-mes-titulo" style="min-width:140px;text-align:center;font-size:13px;font-weight:700;color:var(--azul)"></span>
+      <button class="btn btn-gris btn-sm" style="padding:2px 8px" onclick="calMoverMes(1)" title="Mes siguiente">▶</button>
+    </div>
+    <button class="btn btn-gris" onclick="calIrAHoy()">Hoy</button>
+    <select class="ctrl" id="cal-turno" onchange="renderCalendario()"><option value="">Todos los turnos</option></select>
+    <label style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--bor);padding:4px 10px;font-size:11px;font-weight:700;color:#666" title="Un día se marca cuando la cantidad de ausentes supera este porcentaje del personal">
+      Máx. por día
+      <input type="number" id="cal-limite" value="30" min="1" max="100" step="1" style="width:52px;border:none;font-size:13px;font-weight:600;color:var(--azul);outline:none" onchange="renderCalendario()">%
+    </label>
+    <div id="cal-info" style="font-size:.75rem;color:#888;align-self:center"></div>
+  </div>
+  <div class="cal-tipos">
+    <span style="font-size:11px;font-weight:700;color:#666">Tipos:</span>
+    <span id="cal-tipos-chips" style="display:contents"></span>
+    <button class="btn btn-gris btn-sm" onclick="calTodosTipos(true)">Todos</button>
+    <button class="btn btn-gris btn-sm" onclick="calTodosTipos(false)">Ninguno</button>
+  </div>
+  <div class="cal-grid cal-head" id="cal-head"></div>
+  <div class="cal-grid" id="cal-dias"></div>
+  <div id="cal-detalle" class="cal-detalle"></div>
 </div>
 
 <!-- PANEL CONFIGURACIÓN -->
@@ -389,6 +442,7 @@ function puedeAsignarse(persona,fechaAsig){
 window._cambiarTabExtra = function(id){
   if(id==="resumen"){cargarResumen();}
   else if(id==="asignacion"){renderDist();}
+  else if(id==="calendario"){renderCalendario();}
   else if(id==="configuracion"){renderConfigZonas();renderFeriados();}
 };
 
@@ -426,6 +480,8 @@ function poblarSelects(){
   if(dt)dt.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   const rt=document.getElementById("resumen-turno");
   if(rt)rt.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
+  const ct=document.getElementById("cal-turno");
+  if(ct)ct.innerHTML="<option value=\"\">Todos los turnos</option>"+opts;
   poblarDistZonaFiltro();
 }
 function poblarDistZonaFiltro(){
@@ -463,19 +519,30 @@ function renderDist(){
   const rolOTurnoDeOficina=p=>{const r=p.rol||"Inspector";return ROLES_NO_ASIGNABLES.includes(r)||p.turno==="Administrativo"||p.turno==="Gerencia";};
   const noDisponibles=activos.filter(p=>!rolOTurnoDeOficina(p)&&!puedeAsignarse(p,fechaAsig));
 
-  const conZona=trabajanAsignables.filter(p=>dist[p.id]).length;
-  const sinAsignar=trabajanAsignables.filter(p=>!dist[p.id]).length;
+  // Las tarjetas de resumen respetan el buscador y el filtro de turno (antes
+  // contaban a todos los turnos aunque se filtrara por uno). El filtro de zona
+  // no se aplica acá: licencias/ausentes/no disponibles no tienen zona.
+  const pasaFiltros=p=>(!filtTurno||p.turno===filtTurno)
+    &&(!busq||coincideTexto((p.nombre||"").toLowerCase(),busq)||(p.dni||"").includes(busq));
+  const statTrabajan=trabajanAsignables.filter(pasaFiltros);
+  const statNoDisp=noDisponibles.filter(pasaFiltros);
+  const conZona=statTrabajan.filter(p=>dist[p.id]).length;
+  const sinAsignar=statTrabajan.length-conZona;
   const novHoy=novedadesHoy();
-  const ausentes=novHoy.filter(n=>n.tipo==="Ausencia").length;
-  const licencias=activos.filter(p=>getEstadoPersona(p,fechaAsig)==="Licencia").length;
+  const ausentes=novHoy.filter(n=>{
+    if(n.tipo!=="Ausencia")return false;
+    const per=personaPorId(n.personaId);
+    return per?pasaFiltros(per):!filtTurno&&!busq;
+  }).length;
+  const licencias=activos.filter(p=>pasaFiltros(p)&&getEstadoPersona(p,fechaAsig)==="Licencia").length;
 
   document.getElementById("dist-stats").innerHTML=
-    "<div class=\"stat-card\"><div class=\"stat-num\">"+trabajanAsignables.length+"</div><div class=\"stat-label\">Trabajan "+DIAS[diaAsig]+(esFeriadoAsig?" 🔴":"")+"</div></div>"
+    "<div class=\"stat-card\"><div class=\"stat-num\">"+statTrabajan.length+"</div><div class=\"stat-label\">Trabajan "+DIAS[diaAsig]+(esFeriadoAsig?" 🔴":"")+"</div></div>"
     +"<div class=\"stat-card\"><div class=\"stat-num\">"+conZona+"</div><div class=\"stat-label\">Asignados</div></div>"
     +"<div class=\"stat-card\"><div class=\"stat-num\" style=\"color:var(--rojo)\">"+sinAsignar+"</div><div class=\"stat-label\">Sin asignar</div></div>"
     +"<div class=\"stat-card\"><div class=\"stat-num\">"+ausentes+"</div><div class=\"stat-label\">Ausentes hoy</div></div>"
     +"<div class=\"stat-card\"><div class=\"stat-num\">"+licencias+"</div><div class=\"stat-label\">En licencia</div></div>"
-    +"<div class=\"stat-card\"><div class=\"stat-num\" style=\"color:#aaa\">"+noDisponibles.length+"</div><div class=\"stat-label\">No disponibles ese día</div></div>";
+    +"<div class=\"stat-card\"><div class=\"stat-num\" style=\"color:#aaa\">"+statNoDisp.length+"</div><div class=\"stat-label\">No disponibles ese día</div></div>";
 
   const evHoy=(window.eventos||[]).filter(e=>e.fecha===fechaAsig);
   document.getElementById("eventos-banner").innerHTML=evHoy.length?
@@ -638,6 +705,145 @@ function renderZonas(fecha){
         }).join(""))
       +"</div></div>";
   }).join("");
+}
+
+// ============================================================
+//  PANEL CALENDARIO DE AUSENCIAS
+//  Cantidad de personas NO disponibles por día (licencias, ausencias,
+//  compensatorios, artículos…), filtrable por tipo y por turno.
+// ============================================================
+window._calMes=null;          // "YYYY-MM"
+window._calTiposOff=new Set(); // tipos destildados (los nuevos nacen tildados)
+window._calTiposLista=[];
+window._calDiaSel=null;
+const _pad2=n=>String(n).padStart(2,"0");
+
+function _calNovedadesQueCuentan(){
+  return (window.novedades||[]).filter(n=>esNovedadAusencia(n.tipo)&&!esMovimientoSoloSaldo(n)&&n.estadoLic!=="Rechazada");
+}
+function calMoverMes(d){
+  const [y,m]=(window._calMes||todayISO().slice(0,7)).split("-").map(Number);
+  const dt=new Date(y,m-1+d,1);
+  window._calMes=dt.getFullYear()+"-"+_pad2(dt.getMonth()+1);
+  window._calDiaSel=null;
+  renderCalendario();
+}
+function calIrAHoy(){window._calMes=todayISO().slice(0,7);window._calDiaSel=todayISO();renderCalendario();}
+function calToggleTipo(i,on){
+  const t=window._calTiposLista[i];
+  if(on)window._calTiposOff.delete(t);else window._calTiposOff.add(t);
+  renderCalendario();
+}
+function calTodosTipos(on){
+  window._calTiposOff=on?new Set():new Set(window._calTiposLista);
+  renderCalendario();
+}
+function calSelDia(iso){window._calDiaSel=window._calDiaSel===iso?null:iso;renderCalendario();}
+
+function renderCalendario(){
+  if(!window._calMes)window._calMes=todayISO().slice(0,7);
+  const ym=window._calMes;
+  const [y,m]=ym.split("-").map(Number);
+  const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  document.getElementById("cal-mes-titulo").textContent=MESES[m-1]+" "+y;
+  const filtTurno=document.getElementById("cal-turno")?.value||"";
+
+  const novs=_calNovedadesQueCuentan();
+  // Chips de tipos: los que existen en los datos (ordenados), más los configurados
+  const tiposSet=new Set(novs.map(n=>n.tipo));
+  (window.tiposNovedad||[]).filter(esNovedadAusencia).forEach(t=>tiposSet.add(t));
+  window._calTiposLista=[...tiposSet].sort((a,b)=>a.localeCompare(b));
+  document.getElementById("cal-tipos-chips").innerHTML=window._calTiposLista.map((t,i)=>{
+    const on=!window._calTiposOff.has(t);
+    return "<label class=\"cal-chip"+(on?" on":"")+"\"><input type=\"checkbox\" "+(on?"checked":"")+" onchange=\"calToggleTipo("+i+",this.checked)\">"+esc(t)+"</label>";
+  }).join("");
+
+  // porDia[d] = Map(personaId -> [novedades que lo dejan fuera ese día])
+  const diasMes=new Date(y,m,0).getDate();
+  const primero=ym+"-01", ultimo=ym+"-"+_pad2(diasMes);
+  const porDia=Array.from({length:diasMes+1},()=>new Map());
+  const marcar=(n,d)=>{
+    const per=personaPorId(n.personaId);
+    if(!per)return;
+    if(filtTurno&&per.turno!==filtTurno)return;
+    const iso=ym+"-"+_pad2(d);
+    if(getEstadoPersona(per,iso)==="Baja")return;
+    const mp=porDia[d];
+    if(!mp.has(per.id))mp.set(per.id,[]);
+    mp.get(per.id).push(n);
+  };
+  novs.forEach(n=>{
+    if(window._calTiposOff.has(n.tipo))return;
+    if(n.fecha&&n.fecha>=primero&&n.fecha<=ultimo)marcar(n,+n.fecha.slice(8,10));
+    if(n.licIni&&n.licFin&&n.licIni<=ultimo&&n.licFin>=primero){
+      const ini=n.licIni<primero?1:+n.licIni.slice(8,10);
+      const fin=n.licFin>ultimo?diasMes:+n.licFin.slice(8,10);
+      for(let d=ini;d<=fin;d++){
+        // la fecha puntual ya se marcó arriba: no duplicar la misma novedad
+        if(n.fecha===ym+"-"+_pad2(d))continue;
+        marcar(n,d);
+      }
+    }
+  });
+
+  // Máximo permitido por día, como % del personal (no de baja ese día, del turno elegido)
+  let limite=parseFloat(document.getElementById("cal-limite")?.value);
+  if(!(limite>0))limite=30;
+  limite=Math.min(limite,100);
+  const sinBaja=(per,iso)=>!(per.estado==="Baja"&&(!per.fechaBaja||iso>=per.fechaBaja));
+  const plantel=(window.nomina||[]).filter(per=>!filtTurno||per.turno===filtTurno);
+  const info=[]; // info[d]={c,total,pct}
+  let max=0,sobre=0;
+  for(let d=1;d<=diasMes;d++){
+    const iso=ym+"-"+_pad2(d);
+    const total=plantel.reduce((a,per)=>a+(sinBaja(per,iso)?1:0),0);
+    const c=porDia[d].size;
+    const pct=total?c*100/total:0;
+    info[d]={c,total,pct};
+    if(c>max)max=c;
+    if(c&&pct>limite)sobre++;
+  }
+  document.getElementById("cal-info").textContent=
+    " — "+sobre+(sobre===1?" día supera":" días superan")+" el "+limite+"% · pico de "+max+" persona"+(max===1?"":"s")+" en un día";
+
+  document.getElementById("cal-head").innerHTML=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map(d=>"<div>"+d+"</div>").join("");
+  const offset=(new Date(y,m-1,1).getDay()+6)%7; // semana arranca en lunes
+  const hoyISO=todayISO();
+  let html="<div class=\"cal-dia vacio\"></div>".repeat(offset);
+  for(let d=1;d<=diasMes;d++){
+    const iso=ym+"-"+_pad2(d);
+    const {c,total,pct}=info[d];
+    const pasado=c>0&&pct>limite;
+    const dow=new Date(y,m-1,d).getDay();
+    // La intensidad se mide contra el máximo permitido: al llegar al límite el color es pleno
+    const alpha=Math.min(1,pct/limite);
+    const bg=c?"background:rgba(192,57,43,"+(0.06+0.34*alpha).toFixed(2)+")":"";
+    html+="<div class=\"cal-dia"+(iso===hoyISO?" hoy":"")+((dow===0||dow===6)?" finde":"")+(esFeriado(iso)?" feriado":"")+(pasado?" sobre":"")+(iso===window._calDiaSel?" sel":"")+"\" style=\""+bg+"\" title=\""+c+" de "+total+" ("+pct.toFixed(1)+"%)"+(pasado?" — supera el "+limite+"%":"")+"\" onclick=\"calSelDia('"+iso+"')\">"
+      +"<span class=\"cal-num\">"+d+(pasado?" ⚠":"")+"</span><span class=\"cal-cant"+(c?"":" cero")+"\">"+c+(c?"<small>"+Math.round(pct)+"%</small>":"")+"</span></div>";
+  }
+  document.getElementById("cal-dias").innerHTML=html;
+
+  // Detalle del día elegido
+  const det=document.getElementById("cal-detalle");
+  const sel=window._calDiaSel;
+  if(!sel||sel<primero||sel>ultimo){
+    det.innerHTML="<div class=\"table-info\">Tocá un día para ver quiénes no están disponibles.</div>";
+    return;
+  }
+  const d=+sel.slice(8,10);
+  const filas=[...porDia[d].entries()].map(([pid,ns])=>({p:personaPorId(pid),ns}))
+    .sort((a,b)=>(a.p.nombre||"").localeCompare(b.p.nombre||""));
+  const porTipo={};
+  filas.forEach(f=>{new Set(f.ns.map(n=>n.tipo)).forEach(t=>{porTipo[t]=(porTipo[t]||0)+1;});});
+  const resumenTipos=Object.entries(porTipo).sort((a,b)=>b[1]-a[1]).map(([t,c])=>badgeNov(t)+" <b>"+c+"</b>").join(" &nbsp; ");
+  det.innerHTML="<div class=\"cal-det-card\"><div class=\"cal-det-tit\">"+fmtDate(sel)+" — "+filas.length+" persona"+(filas.length===1?"":"s")+" no disponible"+(filas.length===1?"":"s")+"</div>"
+    +(resumenTipos?"<div style=\"margin-bottom:8px\">"+resumenTipos+"</div>":"")
+    +(filas.length?filas.map(f=>{
+      const rangos=f.ns.map(n=>badgeNov(n.tipo)+(n.licIni&&n.licFin&&n.licFin!==n.licIni?" <span style=\"font-size:11px;color:#888\">"+fmtDate(n.licIni)+" → "+fmtDate(n.licFin)+"</span>":"")
+        +(n.estadoLic?" "+badgeEstadoLic(n.estadoLic):"")).join(" · ");
+      return "<div class=\"cal-det-row\"><span style=\"font-weight:600\">"+esc(f.p.nombre)+"</span><span>"+badgeTurno(f.p.turno)+"</span><span>"+rangos+"</span></div>";
+    }).join(""):"<div class=\"zona-empty\">Nadie con los filtros elegidos.</div>")
+    +"</div>";
 }
 
 function exportarDia(){
